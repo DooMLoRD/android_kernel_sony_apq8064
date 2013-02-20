@@ -1,4 +1,5 @@
-android_kernel_sony_apq8064
-===========================
+This repo will contain kernel sources for fusion3 boards.
 
-This repo will contain kernel sources for Xperia Z (C660x)
+Supported devices:
+Xperia Z (C660x) [yuga]
+Xperia ZL (C650x) [odin]
