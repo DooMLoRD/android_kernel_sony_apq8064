@@ -1,0 +1,256 @@
+Qualcomm audio devices for ALSA sound SoC
+
+* msm-pcm
+
+Required properties:
+
+ - compatible : "qcom,msm-pcm-dsp"
+
+* msm-pcm-routing
+
+Required properties:
+
+ - compatible : "qcom,msm-pcm-routing"
+
+* msm-pcm-lpa
+
+Required properties:
+
+ - compatible : "qcom,msm-pcm-lpa"
+
+* msm-compr-dsp
+
+Required properties:
+
+ - compatible : "qcom,msm-compr-dsp"
+
+* msm-voip-dsp
+
+Required properties:
+
+ - compatible : "qcom,msm-voip-dsp"
+
+* msm-pcm-voice
+
+Required properties:
+
+ - compatible : "qcom,msm-pcm-voice"
+
+* msm-stub-codec
+
+Required properties:
+
+ - compatible : "qcom,msm-stub-codec"
+
+* msm-dai-fe
+
+Required properties:
+
+ - compatible : "qcom,msm-dai-fe"
+
+* msm-dai-q6
+
+[First Level Nodes]
+
+Required properties:
+
+ - compatible : "msm-dai-q6"
+
+[Second Level Nodes]
+
+Required properties:
+
+ - compatible : "qcom,msm-dai-q6-dev"
+ - qcom,msm-dai-q6-dev-id : The slimbus multi channel port ID
+                            Value is from 16384 to 16393
+
+* msm-auxpcm
+
+[First Level Nodes]
+
+Required properties:
+
+ - compatible :                           "qcom,msm-auxpcm-resource"
+
+ - qcom,msm-cpudai-auxpcm-clk:            clock for auxpcm
+
+ - qcom,msm-cpudai-auxpcm-mode:           mode information
+                                          0 - for PCM
+
+ - qcom,msm-cpudai-auxpcm-sync:           sync information
+
+ - qcom,msm-cpudai-auxpcm-frame:          No.of bytes per frame
+                                          5 - 256BPF
+
+ - qcom,msm-cpudai-auxpcm-quant:          Type of quantization
+                                          2 - Linear quantization
+
+ - qcom,msm-cpudai-auxpcm-slot:           Slot number for multichannel scenario
+                                          Value is 1
+
+ - qcom,msm-cpudai-auxpcm-data:           Data field - 0
+
+ - qcom,msm-cpudai-auxpcm-pcm-clk-rate:   Clock rate for pcm - 2048000
+
+[Second Level Nodes]
+
+Required Properties:
+
+ - qcom,msm-auxpcm-dev-id:                This property specifies the device
+                                          port id.
+                                          For Rx device, the port id is 4106
+                                          and for Tx device, the port id is 4107
+
+ - compatible:                            "qcom,msm-auxpcm-dev"
+
+* msm-pcm-hostless
+
+Required properties:
+
+ - compatible : "qcom,msm-pcm-hostless"
+
+* msm-ocmem-audio
+
+Required properties:
+
+ - compatible :                            "qcom,msm-ocmem-audio"
+
+ - qcom,msm-ocmem-audio-src-id:            Master port id
+
+ - qcom,msm-ocmem-audio-dst-id:            Slave port id
+
+ - qcom,msm-ocmem-audio-ab:                arbitrated bandwidth
+                                           in Bytes/s
+
+ - qcom,msm-ocmem-audio-ib:                instantaneous bandwidth
+                                           in Bytes/s
+
+Example:
+
+        qcom,msm-pcm {
+                compatible = "qcom,msm-pcm-dsp";
+        };
+
+        qcom,msm-pcm-routing {
+                compatible = "qcom,msm-pcm-routing";
+        };
+
+        qcom,msm-pcm-lpa {
+                compatible = "qcom,msm-pcm-lpa";
+        };
+
+        qcom,msm-compr-dsp {
+                compatible = "qcom,msm-compr-dsp";
+        };
+
+        qcom,msm-voip-dsp {
+                compatible = "qcom,msm-voip-dsp";
+        };
+
+        qcom,msm-stub-codec {
+                compatible = "qcom,msm-stub-codec";
+        };
+
+        qcom,msm-dai-fe {
+                compatible = "qcom,msm-dai-fe";
+        };
+
+	qcom,msm-dai-q6 {
+		compatible = "qcom,msm-dai-q6";
+		qcom,msm-dai-q6-sb-0-rx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <16384>;
+		};
+
+		qcom,msm-dai-q6-sb-0-tx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <16385>;
+		};
+	};
+
+        qcom,msm-auxpcm {
+                compatible = "qcom,msm-auxpcm-resource";
+                qcom,msm-cpudai-auxpcm-clk = "pcm_clk";
+                qcom,msm-cpudai-auxpcm-mode = <0>;
+                qcom,msm-cpudai-auxpcm-sync = <1>;
+                qcom,msm-cpudai-auxpcm-frame = <5>;
+                qcom,msm-cpudai-auxpcm-quant = <2>;
+                qcom,msm-cpudai-auxpcm-slot = <1>;
+                qcom,msm-cpudai-auxpcm-data = <0>;
+                qcom,msm-cpudai-auxpcm-pcm-clk-rate = <2048000>;
+
+                qcom,msm-auxpcm-rx {
+                        qcom,msm-auxpcm-dev-id = <4106>;
+                        compatible = "qcom,msm-auxpcm-dev";
+                };
+
+                qcom,msm-auxpcm-tx {
+                        qcom,msm-auxpcm-dev-id = <4107>;
+                        compatible = "qcom,msm-auxpcm-dev";
+                };
+        };
+
+        qcom,msm-pcm-hostless {
+                compatible = "qcom,msm-pcm-hostless";
+        };
+
+	qcom,msm-ocmem-audio {
+		compatible = "qcom,msm-ocmem-audio";
+		qcom,msm-ocmem-audio-src-id = <11>;
+		qcom,msm-ocmem-audio-dst-id = <604>;
+		qcom,msm-ocmem-audio-ab = <209715200>;
+		qcom,msm-ocmem-audio-ib = <471859200>;
+	};
+
+* MSM8974 ASoC Machine driver
+
+Required properties:
+- compatible : "qcom,msm8974-audio-taiko"
+- qcom,model : The user-visible name of this sound card.
+- qcom,audio-routing : A list of the connections between audio components.
+  Each entry is a pair of strings, the first being the connection's sink,
+  the second being the connection's source.
+- qcom,cdc-mclk-gpios : GPIO on which mclk signal is comming.
+- taiko-mclk-clk : phandle to PMIC8941 clkdiv1 node.
+- qcom,taiko-mclk-clk-freq : Taiko mclk Freq in Hz. currently only 9600000Hz
+				is supported.
+
+Example:
+
+sound {
+	compatible = "qcom,msm8974-audio-taiko";
+	qcom,model = "msm8974-taiko-snd-card";
+
+	qcom,audio-routing =
+		"RX_BIAS", "MCLK",
+		"LDO_H", "MCLK",
+		"HEADPHONE", "LDO_H",
+		"Ext Spk Bottom Pos", "LINEOUT1",
+		"Ext Spk Bottom Neg", "LINEOUT3",
+		"Ext Spk Top Pos", "LINEOUT2",
+		"Ext Spk Top Neg", "LINEOUT4",
+		"AMIC1", "MIC BIAS1 Internal1",
+		"MIC BIAS1 Internal1", "Handset Mic",
+		"AMIC2", "MIC BIAS2 External",
+		"MIC BIAS2 External", "Headset Mic",
+		"AMIC3", "MIC BIAS3 Internal1",
+		"MIC BIAS3 Internal1", "ANCRight Headset Mic",
+		"AMIC4", "MIC BIAS1 Internal2",
+		"MIC BIAS1 Internal2", "ANCLeft Headset Mic",
+		"DMIC1", "MIC BIAS1 External",
+		"MIC BIAS1 External", "Digital Mic1",
+		"DMIC2", "MIC BIAS1 External",
+		"MIC BIAS1 External", "Digital Mic2",
+		"DMIC3", "MIC BIAS3 External",
+		"MIC BIAS3 External", "Digital Mic3",
+		"DMIC4", "MIC BIAS3 External",
+		"MIC BIAS3 External", "Digital Mic4",
+		"DMIC5", "MIC BIAS4 External",
+		"MIC BIAS4 External", "Digital Mic5",
+		"DMIC6", "MIC BIAS4 External",
+		"MIC BIAS4 External", "Digital Mic6";
+
+	qcom,cdc-mclk-gpios = <&pm8941_gpios 15 0>;
+	taiko-mclk-clk = <&pm8941_clkdiv1>;
+	qcom,taiko-mclk-clk-freq = <9600000>;
+};

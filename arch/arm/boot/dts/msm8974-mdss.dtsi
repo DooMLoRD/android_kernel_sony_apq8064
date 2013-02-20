@@ -1,0 +1,61 @@
+/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/ {
+	qcom,mdss_mdp@fd900000 {
+		compatible = "qcom,mdss_mdp";
+		reg = <0xfd900000 0x22100>,
+			<0xfd924000 0x1000>;
+		reg-names = "mdp_phys", "vbif_phys";
+		interrupts = <0 72 0>;
+		vdd-supply = <&gdsc_mdss>;
+	};
+
+	mdss_dsi: qcom,mdss_dsi@fd922800 {
+		compatible = "qcom,msm-mdss-dsi";
+		reg = <0xfd922800 0x600>,
+			<0xfd8c2000 0x01000>;
+		vdd-supply = <&pm8941_l22>;
+		vdd_io-supply = <&pm8941_l12>;
+		vreg-supply = <&pm8941_l2>;
+	};
+
+	qcom,hdmi_tx@fd922100 {
+		cell-index = <0>;
+		compatible = "qcom,hdmi-tx";
+		reg =	<0xfd922100 0x35C>,
+			<0xfd922500 0x7C>,
+			<0xfc4b8000 0x60F0>;
+		reg-names = "core_physical", "phy_physical", "qfprom_physical";
+
+		hpd-5v-supply = <&pm8941_mvs2>;
+		core-vdda-supply = <&pm8941_l12>;
+		core-vcc-supply = <&pm8941_s3>;
+		qcom,hdmi-tx-supply-names = "hpd-5v", "core-vdda", "core-vcc";
+		qcom,hdmi-tx-supply-type = <0 1 1>;
+		qcom,hdmi-tx-min-voltage-level = <0 1800000 1800000>;
+		qcom,hdmi-tx-max-voltage-level = <0 1800000 1800000>;
+		qcom,hdmi-tx-op-mode = <0 1800000 0>;
+
+		gpios = <&msmgpio 31 0>,
+			<&msmgpio 32 0>,
+			<&msmgpio 33 0>,
+			<&msmgpio 34 0>;
+		qcom,hdmi-tx-gpio-names = "cec-pin", "hpd-ddc-clk", "hpd-ddc-data", "hpd-pin";
+	};
+
+	qcom,mdss_wb_panel {
+		compatible = "qcom,mdss_wb";
+		qcom,mdss_pan_res = <640 480>;
+		qcom,mdss_pan_bpp = <24>;
+	};
+};
