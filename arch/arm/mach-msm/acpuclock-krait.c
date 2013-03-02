@@ -43,6 +43,15 @@
 #define PRI_SRC_SEL_HFPLL	1
 #define PRI_SRC_SEL_HFPLL_DIV2	2
 
+/* PTE EFUSE register offset. */
+#define PTE_EFUSE		0xC0
+
+#ifdef CONFIG_OC_ULTIMATE
+#define FREQ_TABLE_SIZE		37
+#else
+#define FREQ_TABLE_SIZE		35
+#endif
+
 #define SECCLKAGD		BIT(4)
 
 static DEFINE_MUTEX(driver_lock);
@@ -848,7 +857,7 @@ static void __init bus_init(const struct l2_level *l2_level)
 }
 
 #ifdef CONFIG_CPU_FREQ_MSM
-static struct cpufreq_frequency_table freq_table[NR_CPUS][35];
+static struct cpufreq_frequency_table freq_table[NR_CPUS][FREQ_TABLE_SIZE];
 
 static void __init cpufreq_table_init(void)
 {
@@ -1079,7 +1088,7 @@ static void __init hw_init(void)
 	}
 
 	bus_init(l2_level);
-	acpuclk_krait_set_rate(0, 1512000, SETRATE_CPUFREQ);
+	acpuclk_krait_set_rate(0, 1458000, SETRATE_CPUFREQ);
 }
 
 int __init acpuclk_krait_init(struct device *dev,
