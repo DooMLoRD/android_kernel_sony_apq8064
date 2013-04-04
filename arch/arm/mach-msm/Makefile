@@ -407,6 +407,9 @@ obj-$(CONFIG_MSM_CPU_PWRCTL) +=  msm_cpu_pwrctl.o
 ifdef CONFIG_MSM_CPR
 obj-$(CONFIG_DEBUG_FS) += msm_cpr-debug.o
 endif
+
+obj-$(CONFIG_FORCE_FAST_CHARGE) += fastchg.o
+
 obj-y += power_debug.o
 
 obj-$(CONFIG_RAMDUMP_TAGS) += board-rdtags.o
