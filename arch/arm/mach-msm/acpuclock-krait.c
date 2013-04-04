@@ -47,7 +47,7 @@
 #define PTE_EFUSE		0xC0
 
 #ifdef CONFIG_OC_ULTIMATE
-#define FREQ_TABLE_SIZE		37
+#define FREQ_TABLE_SIZE		38
 #else
 #define FREQ_TABLE_SIZE		35
 #endif
