@@ -95,19 +95,19 @@ static unsigned int max_online_cpus;
 
 static int min_online_cpus_set(const char *arg, const struct kernel_param *kp)
 {
-    int ret; 
-    
+    int ret;
+
     ret = param_set_int(arg, kp);
-    
-    //at least 1 core must run even if set value is out of range
+
+    ///at least 1 core must run even if set value is out of range
     if ((min_online_cpus < 1) || (min_online_cpus > CPUS_AVAILABLE))
     {
         min_online_cpus = 1;
     }
-    
+
     //online all cores and offline them based on set value
     schedule_work(&hotplug_online_all_work);
-        
+
     return ret;
 }
 
@@ -134,7 +134,7 @@ static int max_online_cpus_get(char *buffer, const struct kernel_param *kp)
     return param_get_int(buffer, kp);
 }
 
-static struct kernel_param_ops min_online_cpus_ops = 
+static struct kernel_param_ops min_online_cpus_ops =
 {
     .set = min_online_cpus_set,
     .get = min_online_cpus_get,
@@ -397,7 +397,7 @@ static void auto_hotplug_late_resume(struct early_suspend *handler)
 	pr_info("auto_hotplug: late resume handler\n");
 	flags &= ~EARLYSUSPEND_ACTIVE;
 
-	schedule_delayed_work_on(0, &hotplug_decision_work, HZ);
+	schedule_work(&hotplug_online_all_work);
 }
 
 static struct early_suspend auto_hotplug_suspend = {
