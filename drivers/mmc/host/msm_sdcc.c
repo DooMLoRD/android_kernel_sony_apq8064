@@ -3,7 +3,7 @@
  *
  *  Copyright (C) 2007 Google Inc,
  *  Copyright (C) 2003 Deep Blue Solutions, Ltd, All Rights Reserved.
- *  Copyright (c) 2009-2012, Code Aurora Forum. All rights reserved.
+ *  Copyright (c) 2009-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -227,14 +227,6 @@ static int msmsdcc_bam_dml_reset_and_restore(struct msmsdcc_host *host)
 {
 	int rc;
 
-	/* Reset and init DML */
-	rc = msmsdcc_dml_init(host);
-	if (rc) {
-		pr_err("%s: msmsdcc_dml_init error=%d\n",
-				mmc_hostname(host->mmc), rc);
-		goto out;
-	}
-
 	/* Reset all SDCC BAM pipes */
 	rc = msmsdcc_sps_reset_ep(host, &host->sps.prod);
 	if (rc) {
@@ -267,13 +259,21 @@ static int msmsdcc_bam_dml_reset_and_restore(struct msmsdcc_host *host)
 	}
 
 	rc = msmsdcc_sps_restore_ep(host, &host->sps.cons);
-	if (rc)
+	if (rc) {
 		pr_err("%s: msmsdcc_sps_restore_ep(cons) error=%d\n",
 				mmc_hostname(host->mmc), rc);
-	else
-		host->sps.reset_bam = false;
+		goto out;
+	}
+
+	/* Reset and init DML */
+	rc = msmsdcc_dml_init(host);
+	if (rc)
+		pr_err("%s: msmsdcc_dml_init error=%d\n",
+				mmc_hostname(host->mmc), rc);
 
 out:
+	if (!rc)
+		host->sps.reset_bam = false;
 	return rc;
 }
 

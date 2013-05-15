@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -126,11 +126,13 @@ static void mdm_power_down_common(struct mdm_modem_drv *mdm_drv)
 		}
 		msleep(100);
 	}
+
+	/* Assert the soft reset line whether mdm2ap_status went low or not */
+	gpio_direction_output(mdm_drv->ap2mdm_soft_reset_gpio,
+					soft_reset_direction);
 	if (i == 0) {
 		pr_err("%s: MDM2AP_STATUS never went low. Doing a hard reset\n",
 			   __func__);
-		gpio_direction_output(mdm_drv->ap2mdm_soft_reset_gpio,
-					soft_reset_direction);
 		/*
 		* Currently, there is a debounce timer on the charm PMIC. It is
 		* necessary to hold the PMIC RESET low for ~3.5 seconds
