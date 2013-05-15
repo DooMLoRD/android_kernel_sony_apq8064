@@ -236,7 +236,6 @@ VREG_CONSUMERS(LVS5) = {
 	REGULATOR_SUPPLY("cam_vio",		"4-0010"),
 	REGULATOR_SUPPLY("cam_vio",		"4-0036"),
 #endif
-	REGULATOR_SUPPLY("lm3560_ntc",		"0-0053"),
 #if !defined(CONFIG_SONY_CAM_V4L2)
 	REGULATOR_SUPPLY("cam_vio",		"4-0034"),
 #endif

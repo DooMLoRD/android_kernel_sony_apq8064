@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -320,7 +320,6 @@ void ctrl_bridge_close(unsigned int id)
 	dev_dbg(&dev->intf->dev, "%s:\n", __func__);
 
 	ctrl_bridge_set_cbits(dev->brdg->ch_id, 0);
-	usb_unlink_anchored_urbs(&dev->tx_submitted);
 
 	dev->brdg = NULL;
 }
@@ -717,6 +716,8 @@ void ctrl_bridge_disconnect(unsigned int id)
 	dev_dbg(&dev->intf->dev, "%s:\n", __func__);
 
 	platform_device_unregister(dev->pdev);
+
+	usb_unlink_anchored_urbs(&dev->tx_submitted);
 
 	kfree(dev->in_ctlreq);
 	kfree(dev->readbuf);
