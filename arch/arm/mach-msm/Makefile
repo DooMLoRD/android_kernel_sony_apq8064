@@ -469,6 +469,7 @@ endif
 
 obj-$(CONFIG_MSM_CPU_PWRCTL) +=  msm_cpu_pwrctl.o
 obj-$(CONFIG_FORCE_FAST_CHARGE) += fastchg.o
+obj-$(CONFIG_MSM_CPUFREQ_LIMITER) += cpufreq_limit.o
 obj-y += power_debug.o
 
 obj-$(CONFIG_RAMDUMP_TAGS) += board-rdtags.o

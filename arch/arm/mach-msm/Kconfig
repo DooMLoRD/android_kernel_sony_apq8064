@@ -1678,6 +1678,17 @@ config MSM_CPU_FREQ_MIN
 	depends on MSM_CPU_FREQ_SET_MIN_MAX
 	default 245760
 
+config MSM_CPUFREQ_LIMITER
+	tristate "MSM CPU frequency limiter"
+	default n
+	help
+	  This driver limits MSM CPU frequency through sysfs file system.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called cpufreq_stats.
+
+	  If in doubt, say N.
+
 config OC_ULTIMATE
 	bool "allow 1.944 GHZ max OC option"
 	default n
