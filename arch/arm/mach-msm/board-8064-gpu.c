@@ -276,7 +276,11 @@ static struct kgsl_device_platform_data kgsl_3d0_pdata = {
 		},
 	},
 	.init_level = 1,
+#ifdef CONFIG_GPU_OVERCLOCK
 	.num_levels = 7,
+#else
+	.num_levels = 5,
+#endif
 	.set_grp_async = NULL,
 	.idle_timeout = HZ/10,
 	.nap_allowed = true,
