@@ -16,7 +16,7 @@ then
 
 ### copy modules
 mkdir -p ../final_files
-cp drivers/staging/prima/wlan.ko ../final_files/.
+cp drivers/staging/prima/prima_wlan.ko ../final_files/.
 cp net/wireless/cfg80211.ko ../final_files/.
 
 ### copy zImage
