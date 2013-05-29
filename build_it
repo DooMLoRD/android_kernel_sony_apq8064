@@ -14,21 +14,9 @@ echo "checking for compiled kernel..."
 if [ -f arch/arm/boot/zImage ]
 then
 
-### copy modules
-mkdir -p ../final_files
-cp drivers/staging/prima/prima_wlan.ko ../final_files/.
-cp net/wireless/cfg80211.ko ../final_files/.
-
 ### copy zImage
 cp arch/arm/boot/zImage ../final_files/.
 
-### Stripping modules
-echo "Stripping modules"
-cd ../final_files/
-for i in $(find . | grep .ko | grep './')
-do
-        echo $i
-	#${CUR_TC}arm-eabi-strip --strip-unneeded $i
-	~/arm-linux-androideabi-4.7/bin/arm-linux-androideabi-strip --strip-unneeded $i
-done
+echo "DONE"
+
 fi
