@@ -730,7 +730,6 @@ WDI_SetPowerStateCb
  @see
  @return Result of the function call
 */
-#ifdef WLAN_DEBUG
 static char *WDI_getReqMsgString(wpt_uint16 wdiReqMsgId)
 {
   switch (wdiReqMsgId)
@@ -816,6 +815,7 @@ static char *WDI_getReqMsgString(wpt_uint16 wdiReqMsgId)
         return "Unknown WDI MessageId";
   }
 }
+
 
 
 /**
@@ -960,7 +960,6 @@ static char *WDI_getHALStatusMsgString(wpt_uint16 halStatusId)
         return "Unknown HAL status";
   }
 }
-#endif
 
 /*========================================================================
 
@@ -1002,10 +1001,9 @@ WDI_Init
   ---------------------------------------------------------------------*/
   if (( NULL == ppWDIGlobalCtx ) || ( NULL == pWdiDevCapability ))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
               "Invalid input parameters in WDI_Init");
-#endif
+
     return WDI_STATUS_E_FAILURE;
   }
 
@@ -1014,10 +1012,9 @@ WDI_Init
   ---------------------------------------------------------------------*/
   if ( eWLAN_PAL_FALSE != gWDIInitialized )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
               "WDI module already initialized - return");
-#endif
+
     return WDI_STATUS_SUCCESS;
   }
 
@@ -1035,11 +1032,9 @@ WDI_Init
   wdiStatus = WDI_STATableInit(&gWDICb);
   if ( WDI_STATUS_SUCCESS != wdiStatus )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_FATAL,
                "%s: Failure while initializing STA Table, status %d",
                __FUNCTION__, wdiStatus);
-#endif
     goto fail_STATableInit;
   }
 
@@ -1049,11 +1044,9 @@ WDI_Init
   wptStatus =  wpalOpen(&gWDICb.pPALContext, pOSContext);
   if ( eWLAN_PAL_STATUS_SUCCESS != wptStatus )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_FATAL,
                "%s: Failed to open PAL, status %d",
                __FUNCTION__, wptStatus);
-#endif
     goto fail_wpalOpen;
   }
 
@@ -1062,11 +1055,9 @@ WDI_Init
   wptStatus =  wpalMutexInit(&gWDICb.wptMutex);
   if ( eWLAN_PAL_STATUS_SUCCESS !=  wptStatus )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_FATAL,
                "%s: Failed to init mutex, status %d",
                __FUNCTION__, wptStatus);
-#endif
     goto fail_mutex;
   }
 
@@ -1077,11 +1068,9 @@ WDI_Init
                              &gWDICb);
   if ( eWLAN_PAL_STATUS_SUCCESS != wptStatus )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_FATAL,
               "%s: Failed to init response timer, status %d",
                __FUNCTION__, wptStatus);
-#endif
     goto fail_timer;
   }
 
@@ -1089,11 +1078,9 @@ WDI_Init
   wptStatus = wpal_list_init(&(gWDICb.wptPendingQueue));
   if ( eWLAN_PAL_STATUS_SUCCESS != wptStatus )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_FATAL,
               "%s: Failed to init pending request queue, status %d",
                __FUNCTION__, wptStatus);
-#endif
     goto fail_pend_queue;
   }
 
@@ -1101,11 +1088,9 @@ WDI_Init
   wptStatus = wpal_list_init(&(gWDICb.wptPendingAssocSessionIdQueue));
   if ( eWLAN_PAL_STATUS_SUCCESS !=  wptStatus )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_FATAL,
               "%s: Failed to init assoc session queue, status %d",
                __FUNCTION__, wptStatus);
-#endif
     goto fail_assoc_queue;
   }
 
@@ -1115,11 +1100,9 @@ WDI_Init
     wptStatus = wpal_list_init(&(gWDICb.aBSSSessions[i].wptPendingQueue));
     if ( eWLAN_PAL_STATUS_SUCCESS !=  wptStatus )
     {
-#ifdef WLAN_DEBUG
       WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_FATAL,
                  "%s: Failed to init BSS %d pending queue, status %d",
                  __FUNCTION__, i, wptStatus);
-#endif
       goto fail_bss_queue;
     }
   }
@@ -1133,11 +1116,9 @@ WDI_Init
   wdiStatus = WDI_DP_UtilsInit(&gWDICb);
   if ( WDI_STATUS_SUCCESS != wdiStatus )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_FATAL,
                "%s: Failed to initialize the DP Util Module, status %d",
                __FUNCTION__, wdiStatus);
-#endif
     goto fail_dp_util_init;
   }
 
@@ -1145,11 +1126,9 @@ WDI_Init
   wptStatus = wpalEventInit(&gWDICb.setPowerStateEvent);
   if ( eWLAN_PAL_STATUS_SUCCESS != wptStatus )
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_FATAL,
                 "%s: Failed to initialize power state event, status %d",
                 __FUNCTION__, wptStatus);
-#endif
      goto fail_power_event;
   }
 
@@ -1157,11 +1136,9 @@ WDI_Init
   wptStatus = wpalEventInit(&gWDICb.wctsActionEvent);
   if ( eWLAN_PAL_STATUS_SUCCESS !=  wptStatus )
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_FATAL,
                 "%s: Failed to initialize WCTS action event, status %d",
                 __FUNCTION__, wptStatus);
-#endif
      goto fail_wcts_event;
   }
 
@@ -1180,10 +1157,8 @@ WDI_Init
 
   if ( NULL == gWDICb.wctsHandle )
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_FATAL,
                 "%s: Failed to open WCTS transport", __FUNCTION__);
-#endif
      goto fail_wcts_open;
   }
 
@@ -1196,10 +1171,8 @@ WDI_Init
      ------------------------------------------------------------------------*/
     if(eWLAN_PAL_STATUS_SUCCESS != WDTS_openTransport(&gWDICb))
     {
-#ifdef WLAN_DEBUG
       WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_FATAL,
                  "%s: Failed to open the DT Transport", __FUNCTION__);
-#endif
       goto fail_wdts_open;
     }
   }
@@ -1230,13 +1203,12 @@ WDI_Init
      */
 
      eventStatus = wpalEventReset(&gWDICb.wctsActionEvent);
-#ifdef WLAN_DEBUG
      if ( eWLAN_PAL_STATUS_SUCCESS != eventStatus )
      {
         WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                    "%s: Failed to reset WCTS action event", __FUNCTION__);
      }
-#endif
+
      WCTS_CloseTransport(gWDICb.wctsHandle);
 
      /* Wait for WCTS to close the control transport.  If we were able
@@ -1247,13 +1219,11 @@ WDI_Init
      {
         eventStatus = wpalEventWait(&gWDICb.wctsActionEvent,
                                     WDI_WCTS_ACTION_TIMEOUT);
-#ifdef WLAN_DEBUG
         if ( eWLAN_PAL_STATUS_SUCCESS != eventStatus )
         {
            WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                       "%s: Failed to wait on WCTS action event", __FUNCTION__);
         }
-#endif
      }
      else
      {
@@ -1335,10 +1305,9 @@ WDI_Start
   ------------------------------------------------------------------------*/
   if ( eWLAN_PAL_FALSE == gWDIInitialized )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
               "WDI API call before module is initialized - Fail request");
-#endif
+
     return WDI_STATUS_E_NOT_ALLOWED;
   }
 
@@ -1397,10 +1366,9 @@ WDI_Stop
   ------------------------------------------------------------------------*/
   if ( eWLAN_PAL_FALSE == gWDIInitialized )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
               "WDI API call before module is initialized - Fail request");
-#endif
+
     return WDI_STATUS_E_NOT_ALLOWED;
   }
 
@@ -1465,10 +1433,9 @@ WDI_Close
   ------------------------------------------------------------------------*/
   if ( eWLAN_PAL_FALSE == gWDIInitialized )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
               "WDI API call before module is initialized - Fail request");
-#endif
+
     return WDI_STATUS_E_NOT_ALLOWED;
   }
 
@@ -1476,14 +1443,13 @@ WDI_Close
    (the control transport will be closed by the FSM and we'll want
    to wait until that completes)*/
   eventStatus = wpalEventReset(&gWDICb.wctsActionEvent);
-#ifdef WLAN_DEBUG
   if ( eWLAN_PAL_STATUS_SUCCESS != eventStatus )
   {
      WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                 "%s: Failed to reset WCTS action event", __FUNCTION__);
      /* fall through and try to finish closing via the FSM */
   }
-#endif
+
   /*------------------------------------------------------------------------
     Fill in Event data and post to the Main FSM
   ------------------------------------------------------------------------*/
@@ -1503,28 +1469,24 @@ WDI_Close
   {
      eventStatus = wpalEventWait(&gWDICb.wctsActionEvent,
                                  WDI_WCTS_ACTION_TIMEOUT);
-#ifdef WLAN_DEBUG
      if ( eWLAN_PAL_STATUS_SUCCESS != eventStatus )
      {
         WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                    "%s: Failed to wait on WCTS action event", __FUNCTION__);
      }
-#endif
   }
 
   /* Destroy the WCTS action event */
   wptStatus = wpalEventDelete(&gWDICb.wctsActionEvent);
-#ifdef WLAN_DEBUG
   if ( eWLAN_PAL_STATUS_SUCCESS !=  wptStatus )
   {
      WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                 "WDI Close failed to destroy an event");
      WDI_ASSERT(0);
   }
-#endif
+
    /* Destroy the Set Power State event */
    wptStatus = wpalEventDelete(&gWDICb.setPowerStateEvent);
-#ifdef WLAN_DEBUG
    if ( eWLAN_PAL_STATUS_SUCCESS !=  wptStatus )
    {
       WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
@@ -1532,11 +1494,10 @@ WDI_Close
 
       WDI_ASSERT(0);
    }
-#endif
+
   /*------------------------------------------------------------------------
     Closes the Data Path Utility Module
    ------------------------------------------------------------------------*/
-#ifdef WLAN_DEBUG
   if ( WDI_STATUS_SUCCESS != WDI_DP_UtilsExit(&gWDICb))
   {
     WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
@@ -1544,7 +1505,7 @@ WDI_Close
 
     WDI_ASSERT(0);
   }
-#endif
+
   /*destroy the BSS sessions pending Queue */
   for ( i = 0; i < WDI_MAX_BSS_SESSIONS; i++ )
   {
@@ -1562,14 +1523,13 @@ WDI_Close
 
   /*invalidate the main synchro mutex */
   wptStatus = wpalMutexDelete(&gWDICb.wptMutex);
-#ifdef WLAN_DEBUG
   if ( eWLAN_PAL_STATUS_SUCCESS !=  wptStatus )
   {
      WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
                 "Failed to delete mutex %d", wptStatus);
      WDI_ASSERT(0);
   }
-#endif
+
   /*Clear control block.  note that this will clear the "magic"
     which will inhibit all asynchronous callbacks*/
   WDI_CleanCB(&gWDICb);
@@ -1611,10 +1571,9 @@ WDI_Shutdown
      ------------------------------------------------------------------------*/
    if ( eWLAN_PAL_FALSE == gWDIInitialized )
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
             "WDI API call before module is initialized - Fail request");
-#endif
+
       return WDI_STATUS_E_NOT_ALLOWED;
    }
 
@@ -1628,16 +1587,13 @@ WDI_Shutdown
    /* Shutdown will not be queued, if the state is busy timer will be
     * stopped & this message will be processed.*/
    wptStatus = WDI_PostMainEvent(&gWDICb, WDI_SHUTDOWN_EVENT, &wdiEventData);
-#ifdef WLAN_DEBUG
    if ( eWLAN_PAL_STATUS_SUCCESS != wptStatus )
    {
       WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_FATAL,
             "%s: Failed to process shutdown event", __FUNCTION__);
    }
-#endif
    /* Destroy the Set Power State event */
    wptStatus = wpalEventDelete(&gWDICb.setPowerStateEvent);
-#ifdef WLAN_DEBUG
    if ( eWLAN_PAL_STATUS_SUCCESS !=  wptStatus )
    {
       WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
@@ -1645,11 +1601,9 @@ WDI_Shutdown
 
       WDI_ASSERT(0);
    }
-#endif
    /*------------------------------------------------------------------------
      Closes the Data Path Utility Module
      ------------------------------------------------------------------------*/
-#ifdef WLAN_DEBUG
    if ( WDI_STATUS_SUCCESS != WDI_DP_UtilsExit(&gWDICb))
    {
       WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
@@ -1657,7 +1611,6 @@ WDI_Shutdown
 
       WDI_ASSERT(0);
    }
-#endif
    if ( closeTransport )
    {
       /* Close control transport, called from module unload */
@@ -1684,14 +1637,12 @@ WDI_Shutdown
 
    /*invalidate the main synchro mutex */
    wptStatus = wpalMutexDelete(&gWDICb.wptMutex);
-#ifdef WLAN_DEBUG
    if ( eWLAN_PAL_STATUS_SUCCESS !=  wptStatus )
    {
       WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
             "%s: Failed to delete mutex %d",  __FUNCTION__, wptStatus);
       WDI_ASSERT(0);
    }
-#endif
    /* Free the global variables */
    wpalMemoryFree(gpHostWlanFeatCaps);
    wpalMemoryFree(gpFwWlanFeatCaps);
@@ -1751,10 +1702,9 @@ WDI_InitScanReq
   ------------------------------------------------------------------------*/
   if ( eWLAN_PAL_FALSE == gWDIInitialized )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
               "WDI API call before module is initialized - Fail request");
-#endif
+
     return WDI_STATUS_E_NOT_ALLOWED;
   }
 
@@ -1812,10 +1762,9 @@ WDI_StartScanReq
   ------------------------------------------------------------------------*/
   if ( eWLAN_PAL_FALSE == gWDIInitialized )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
               "WDI API call before module is initialized - Fail request");
-#endif
+
     return WDI_STATUS_E_NOT_ALLOWED;
   }
 
@@ -1874,10 +1823,9 @@ WDI_EndScanReq
   ------------------------------------------------------------------------*/
   if ( eWLAN_PAL_FALSE == gWDIInitialized )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
               "WDI API call before module is initialized - Fail request");
-#endif
+
     return WDI_STATUS_E_NOT_ALLOWED;
   }
 
@@ -1936,10 +1884,9 @@ WDI_FinishScanReq
   ------------------------------------------------------------------------*/
   if ( eWLAN_PAL_FALSE == gWDIInitialized )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
               "WDI API call before module is initialized - Fail request");
-#endif
+
     return WDI_STATUS_E_NOT_ALLOWED;
   }
 
@@ -2002,10 +1949,9 @@ WDI_JoinReq
   ------------------------------------------------------------------------*/
   if ( eWLAN_PAL_FALSE == gWDIInitialized )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
               "WDI API call before module is initialized - Fail request");
-#endif
+
     return WDI_STATUS_E_NOT_ALLOWED;
   }
 
@@ -2064,10 +2010,9 @@ WDI_ConfigBSSReq
   ------------------------------------------------------------------------*/
   if ( eWLAN_PAL_FALSE == gWDIInitialized )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
               "WDI API call before module is initialized - Fail request");
-#endif
+
     return WDI_STATUS_E_NOT_ALLOWED;
   }
 
@@ -2124,10 +2069,9 @@ WDI_DelBSSReq
   ------------------------------------------------------------------------*/
   if ( eWLAN_PAL_FALSE == gWDIInitialized )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
               "WDI API call before module is initialized - Fail request");
-#endif
+
     return WDI_STATUS_E_NOT_ALLOWED;
   }
 
@@ -2185,10 +2129,9 @@ WDI_PostAssocReq
   ------------------------------------------------------------------------*/
   if ( eWLAN_PAL_FALSE == gWDIInitialized )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
               "WDI API call before module is initialized - Fail request");
-#endif
+
     return WDI_STATUS_E_NOT_ALLOWED;
   }
 
@@ -2246,10 +2189,9 @@ WDI_DelSTAReq
   ------------------------------------------------------------------------*/
   if ( eWLAN_PAL_FALSE == gWDIInitialized )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
               "WDI API call before module is initialized - Fail request");
-#endif
+
     return WDI_STATUS_E_NOT_ALLOWED;
   }
 
@@ -2313,10 +2255,9 @@ WDI_SetBSSKeyReq
   ------------------------------------------------------------------------*/
   if ( eWLAN_PAL_FALSE == gWDIInitialized )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
               "WDI API call before module is initialized - Fail request");
-#endif
+
     return WDI_STATUS_E_NOT_ALLOWED;
   }
 
@@ -2374,10 +2315,9 @@ WDI_RemoveBSSKeyReq
   ------------------------------------------------------------------------*/
   if ( eWLAN_PAL_FALSE == gWDIInitialized )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
               "WDI API call before module is initialized - Fail request");
-#endif
+
     return WDI_STATUS_E_NOT_ALLOWED;
   }
 
@@ -2436,10 +2376,9 @@ WDI_SetSTAKeyReq
   ------------------------------------------------------------------------*/
   if ( eWLAN_PAL_FALSE == gWDIInitialized )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
               "WDI API call before module is initialized - Fail request");
-#endif
+
     return WDI_STATUS_E_NOT_ALLOWED;
   }
 
@@ -2498,10 +2437,9 @@ WDI_RemoveSTAKeyReq
   ------------------------------------------------------------------------*/
   if ( eWLAN_PAL_FALSE == gWDIInitialized )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
               "WDI API call before module is initialized - Fail request");
-#endif
+
     return WDI_STATUS_E_NOT_ALLOWED;
   }
 
@@ -2561,10 +2499,9 @@ WDI_SetSTABcastKeyReq
   ------------------------------------------------------------------------*/
   if ( eWLAN_PAL_FALSE == gWDIInitialized )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
               "WDI API call before module is initialized - Fail request");
-#endif
+
     return WDI_STATUS_E_NOT_ALLOWED;
   }
 
@@ -2623,10 +2560,9 @@ WDI_RemoveSTABcastKeyReq
   ------------------------------------------------------------------------*/
   if ( eWLAN_PAL_FALSE == gWDIInitialized )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
               "WDI API call before module is initialized - Fail request");
-#endif
+
     return WDI_STATUS_E_NOT_ALLOWED;
   }
 
@@ -2685,10 +2621,9 @@ WDI_SetMaxTxPowerReq
   ------------------------------------------------------------------------*/
   if ( eWLAN_PAL_FALSE == gWDIInitialized )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
               "WDI API call before module is initialized - Fail request");
-#endif
+
     return WDI_STATUS_E_NOT_ALLOWED;
   }
 
@@ -2720,10 +2655,9 @@ WDI_TSMStatsReq
   ------------------------------------------------------------------------*/
   if ( eWLAN_PAL_FALSE == gWDIInitialized )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
               "WDI API call before module is initialized - Fail request");
-#endif
+
     return WDI_STATUS_E_NOT_ALLOWED;
   }
 
@@ -2789,10 +2723,9 @@ WDI_AddTSReq
   ------------------------------------------------------------------------*/
   if ( eWLAN_PAL_FALSE == gWDIInitialized )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
               "WDI API call before module is initialized - Fail request");
-#endif
+
     return WDI_STATUS_E_NOT_ALLOWED;
   }
 
@@ -2852,10 +2785,9 @@ WDI_DelTSReq
   ------------------------------------------------------------------------*/
   if ( eWLAN_PAL_FALSE == gWDIInitialized )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
               "WDI API call before module is initialized - Fail request");
-#endif
+
     return WDI_STATUS_E_NOT_ALLOWED;
   }
 
@@ -2915,10 +2847,9 @@ WDI_UpdateEDCAParams
   ------------------------------------------------------------------------*/
   if ( eWLAN_PAL_FALSE == gWDIInitialized )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
               "WDI API call before module is initialized - Fail request");
-#endif
+
     return WDI_STATUS_E_NOT_ALLOWED;
   }
 
@@ -2977,10 +2908,9 @@ WDI_AddBASessionReq
   ------------------------------------------------------------------------*/
   if ( eWLAN_PAL_FALSE == gWDIInitialized )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
               "WDI API call before module is initialized - Fail request");
-#endif
+
     return WDI_STATUS_E_NOT_ALLOWED;
   }
 
@@ -3037,10 +2967,9 @@ WDI_DelBAReq
   ------------------------------------------------------------------------*/
   if ( eWLAN_PAL_FALSE == gWDIInitialized )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
               "WDI API call before module is initialized - Fail request");
-#endif
+
     return WDI_STATUS_E_NOT_ALLOWED;
   }
 
@@ -3104,10 +3033,9 @@ WDI_SetPwrSaveCfgReq
   ------------------------------------------------------------------------*/
   if ( eWLAN_PAL_FALSE == gWDIInitialized )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
               "WDI API call before module is initialized - Fail request");
-#endif
+
     return WDI_STATUS_E_NOT_ALLOWED;
   }
 
@@ -3160,10 +3088,9 @@ WDI_EnterImpsReq
   ------------------------------------------------------------------------*/
   if ( eWLAN_PAL_FALSE == gWDIInitialized )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
               "WDI API call before module is initialized - Fail request");
-#endif
+
     return WDI_STATUS_E_NOT_ALLOWED;
   }
 
@@ -3216,10 +3143,9 @@ WDI_ExitImpsReq
   ------------------------------------------------------------------------*/
   if ( eWLAN_PAL_FALSE == gWDIInitialized )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
               "WDI API call before module is initialized - Fail request");
-#endif
+
     return WDI_STATUS_E_NOT_ALLOWED;
   }
 
@@ -3277,10 +3203,9 @@ WDI_EnterBmpsReq
   ------------------------------------------------------------------------*/
   if ( eWLAN_PAL_FALSE == gWDIInitialized )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
               "WDI API call before module is initialized - Fail request");
-#endif
+
     return WDI_STATUS_E_NOT_ALLOWED;
   }
 
@@ -3337,10 +3262,9 @@ WDI_ExitBmpsReq
   ------------------------------------------------------------------------*/
   if ( eWLAN_PAL_FALSE == gWDIInitialized )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
               "WDI API call before module is initialized - Fail request");
-#endif
+
     return WDI_STATUS_E_NOT_ALLOWED;
   }
 
@@ -3399,10 +3323,9 @@ WDI_EnterUapsdReq
   ------------------------------------------------------------------------*/
   if ( eWLAN_PAL_FALSE == gWDIInitialized )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
               "WDI API call before module is initialized - Fail request");
-#endif
+
     return WDI_STATUS_E_NOT_ALLOWED;
   }
 
@@ -3456,10 +3379,9 @@ WDI_ExitUapsdReq
   ------------------------------------------------------------------------*/
   if ( eWLAN_PAL_FALSE == gWDIInitialized )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
               "WDI API call before module is initialized - Fail request");
-#endif
+
     return WDI_STATUS_E_NOT_ALLOWED;
   }
 
@@ -3518,10 +3440,9 @@ WDI_UpdateUapsdParamsReq
   ------------------------------------------------------------------------*/
   if ( eWLAN_PAL_FALSE == gWDIInitialized )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
               "WDI API call before module is initialized - Fail request");
-#endif
+
     return WDI_STATUS_E_NOT_ALLOWED;
   }
 
@@ -3580,10 +3501,9 @@ WDI_SetUapsdAcParamsReq
   ------------------------------------------------------------------------*/
   if ( eWLAN_PAL_FALSE == gWDIInitialized )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
               "WDI API call before module is initialized - Fail request");
-#endif
+
     return WDI_STATUS_E_NOT_ALLOWED;
   }
 
@@ -3640,10 +3560,9 @@ WDI_ConfigureRxpFilterReq
    ------------------------------------------------------------------------*/
    if ( eWLAN_PAL_FALSE == gWDIInitialized )
    {
-#ifdef WLAN_DEBUG
      WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
                "WDI API call before module is initialized - Fail request");
-#endif
+
      return WDI_STATUS_E_NOT_ALLOWED;
    }
 
@@ -3699,10 +3618,9 @@ WDI_SetBeaconFilterReq
    ------------------------------------------------------------------------*/
    if ( eWLAN_PAL_FALSE == gWDIInitialized )
    {
-#ifdef WLAN_DEBUG
      WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
                "WDI API call before module is initialized - Fail request");
-#endif
+
      return WDI_STATUS_E_NOT_ALLOWED;
    }
 
@@ -3758,10 +3676,9 @@ WDI_RemBeaconFilterReq
    ------------------------------------------------------------------------*/
    if ( eWLAN_PAL_FALSE == gWDIInitialized )
    {
-#ifdef WLAN_DEBUG
      WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
                "WDI API call before module is initialized - Fail request");
-#endif
+
      return WDI_STATUS_E_NOT_ALLOWED;
    }
 
@@ -3819,10 +3736,9 @@ WDI_SetRSSIThresholdsReq
    ------------------------------------------------------------------------*/
    if ( eWLAN_PAL_FALSE == gWDIInitialized )
    {
-#ifdef WLAN_DEBUG
      WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
                "WDI API call before module is initialized - Fail request");
-#endif
+
      return WDI_STATUS_E_NOT_ALLOWED;
    }
 
@@ -3880,10 +3796,9 @@ WDI_HostOffloadReq
    ------------------------------------------------------------------------*/
    if ( eWLAN_PAL_FALSE == gWDIInitialized )
    {
-#ifdef WLAN_DEBUG
      WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
                "WDI API call before module is initialized - Fail request");
-#endif
+
      return WDI_STATUS_E_NOT_ALLOWED;
    }
 
@@ -3941,11 +3856,10 @@ WDI_KeepAliveReq
     ------------------------------------------------------------------------*/
     if ( eWLAN_PAL_FALSE == gWDIInitialized )
     {
-#ifdef WLAN_DEBUG
          WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
                     "WDI_KeepAliveReq: WDI API call before module "
                     "is initialized - Fail request");
-#endif
+
      return WDI_STATUS_E_NOT_ALLOWED;
     }
 
@@ -4003,10 +3917,9 @@ WDI_WowlAddBcPtrnReq
    ------------------------------------------------------------------------*/
    if ( eWLAN_PAL_FALSE == gWDIInitialized )
    {
-#ifdef WLAN_DEBUG
      WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
                "WDI API call before module is initialized - Fail request");
-#endif
+
      return WDI_STATUS_E_NOT_ALLOWED;
    }
 
@@ -4063,10 +3976,9 @@ WDI_WowlDelBcPtrnReq
    ------------------------------------------------------------------------*/
    if ( eWLAN_PAL_FALSE == gWDIInitialized )
    {
-#ifdef WLAN_DEBUG
      WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
                "WDI API call before module is initialized - Fail request");
-#endif
+
      return WDI_STATUS_E_NOT_ALLOWED;
    }
 
@@ -4124,10 +4036,9 @@ WDI_WowlEnterReq
    ------------------------------------------------------------------------*/
    if ( eWLAN_PAL_FALSE == gWDIInitialized )
    {
-#ifdef WLAN_DEBUG
      WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
                "WDI API call before module is initialized - Fail request");
-#endif
+
      return WDI_STATUS_E_NOT_ALLOWED;
    }
 
@@ -4182,10 +4093,9 @@ WDI_WowlExitReq
    ------------------------------------------------------------------------*/
    if ( eWLAN_PAL_FALSE == gWDIInitialized )
    {
-#ifdef WLAN_DEBUG
      WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
                "WDI API call before module is initialized - Fail request");
-#endif
+
      return WDI_STATUS_E_NOT_ALLOWED;
    }
 
@@ -4242,10 +4152,9 @@ WDI_ConfigureAppsCpuWakeupStateReq
    ------------------------------------------------------------------------*/
    if ( eWLAN_PAL_FALSE == gWDIInitialized )
    {
-#ifdef WLAN_DEBUG
      WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
                "WDI API call before module is initialized - Fail request");
-#endif
+
      return WDI_STATUS_E_NOT_ALLOWED;
    }
 
@@ -4300,10 +4209,9 @@ WDI_FlushAcReq
    ------------------------------------------------------------------------*/
    if ( eWLAN_PAL_FALSE == gWDIInitialized )
    {
-#ifdef WLAN_DEBUG
      WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
                "WDI API call before module is initialized - Fail request");
-#endif
+
      return WDI_STATUS_E_NOT_ALLOWED;
    }
 
@@ -4360,10 +4268,9 @@ WDI_BtAmpEventReq
    ------------------------------------------------------------------------*/
    if ( eWLAN_PAL_FALSE == gWDIInitialized )
    {
-#ifdef WLAN_DEBUG
      WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
                "WDI API call before module is initialized - Fail request");
-#endif
+
      return WDI_STATUS_E_NOT_ALLOWED;
    }
 
@@ -4421,10 +4328,9 @@ WDI_StartOemDataReq
    ------------------------------------------------------------------------*/
    if ( eWLAN_PAL_FALSE == gWDIInitialized )
    {
-#ifdef WLAN_DEBUG
      WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
                "WDI API call before module is initialized - Fail request");
-#endif
+
      return WDI_STATUS_E_NOT_ALLOWED;
    }
 
@@ -4490,10 +4396,9 @@ WDI_SwitchChReq
   ------------------------------------------------------------------------*/
   if ( eWLAN_PAL_FALSE == gWDIInitialized )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
               "WDI API call before module is initialized - Fail request");
-#endif
+
     return WDI_STATUS_E_NOT_ALLOWED;
   }
 
@@ -4552,10 +4457,9 @@ WDI_ConfigSTAReq
   ------------------------------------------------------------------------*/
   if ( eWLAN_PAL_FALSE == gWDIInitialized )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
               "WDI API call before module is initialized - Fail request");
-#endif
+
     return WDI_STATUS_E_NOT_ALLOWED;
   }
 
@@ -4613,10 +4517,9 @@ WDI_SetLinkStateReq
   ------------------------------------------------------------------------*/
   if ( eWLAN_PAL_FALSE == gWDIInitialized )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
               "WDI API call before module is initialized - Fail request");
-#endif
+
     return WDI_STATUS_E_NOT_ALLOWED;
   }
 
@@ -4674,10 +4577,9 @@ WDI_GetStatsReq
   ------------------------------------------------------------------------*/
   if ( eWLAN_PAL_FALSE == gWDIInitialized )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
               "WDI API call before module is initialized - Fail request");
-#endif
+
     return WDI_STATUS_E_NOT_ALLOWED;
   }
 
@@ -4736,10 +4638,9 @@ WDI_UpdateCfgReq
   ------------------------------------------------------------------------*/
   if ( eWLAN_PAL_FALSE == gWDIInitialized )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
               "WDI API call before module is initialized - Fail request");
-#endif
+
     return WDI_STATUS_E_NOT_ALLOWED;
   }
 
@@ -4799,10 +4700,9 @@ WDI_AddBAReq
   ------------------------------------------------------------------------*/
   if ( eWLAN_PAL_FALSE == gWDIInitialized )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
               "WDI API call before module is initialized - Fail request");
-#endif
+
     return WDI_STATUS_E_NOT_ALLOWED;
   }
 
@@ -4861,10 +4761,9 @@ WDI_TriggerBAReq
   ------------------------------------------------------------------------*/
   if ( eWLAN_PAL_FALSE == gWDIInitialized )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
               "WDI API call before module is initialized - Fail request");
-#endif
+
     return WDI_STATUS_E_NOT_ALLOWED;
   }
 
@@ -4921,10 +4820,9 @@ WDI_UpdateBeaconParamsReq
   ------------------------------------------------------------------------*/
   if ( eWLAN_PAL_FALSE == gWDIInitialized )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
               "WDI API call before module is initialized - Fail request");
-#endif
+
     return WDI_STATUS_E_NOT_ALLOWED;
   }
 
@@ -4981,10 +4879,9 @@ WDI_SendBeaconParamsReq
   ------------------------------------------------------------------------*/
   if ( eWLAN_PAL_FALSE == gWDIInitialized )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
               "WDI API call before module is initialized - Fail request");
-#endif
+
     return WDI_STATUS_E_NOT_ALLOWED;
   }
 
@@ -5043,10 +4940,9 @@ WDI_UpdateProbeRspTemplateReq
   ------------------------------------------------------------------------*/
   if ( eWLAN_PAL_FALSE == gWDIInitialized )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
               "WDI API call before module is initialized - Fail request");
-#endif
+
     return WDI_STATUS_E_NOT_ALLOWED;
   }
 
@@ -5095,10 +4991,9 @@ WDI_NvDownloadReq
   ------------------------------------------------------------------------*/
   if ( eWLAN_PAL_FALSE == gWDIInitialized )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
               "WDI API call before module is initialized - Fail request");
-#endif
+
     return WDI_STATUS_E_NOT_ALLOWED;
   }
 
@@ -5156,10 +5051,9 @@ WDI_SetP2PGONOAReq
   ------------------------------------------------------------------------*/
   if ( eWLAN_PAL_FALSE == gWDIInitialized )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
               "WDI API call before module is initialized - Fail request");
-#endif
+
     return WDI_STATUS_E_NOT_ALLOWED;
   }
 
@@ -5209,10 +5103,9 @@ WDI_AddSTASelfReq
   ------------------------------------------------------------------------*/
   if ( eWLAN_PAL_FALSE == gWDIInitialized )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
               "WDI API call before module is initialized - Fail request");
-#endif
+
     return WDI_STATUS_E_NOT_ALLOWED;
   }
 
@@ -5273,10 +5166,9 @@ WDI_AggrAddTSReq
   ------------------------------------------------------------------------*/
   if ( eWLAN_PAL_FALSE == gWDIInitialized )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
               "WDI API call before module is initialized - Fail request");
-#endif
+
     return WDI_STATUS_E_NOT_ALLOWED;
   }
 
@@ -5323,10 +5215,9 @@ WDI_FTMCommandReq
   ------------------------------------------------------------------------*/
   if ( eWLAN_PAL_FALSE == gWDIInitialized )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
               "WDI API call before module is initialized - Fail request");
-#endif
+
     return WDI_STATUS_E_NOT_ALLOWED;
   }
 
@@ -5377,10 +5268,9 @@ WDI_HostResumeReq
   ------------------------------------------------------------------------*/
   if ( eWLAN_PAL_FALSE == gWDIInitialized )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
               "WDI API call before module is initialized - Fail request");
-#endif
+
     return WDI_STATUS_E_NOT_ALLOWED;
   }
 
@@ -5432,10 +5322,9 @@ WDI_DelSTASelfReq
   ------------------------------------------------------------------------*/
   if ( eWLAN_PAL_FALSE == gWDIInitialized )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
               "WDI API call before module is initialized - Fail request");
-#endif
+
     return WDI_STATUS_E_NOT_ALLOWED;
   }
 
@@ -5490,10 +5379,9 @@ WDI_SetTxPerTrackingReq
    ------------------------------------------------------------------------*/
    if ( eWLAN_PAL_FALSE == gWDIInitialized )
    {
-#ifdef WLAN_DEBUG
      WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
                "WDI API call before module is initialized - Fail request");
-#endif
+
      return WDI_STATUS_E_NOT_ALLOWED;
    }
 
@@ -5540,10 +5428,9 @@ WDI_SetTmLevelReq
    ------------------------------------------------------------------------*/
    if ( eWLAN_PAL_FALSE == gWDIInitialized )
    {
-#ifdef WLAN_DEBUG
      WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
                "WDI API call before module is initialized - Fail request");
-#endif
+
      return WDI_STATUS_E_NOT_ALLOWED;
    }
 
@@ -5586,10 +5473,9 @@ WDI_HostSuspendInd
   ------------------------------------------------------------------------*/
   if ( eWLAN_PAL_FALSE == gWDIInitialized )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
               "WDI API call before module is initialized - Fail request");
-#endif
+
     return WDI_STATUS_E_NOT_ALLOWED;
   }
 
@@ -5632,10 +5518,9 @@ WDI_Status WDI_HALDumpCmdReq
   ------------------------------------------------------------------------*/
   if ( eWLAN_PAL_FALSE == gWDIInitialized )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
               "WDI API call before module is initialized - Fail request");
-#endif
+
     return WDI_STATUS_E_NOT_ALLOWED;
   }
 
@@ -5689,11 +5574,9 @@ WDI_PostMainEvent
   if (( pWDICtx->uGlobalState >= WDI_MAX_ST ) ||
       ( wdiEV >= WDI_MAX_EVENT ))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
                "Invalid state or event in Post Main Ev function ST: %d EV: %d",
                pWDICtx->uGlobalState, wdiEV);
-#endif
      return WDI_STATUS_E_NOT_ALLOWED;
   }
 
@@ -5724,20 +5607,16 @@ WDI_PostMainEvent
      event is not allowed in this state*/
   if ( NULL != pfnWDIMainEvHdlr )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
               "Posting event %d in state: %d to the Main FSM",
               wdiEV, wdiOldState);
-#endif
     wdiStatus = pfnWDIMainEvHdlr( pWDICtx, pEventData);
   }
   else
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
               "Unexpected event %d in state: %d",
               wdiEV, wdiOldState);
-#endif
     wdiStatus = WDI_STATUS_E_NOT_ALLOWED;
   }
 
@@ -5803,11 +5682,9 @@ WDI_MainStart
   ----------------------------------------------------------------------*/
   if (( NULL ==  pWDICtx ) || ( NULL == pEventData ))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                "Invalid parameters on Main Start %x %x",
                pWDICtx, pEventData);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -5818,10 +5695,9 @@ WDI_MainStart
   ----------------------------------------------------------------------*/
   if ( eWLAN_PAL_FALSE == pWDICtx->bCTOpened )
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                "Control Transport not yet Open - queueing the request");
-#endif
+
      WDI_STATE_TRANSITION( pWDICtx, WDI_INIT_ST);
      WDI_QueuePendingReq( pWDICtx, pEventData);
 
@@ -5856,9 +5732,8 @@ WDI_MainRspInit
   /*------------------------------------------------------------------------
     Not expecting a response from the device before it is started
   ------------------------------------------------------------------------*/
-#ifdef WLAN_DEBUG
   WDI_ASSERT(0);
-#endif
+
   /*Return Success*/
   return WDI_STATUS_E_NOT_ALLOWED;
 }/* WDI_MainRspInit */
@@ -5886,11 +5761,9 @@ WDI_MainClose
   ----------------------------------------------------------------------*/
   if (( NULL ==  pWDICtx ) || ( NULL == pEventData ))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                "Invalid parameters on Main Close %x %x",
                pWDICtx, pEventData);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -5926,21 +5799,18 @@ WDI_MainStartStarted
   ----------------------------------------------------------------------*/
   if (( NULL ==  pWDICtx ) || ( NULL == pEventData ))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                "Invalid parameters on Main Start %x %x",
                pWDICtx, pEventData);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
   /*--------------------------------------------------------------------
      Nothing to do transport was already started
   ----------------------------------------------------------------------*/
-#ifdef WLAN_DEBUG
   WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
     "Received start while transport was already started - nothing to do");
-#endif
+
   wpalMutexAcquire(&pWDICtx->wptMutex);
 
   /*Transition back to started because the post function transitioned us to
@@ -5985,21 +5855,18 @@ WDI_MainStopStarted
   ----------------------------------------------------------------------*/
   if (( NULL ==  pWDICtx ) || ( NULL == pEventData ))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
                "Invalid parameters on Main Start %x %x",
                pWDICtx, pEventData);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
   /*State at this point is BUSY - because we enter this state before posting
     an event to the FSM in order to prevent potential race conditions*/
 
-#ifdef WLAN_DEBUG
   WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_INFO,
             "Processing stop request in FSM");
-#endif
+
   /*Return Success*/
   return WDI_ProcessRequest( pWDICtx, pEventData );
 
@@ -6027,11 +5894,9 @@ WDI_MainReqStarted
   ----------------------------------------------------------------------*/
   if (( NULL ==  pWDICtx ) || ( NULL == pEventData ))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                "Invalid parameters on Main Req Started %x %x",
                pWDICtx, pEventData);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -6068,11 +5933,9 @@ WDI_MainRsp
   ----------------------------------------------------------------------*/
   if (( NULL ==  pWDICtx ) || ( NULL == pEventData ))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                "Invalid parameters on Main Response %x %x",
                pWDICtx, pEventData);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -6149,11 +6012,9 @@ WDI_MainStopStopped
   ----------------------------------------------------------------------*/
   if (( NULL ==  pWDICtx ) || ( NULL == pEventData ))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
                "Invalid parameters on Main Stop Stopped %x %x",
                pWDICtx, pEventData);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -6162,10 +6023,9 @@ WDI_MainStopStopped
     error situations we put ourselves in the stopped state without the
     UMAC knowing, so when we get a STOP request in this state we still
     process it since we need to clean up the underlying state */
-#ifdef WLAN_DEBUG
   WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
             "Processing stop request while stopped in FSM");
-#endif
+
   /*Return Success*/
   return WDI_ProcessRequest( pWDICtx, pEventData );
 
@@ -6196,21 +6056,18 @@ WDI_MainStartBusy
   ----------------------------------------------------------------------*/
   if (( NULL ==  pWDICtx ) || ( NULL == pEventData ))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                "Invalid parameters on Main Start in BUSY %x %x",
                pWDICtx, pEventData);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
   /*--------------------------------------------------------------------
      Check if the Control Transport has been opened
   ----------------------------------------------------------------------*/
-#ifdef WLAN_DEBUG
   WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
            "WDI Busy state - queue start request");
-#endif
+
   /*Queue the start request*/
   WDI_QueuePendingReq( pWDICtx, pEventData);
 
@@ -6240,21 +6097,18 @@ WDI_MainStopBusy
   ----------------------------------------------------------------------*/
   if (( NULL ==  pWDICtx ) || ( NULL == pEventData ))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                "Invalid parameters on Main Stop in BUSY %x %x",
                pWDICtx, pEventData);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
   /*--------------------------------------------------------------------
      Check if the Control Transport has been opened
   ----------------------------------------------------------------------*/
-#ifdef WLAN_DEBUG
   WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
            "WDI Busy state - queue stop request");
-#endif
+
   WDI_QueuePendingReq( pWDICtx, pEventData);
   return WDI_STATUS_PENDING;
 
@@ -6282,22 +6136,19 @@ WDI_MainReqBusy
   ----------------------------------------------------------------------*/
   if (( NULL ==  pWDICtx ) || ( NULL == pEventData ))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                "Invalid parameters on Main Request in BUSY %x %x",
                pWDICtx, pEventData);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
   /*--------------------------------------------------------------------
      Check if the Control Transport has been opened
   ----------------------------------------------------------------------*/
-#ifdef WLAN_DEBUG
   WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
            "WDI Busy state - queue request %d because waiting for response %d",
              pEventData->wdiRequest, pWDICtx->wdiExpectedResponse);
-#endif
+
   WDI_QueuePendingReq( pWDICtx, pEventData);
   return WDI_STATUS_PENDING;
 
@@ -6324,21 +6175,18 @@ WDI_MainCloseBusy
   ----------------------------------------------------------------------*/
   if (( NULL ==  pWDICtx ) || ( NULL == pEventData ))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                "Invalid parameters on Main Close in BUSY %x %x",
                pWDICtx, pEventData);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
   /*--------------------------------------------------------------------
      Check if the Control Transport has been opened
   ----------------------------------------------------------------------*/
-#ifdef WLAN_DEBUG
   WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
            "WDI Busy state - queue close request");
-#endif
+
   WDI_QueuePendingReq( pWDICtx, pEventData);
   return WDI_STATUS_PENDING;
 
@@ -6366,21 +6214,18 @@ WDI_MainShutdown
   ----------------------------------------------------------------------*/
   if (( NULL ==  pWDICtx ) || ( NULL == pEventData ))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
                "Invalid parameters on Main Start %x %x",
                pWDICtx, pEventData);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
   /*State at this point is BUSY - because we enter this state before posting
     an event to the FSM in order to prevent potential race conditions*/
 
-#ifdef WLAN_DEBUG
   WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_FATAL,
             "Processing shutdown request in FSM");
-#endif
+
   /*Return Success*/
   return WDI_ProcessRequest( pWDICtx, pEventData );
 
@@ -6408,11 +6253,9 @@ WDI_MainShutdownBusy
   ----------------------------------------------------------------------*/
   if (( NULL ==  pWDICtx ) || ( NULL == pEventData ))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
                "Invalid parameters on Main Start %x %x",
                pWDICtx, pEventData);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -6421,10 +6264,9 @@ WDI_MainShutdownBusy
    */
   wpalTimerStop(&gWDICb.wptResponseTimer);
 
-#ifdef WLAN_DEBUG
   WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_FATAL,
             "Processing shutdown request in FSM: Busy state ");
-#endif
+
   return WDI_ProcessRequest( pWDICtx, pEventData );
 
 }/*WDI_MainShutdownBusy*/
@@ -6473,11 +6315,9 @@ WDI_ProcessStartReq
       ( NULL == (pwdiStartParams = (WDI_StartReqParamsType*)pEventData->pEventData)) ||
       ( NULL == (wdiStartRspCb   = (WDI_StartRspCb)pEventData->pCBfnc)))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_FATAL,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -6492,12 +6332,10 @@ WDI_ProcessStartReq
                         &pSendBuffer, &usDataOffset, &usSendSize))||
       ( usSendSize < (usDataOffset + usLen )))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_FATAL,
               "Unable to get send buffer in start req %x %x %x",
                 pEventData, pwdiStartParams, wdiStartRspCb);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -6569,11 +6407,9 @@ WDI_ProcessStopReq
       ( NULL == (pwdiStopParams = (WDI_StopReqParamsType*)pEventData->pEventData)) ||
       ( NULL == (wdiStopRspCb   = (WDI_StopRspCb)pEventData->pCBfnc)))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -6585,12 +6421,10 @@ WDI_ProcessStopReq
                         &pSendBuffer, &usDataOffset, &usSendSize))||
       ( usSendSize < (usDataOffset + sizeof(halStopReq.stopReqParams) )))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
               "Unable to get send buffer in stop req %x %x %x",
                 pEventData, pwdiStopParams, wdiStopRspCb);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -6618,12 +6452,10 @@ WDI_ProcessStopReq
      status = wpalEventReset(&pWDICtx->setPowerStateEvent);
      if (eWLAN_PAL_STATUS_SUCCESS != status)
      {
-#ifdef WLAN_DEBUG
         WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                   "WDI Init failed to reset power state event");
 
         WDI_ASSERT(0);
-#endif
         return VOS_STATUS_E_FAILURE;
      }
      /* Stop Transport Driver, DXE */
@@ -6635,12 +6467,10 @@ WDI_ProcessStopReq
                             WDI_SET_POWER_STATE_TIMEOUT);
      if (eWLAN_PAL_STATUS_SUCCESS != status)
      {
-#ifdef WLAN_DEBUG
         WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                   "WDI Init failed to wait on an event");
 
         WDI_ASSERT(0);
-#endif
         return VOS_STATUS_E_FAILURE;
       }
   }
@@ -6694,14 +6524,13 @@ WDI_ProcessCloseReq
 
    /*close the PAL */
    wptStatus = wpalClose(pWDICtx->pPALContext);
-#ifdef WLAN_DEBUG
    if ( eWLAN_PAL_STATUS_SUCCESS !=  wptStatus )
    {
      WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
                "Failed to wpal Close %d", wptStatus);
      WDI_ASSERT(0);
    }
-#endif
+
    /*Transition back to init state*/
    WDI_STATE_TRANSITION( pWDICtx, WDI_INIT_ST);
 
@@ -6757,11 +6586,9 @@ WDI_ProcessInitScanReq
       ( NULL == (pwdiInitScanParams = (WDI_InitScanReqParamsType*)pEventData->pEventData)) ||
       ( NULL == (wdiInitScanRspCb   = (WDI_InitScanRspCb)pEventData->pCBfnc)))
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
         "%s: Invalid parameters", __FUNCTION__);
     WDI_ASSERT(0);
-#endif
     return WDI_STATUS_E_FAILURE;
   }
 
@@ -6800,12 +6627,10 @@ WDI_ProcessInitScanReq
             &pSendBuffer, &usDataOffset, &usSendSize))||
         ( usSendSize < (usDataOffset + sizeof(halInitScanConReqMsg.initScanParams) )))
     {
-#ifdef WLAN_DEBUG
       WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
           "Unable to get send buffer in init scan req %x %x %x",
           pEventData, pwdiInitScanParams, wdiInitScanRspCb);
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
     }
 
@@ -6857,12 +6682,10 @@ WDI_ProcessInitScanReq
             &pSendBuffer, &usDataOffset, &usSendSize))||
         ( usSendSize < (usDataOffset + sizeof(halInitScanReqMsg.initScanParams) )))
     {
-#ifdef WLAN_DEBUG
       WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
           "Unable to get send buffer in init scan req %x %x %x",
           pEventData, pwdiInitScanParams, wdiInitScanRspCb);
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
     }
 
@@ -6944,11 +6767,9 @@ WDI_ProcessStartScanReq
       ( NULL == (pwdiStartScanParams = (WDI_StartScanReqParamsType*)pEventData->pEventData)) ||
       ( NULL == (wdiStartScanRspCb   = (WDI_StartScanRspCb)pEventData->pCBfnc)))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -6984,12 +6805,10 @@ WDI_ProcessStartScanReq
                         &pSendBuffer, &usDataOffset, &usSendSize))||
       ( usSendSize < (usDataOffset + sizeof(halStartScanReqMsg.startScanParams) )))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
               "Unable to get send buffer in start scan req %x %x %x",
                 pEventData, pwdiStartScanParams, wdiStartScanRspCb);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -7043,11 +6862,9 @@ WDI_ProcessEndScanReq
       ( NULL == (pwdiEndScanParams = (WDI_EndScanReqParamsType*)pEventData->pEventData)) ||
       ( NULL == (wdiEndScanRspCb   = (WDI_EndScanRspCb)pEventData->pCBfnc)))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -7085,12 +6902,10 @@ WDI_ProcessEndScanReq
                         &pSendBuffer, &usDataOffset, &usSendSize))||
       ( usSendSize < (usDataOffset + sizeof(halEndScanReqMsg.endScanParams) )))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
               "Unable to get send buffer in start scan req %x %x %x",
                 pEventData, pwdiEndScanParams, wdiEndScanRspCb);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -7145,11 +6960,9 @@ WDI_ProcessFinishScanReq
       ( NULL == pEventData->pEventData) ||
       ( NULL == pEventData->pCBfnc))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -7198,12 +7011,10 @@ WDI_ProcessFinishScanReq
                         &pSendBuffer, &usDataOffset, &usSendSize))||
       ( usSendSize < (usDataOffset + sizeof(halFinishScanReqMsg.finishScanParams) )))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
               "Unable to get send buffer in start scan req %x %x %x",
                 pEventData, pwdiFinishScanParams, wdiFinishScanRspCb);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -7293,10 +7104,9 @@ WDI_ProcessBSSSessionJoinReq
 
   if ( NULL != pBSSSes )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
               "Association for this BSSID is already in place");
-#endif
+
     return WDI_STATUS_E_NOT_ALLOWED;
   }
 
@@ -7308,10 +7118,9 @@ WDI_ProcessBSSSessionJoinReq
   if ( NULL == pBSSSes )
   {
 
-#ifdef WLAN_DEBUG
     WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
               "DAL has no free sessions - cannot run another join");
-#endif
+
     wpalMutexRelease(&pWDICtx->wptMutex);
     return WDI_STATUS_RES_FAILURE;
   }
@@ -7335,12 +7144,10 @@ WDI_ProcessBSSSessionJoinReq
                         &pSendBuffer, &usDataOffset, &usSendSize))||
       ( usSendSize < (usDataOffset + sizeof(halJoinReqMsg.joinReqParams) )))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
               "Unable to get send buffer in join req %x %x %x",
                 pUserData, pwdiJoinParams, wdiJoinRspCb);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -7412,11 +7219,9 @@ WDI_ProcessJoinReq
       ( NULL == (pwdiJoinParams = (WDI_JoinReqParamsType*)pEventData->pEventData)) ||
       ( NULL == (wdiJoinRspCb   = (WDI_JoinRspCb)pEventData->pCBfnc)))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -7428,10 +7233,9 @@ WDI_ProcessJoinReq
 
   if ( eWLAN_PAL_FALSE != pWDICtx->bAssociationInProgress )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
               "Association is currently in progress, queueing new join req");
-#endif
+
     /*Association is in progress - queue current one*/
     wdiStatus = WDI_QueueNewAssocRequest(pWDICtx, pEventData,
                              pwdiJoinParams->wdiReqInfo.macBSSID);
@@ -7489,11 +7293,9 @@ WDI_ProcessConfigBSSReq
       ( NULL == pEventData->pEventData ) ||
       ( NULL == pEventData->pCBfnc ))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -7522,10 +7324,9 @@ WDI_ProcessConfigBSSReq
       if ( NULL == pBSSSes )
       {
 
-#ifdef WLAN_DEBUG
         WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
                   "DAL has no free sessions - cannot run another join");
-#endif
+
         wpalMutexRelease(&pWDICtx->wptMutex);
         return WDI_STATUS_RES_FAILURE;
       }
@@ -7553,10 +7354,9 @@ WDI_ProcessConfigBSSReq
       if ( NULL == pBSSSes )
       {
 
-#ifdef WLAN_DEBUG
         WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
                   "DAL has no free sessions - cannot run another join");
-#endif
+
         wpalMutexRelease(&pWDICtx->wptMutex);
         return WDI_STATUS_RES_FAILURE;
       }
@@ -7572,12 +7372,11 @@ WDI_ProcessConfigBSSReq
     }
     else
     {
-#ifdef WLAN_DEBUG
       WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
                 "%s: Association sequence for this BSS does not yet exist." MAC_ADDRESS_STR "wdiBssType %d",
                 __func__, MAC_ADDR_ARRAY(pwdiConfigBSSParams->wdiReqInfo.macBSSID),
                 pwdiConfigBSSParams->wdiReqInfo.wdiBSSType);
-#endif
+
       /* for IBSS testing */
       wpalMutexRelease(&pWDICtx->wptMutex);
       return WDI_STATUS_E_NOT_ALLOWED;
@@ -7591,12 +7390,11 @@ WDI_ProcessConfigBSSReq
   ------------------------------------------------------------------------*/
   if ( eWLAN_PAL_TRUE == pBSSSes->bAssocReqQueued )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
               "%s: Association sequence for this BSS exists but currently queued. " MAC_ADDRESS_STR " bssIdx %d",
               __func__, MAC_ADDR_ARRAY(pwdiConfigBSSParams->wdiReqInfo.macBSSID),
               ucCurrentBSSSesIdx);
-#endif
+
     wdiStatus = WDI_QueueAssocRequest( pWDICtx, pBSSSes, pEventData);
 
     wpalMutexRelease(&pWDICtx->wptMutex);
@@ -7626,12 +7424,10 @@ WDI_ProcessConfigBSSReq
                     uMsgSize, &pSendBuffer, &usDataOffset, &usSendSize))||
       ( usSendSize < (usDataOffset + uMsgSize )))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
               "Unable to get send buffer in config bss req %x %x %x",
                 pEventData, pwdiConfigBSSParams, wdiConfigBSSRspCb);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -7705,11 +7501,9 @@ WDI_ProcessDelBSSReq
       ( NULL == (pwdiDelBSSParams = (WDI_DelBSSReqParamsType*)pEventData->pEventData)) ||
       ( NULL == (wdiDelBSSRspCb   = (WDI_DelBSSRspCb)pEventData->pCBfnc)))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -7728,11 +7522,10 @@ WDI_ProcessDelBSSReq
 
   if ( NULL == pBSSSes )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
         "%s: BSS does not yet exist. ucBssIdx %d",
         __func__, pwdiDelBSSParams->ucBssIdx);
-#endif
+
     wpalMutexRelease(&pWDICtx->wptMutex);
 
     return WDI_STATUS_E_NOT_ALLOWED;
@@ -7744,11 +7537,10 @@ WDI_ProcessDelBSSReq
   ------------------------------------------------------------------------*/
   if ( eWLAN_PAL_TRUE == pBSSSes->bAssocReqQueued )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
               "%s: Association sequence for this BSS exists but currently queued. ucBssIdx %d",
               __func__, pwdiDelBSSParams->ucBssIdx);
-#endif
+
     wdiStatus = WDI_QueueAssocRequest( pWDICtx, pBSSSes, pEventData);
 
     wpalMutexRelease(&pWDICtx->wptMutex);
@@ -7783,12 +7575,10 @@ WDI_ProcessDelBSSReq
                         &pSendBuffer, &usDataOffset, &usSendSize))||
       ( usSendSize < (usDataOffset + sizeof(halBssReqMsg.deleteBssParams) )))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
               "Unable to get send buffer in start req %x %x %x",
                 pEventData, pwdiDelBSSParams, wdiDelBSSRspCb);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -7852,11 +7642,9 @@ WDI_ProcessPostAssocReq
       ( NULL == (pwdiPostAssocParams = (WDI_PostAssocReqParamsType*)pEventData->pEventData)) ||
       ( NULL == (wdiPostAssocRspCb   = (WDI_PostAssocRspCb)pEventData->pCBfnc)))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -7875,12 +7663,11 @@ WDI_ProcessPostAssocReq
 
   if ( NULL == pBSSSes )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
               "%s: Association sequence for this BSS does not yet exist - "
               "operation not allowed. macBSSID " MAC_ADDRESS_STR,
               __func__, MAC_ADDR_ARRAY(pwdiPostAssocParams->wdiBSSParams.macBSSID));
-#endif
+
     wpalMutexRelease(&pWDICtx->wptMutex);
     return WDI_STATUS_E_NOT_ALLOWED;
   }
@@ -7891,11 +7678,10 @@ WDI_ProcessPostAssocReq
   ------------------------------------------------------------------------*/
   if ( eWLAN_PAL_TRUE == pBSSSes->bAssocReqQueued )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
               "%s: Association sequence for this BSS exists but currently queued. macBSSID " MAC_ADDRESS_STR,
               __func__, MAC_ADDR_ARRAY(pwdiPostAssocParams->wdiBSSParams.macBSSID));
-#endif
+
     wdiStatus = WDI_QueueAssocRequest( pWDICtx, pBSSSes, pEventData);
 
     wpalMutexRelease(&pWDICtx->wptMutex);
@@ -7910,11 +7696,10 @@ WDI_ProcessPostAssocReq
   if (( ucCurrentBSSSesIdx != pWDICtx->ucCurrentBSSSesIdx ) ||
       ( eWLAN_PAL_FALSE == pWDICtx->bAssociationInProgress ))
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
               "Association sequence for this BSS association no longer in "
               "progress - not allowed");
-#endif
+
     wpalMutexRelease(&pWDICtx->wptMutex);
     return WDI_STATUS_E_NOT_ALLOWED;
   }
@@ -7924,10 +7709,9 @@ WDI_ProcessPostAssocReq
   -----------------------------------------------------------------------*/
   if ( WDI_ASSOC_JOINING_ST != pBSSSes->wdiAssocState)
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
               "Post Assoc not allowed before JOIN - failing request");
-#endif
+
     wpalMutexRelease(&pWDICtx->wptMutex);
     return WDI_STATUS_E_NOT_ALLOWED;
   }
@@ -7943,12 +7727,10 @@ WDI_ProcessPostAssocReq
                         uMsgSize,&pSendBuffer, &usDataOffset, &usSendSize))||
       ( usSendSize < (usDataOffset + uMsgSize )))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
               "Unable to get send buffer in start req %x %x %x",
                 pEventData, pwdiPostAssocParams, wdiPostAssocRspCb);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -7962,10 +7744,8 @@ WDI_ProcessPostAssocReq
                                    pwdiPostAssocParams->wdiSTAParams.macSTA,
                                    (wpt_uint8*)&halPostAssocReqMsg.postAssocReqParams.configStaParams.staIdx ))
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
              "This station does not exist in the WDI Station Table %d");
-#endif
     wpalMutexRelease(&pWDICtx->wptMutex);
     return WDI_STATUS_E_FAILURE;
   }
@@ -7984,10 +7764,8 @@ WDI_ProcessPostAssocReq
                                    pwdiPostAssocParams->wdiBSSParams.wdiSTAContext.macSTA,
                                    (wpt_uint8*)&halPostAssocReqMsg.postAssocReqParams.configBssParams.staContext.staIdx))
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
              "This station does not exist in the WDI Station Table %d");
-#endif
     wpalMutexRelease(&pWDICtx->wptMutex);
     return WDI_STATUS_E_FAILURE;
   }
@@ -8061,11 +7839,9 @@ WDI_ProcessDelSTAReq
   if (( NULL == pEventData ) || ( NULL == pEventData->pEventData ) ||
       ( NULL == pEventData->pCBfnc ))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -8084,10 +7860,8 @@ WDI_ProcessDelSTAReq
                                                          pwdiDelSTAParams->ucSTAIdx,
                                                          &macBSSID))
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
              "This station does not exist in the WDI Station Table %d");
-#endif
     wpalMutexRelease(&pWDICtx->wptMutex);
     return WDI_STATUS_E_FAILURE;
   }
@@ -8095,11 +7869,10 @@ WDI_ProcessDelSTAReq
   ucCurrentBSSSesIdx = WDI_FindAssocSession( pWDICtx, macBSSID, &pBSSSes);
   if ( NULL == pBSSSes )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
               "%s: Association sequence for this BSS does not yet exist. macBSSID " MAC_ADDRESS_STR,
               __func__, MAC_ADDR_ARRAY(macBSSID));
-#endif
+
     wpalMutexRelease(&pWDICtx->wptMutex);
     return WDI_STATUS_E_NOT_ALLOWED;
   }
@@ -8110,11 +7883,10 @@ WDI_ProcessDelSTAReq
   ------------------------------------------------------------------------*/
   if ( eWLAN_PAL_TRUE == pBSSSes->bAssocReqQueued )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
               "%s: Association sequence for this BSS exists but currently queued. macBSSID " MAC_ADDRESS_STR,
               __func__, MAC_ADDR_ARRAY(macBSSID));
-#endif
+
     wdiStatus = WDI_QueueAssocRequest( pWDICtx, pBSSSes, pEventData);
     wpalMutexRelease(&pWDICtx->wptMutex);
     return wdiStatus;
@@ -8129,12 +7901,10 @@ WDI_ProcessDelSTAReq
                         &pSendBuffer, &usDataOffset, &usSendSize))||
       ( usSendSize < (usDataOffset + sizeof(halDelStaReqMsg.delStaParams) )))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
               "Unable to get send buffer in start req %x %x %x",
                 pEventData, pwdiDelSTAParams, wdiDelSTARspCb);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -8194,11 +7964,9 @@ WDI_ProcessSetBssKeyReq
   if (( NULL == pEventData ) || ( NULL == pEventData->pEventData ) ||
       ( NULL == pEventData->pCBfnc ))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -8219,11 +7987,10 @@ WDI_ProcessSetBssKeyReq
 
   if ( NULL == pBSSSes )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
               "%s: Association sequence for this BSS does not yet exist. ucBssIdx %d",
               __func__, pwdiSetBSSKeyParams->wdiBSSKeyInfo.ucBssIdx);
-#endif
+
     wpalMutexRelease(&pWDICtx->wptMutex);
     return WDI_STATUS_E_NOT_ALLOWED;
   }
@@ -8234,11 +8001,10 @@ WDI_ProcessSetBssKeyReq
   ------------------------------------------------------------------------*/
   if ( eWLAN_PAL_TRUE == pBSSSes->bAssocReqQueued )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
               "%s: Association sequence for this BSS exists but currently queued. ucBssIdx %d",
               __func__, pwdiSetBSSKeyParams->wdiBSSKeyInfo.ucBssIdx);
-#endif
+
     wdiStatus = WDI_QueueAssocRequest( pWDICtx, pBSSSes, pEventData);
     wpalMutexRelease(&pWDICtx->wptMutex);
     return wdiStatus;
@@ -8254,12 +8020,10 @@ WDI_ProcessSetBssKeyReq
                         &pSendBuffer, &usDataOffset, &usSendSize))||
       ( usSendSize < (usDataOffset + sizeof(halSetBssKeyReqMsg.setBssKeyParams) )))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
               "Unable to get send buffer in set bss key req %x %x %x",
                 pEventData, pwdiSetBSSKeyParams, wdiSetBSSKeyRspCb);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -8346,11 +8110,9 @@ WDI_ProcessRemoveBssKeyReq
   if (( NULL == pEventData ) || ( NULL == pEventData->pEventData ) ||
       ( NULL == pEventData->pCBfnc ))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -8371,11 +8133,10 @@ WDI_ProcessRemoveBssKeyReq
 
   if ( NULL == pBSSSes )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
               "%s: Association sequence for this BSS does not yet exist. ucBssIdx %d",
               __func__, pwdiRemoveBSSKeyParams->wdiKeyInfo.ucBssIdx);
-#endif
+
     wpalMutexRelease(&pWDICtx->wptMutex);
     return WDI_STATUS_E_NOT_ALLOWED;
   }
@@ -8386,11 +8147,10 @@ WDI_ProcessRemoveBssKeyReq
   ------------------------------------------------------------------------*/
   if ( eWLAN_PAL_TRUE == pBSSSes->bAssocReqQueued )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
               "%s: Association sequence for this BSS exists but currently queued. ucBssIdx %d",
               __func__, pwdiRemoveBSSKeyParams->wdiKeyInfo.ucBssIdx);
-#endif
+
     wdiStatus = WDI_QueueAssocRequest( pWDICtx, pBSSSes, pEventData);
     wpalMutexRelease(&pWDICtx->wptMutex);
     return wdiStatus;
@@ -8407,12 +8167,10 @@ WDI_ProcessRemoveBssKeyReq
                         &pSendBuffer, &usDataOffset, &usSendSize))||
       ( usSendSize < (usDataOffset + sizeof(halRemoveBssKeyReqMsg.removeBssKeyParams) )))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
               "Unable to get send buffer in set bss key req %x %x %x",
                 pEventData, pwdiRemoveBSSKeyParams, wdiRemoveBSSKeyRspCb);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
   /*-----------------------------------------------------------------------
@@ -8480,11 +8238,9 @@ WDI_ProcessSetStaKeyReq
   if (( NULL == pEventData ) || ( NULL == pEventData->pEventData ) ||
       ( NULL == pEventData->pCBfnc ))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -8503,10 +8259,8 @@ WDI_ProcessSetStaKeyReq
                                   pwdiSetSTAKeyParams->wdiKeyInfo.ucSTAIdx,
                                   &macBSSID))
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
              "This station does not exist in the WDI Station Table %d");
-#endif
     wpalMutexRelease(&pWDICtx->wptMutex);
     return WDI_STATUS_E_FAILURE;
   }
@@ -8514,11 +8268,10 @@ WDI_ProcessSetStaKeyReq
   ucCurrentBSSSesIdx = WDI_FindAssocSession( pWDICtx, macBSSID, &pBSSSes);
   if ( NULL == pBSSSes )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
               "%s: Association sequence for this BSS does not yet exist. macBSSID " MAC_ADDRESS_STR,
               __func__, MAC_ADDR_ARRAY(macBSSID));
-#endif
+
     wpalMutexRelease(&pWDICtx->wptMutex);
     return WDI_STATUS_E_NOT_ALLOWED;
   }
@@ -8529,11 +8282,10 @@ WDI_ProcessSetStaKeyReq
   ------------------------------------------------------------------------*/
   if ( eWLAN_PAL_TRUE == pBSSSes->bAssocReqQueued )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
               "%s: Association sequence for this BSS exists but currently queued. macBSSID " MAC_ADDRESS_STR,
               __func__, MAC_ADDR_ARRAY(macBSSID));
-#endif
+
     wdiStatus = WDI_QueueAssocRequest( pWDICtx, pBSSSes, pEventData);
     wpalMutexRelease(&pWDICtx->wptMutex);
     return wdiStatus;
@@ -8549,12 +8301,10 @@ WDI_ProcessSetStaKeyReq
                         &pSendBuffer, &usDataOffset, &usSendSize))||
       ( usSendSize < (usDataOffset + sizeof(halSetStaKeyReqMsg.setStaKeyParams) )))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
               "Unable to get send buffer in set bss key req %x %x %x",
                 pEventData, pwdiSetSTAKeyParams, wdiSetSTAKeyRspCb);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
   /*-----------------------------------------------------------------------
@@ -8663,11 +8413,9 @@ WDI_ProcessRemoveStaKeyReq
  if (( NULL == pEventData ) || ( NULL == pEventData->pEventData ) ||
       ( NULL == pEventData->pCBfnc ))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -8686,10 +8434,8 @@ WDI_ProcessRemoveStaKeyReq
                              pwdiRemoveSTAKeyParams->wdiKeyInfo.ucSTAIdx,
                              &macBSSID))
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
              "This station does not exist in the WDI Station Table %d");
-#endif
     wpalMutexRelease(&pWDICtx->wptMutex);
     return WDI_STATUS_E_FAILURE;
   }
@@ -8697,11 +8443,10 @@ WDI_ProcessRemoveStaKeyReq
   ucCurrentBSSSesIdx = WDI_FindAssocSession( pWDICtx, macBSSID, &pBSSSes);
   if ( NULL == pBSSSes )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
               "%s: Association sequence for this BSS does not yet exist. macBSSID " MAC_ADDRESS_STR,
               __func__, MAC_ADDR_ARRAY(macBSSID));
-#endif
+
     wpalMutexRelease(&pWDICtx->wptMutex);
     return WDI_STATUS_E_NOT_ALLOWED;
   }
@@ -8712,11 +8457,10 @@ WDI_ProcessRemoveStaKeyReq
   ------------------------------------------------------------------------*/
   if ( eWLAN_PAL_TRUE == pBSSSes->bAssocReqQueued )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
               "%s: Association sequence for this BSS exists but currently queued. macBSSID " MAC_ADDRESS_STR,
               __func__, MAC_ADDR_ARRAY(macBSSID));
-#endif
+
     wdiStatus = WDI_QueueAssocRequest( pWDICtx, pBSSSes, pEventData);
     wpalMutexRelease(&pWDICtx->wptMutex);
     return wdiStatus;
@@ -8733,12 +8477,10 @@ WDI_ProcessRemoveStaKeyReq
                         &pSendBuffer, &usDataOffset, &usSendSize))||
       ( usSendSize < (usDataOffset + sizeof(halRemoveStaKeyReqMsg.removeStaKeyParams) )))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
               "Unable to get send buffer in set bss key req %x %x %x",
                 pEventData, pwdiRemoveSTAKeyParams, wdiRemoveSTAKeyRspCb);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -8811,11 +8553,9 @@ WDI_ProcessSetStaBcastKeyReq
   if (( NULL == pEventData ) || ( NULL == pEventData->pEventData ) ||
       ( NULL == pEventData->pCBfnc ))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -8834,10 +8574,8 @@ WDI_ProcessSetStaBcastKeyReq
                                   pwdiSetSTAKeyParams->wdiKeyInfo.ucSTAIdx,
                                   &macBSSID))
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
              "This station does not exist in the WDI Station Table %d");
-#endif
     wpalMutexRelease(&pWDICtx->wptMutex);
     return WDI_STATUS_E_FAILURE;
   }
@@ -8845,11 +8583,10 @@ WDI_ProcessSetStaBcastKeyReq
   ucCurrentBSSSesIdx = WDI_FindAssocSession( pWDICtx, macBSSID, &pBSSSes);
   if ( NULL == pBSSSes )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
               "Association sequence for this BSS does not yet exist. macBSSID " MAC_ADDRESS_STR,
               __func__, MAC_ADDR_ARRAY(macBSSID));
-#endif
+
     wpalMutexRelease(&pWDICtx->wptMutex);
     return WDI_STATUS_E_NOT_ALLOWED;
   }
@@ -8860,11 +8597,10 @@ WDI_ProcessSetStaBcastKeyReq
   ------------------------------------------------------------------------*/
   if ( eWLAN_PAL_TRUE == pBSSSes->bAssocReqQueued )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
               "%s: Association sequence for this BSS exists but currently queued. macBSSID " MAC_ADDRESS_STR,
               __func__, MAC_ADDR_ARRAY(macBSSID));
-#endif
+
     wdiStatus = WDI_QueueAssocRequest( pWDICtx, pBSSSes, pEventData);
     wpalMutexRelease(&pWDICtx->wptMutex);
     return wdiStatus;
@@ -8880,12 +8616,10 @@ WDI_ProcessSetStaBcastKeyReq
                         &pSendBuffer, &usDataOffset, &usSendSize))||
       ( usSendSize < (usDataOffset + sizeof(halSetStaKeyReqMsg.setStaKeyParams) )))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
               "Unable to get send buffer in set bss key req %x %x %x",
                 pEventData, pwdiSetSTAKeyParams, wdiSetSTAKeyRspCb);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
   /*-----------------------------------------------------------------------
@@ -8994,11 +8728,9 @@ WDI_ProcessRemoveStaBcastKeyReq
  if (( NULL == pEventData ) || ( NULL == pEventData->pEventData ) ||
       ( NULL == pEventData->pCBfnc ))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -9017,10 +8749,8 @@ WDI_ProcessRemoveStaBcastKeyReq
                              pwdiRemoveSTABcastKeyParams->wdiKeyInfo.ucSTAIdx,
                              &macBSSID))
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
              "This station does not exist in the WDI Station Table %d");
-#endif
     wpalMutexRelease(&pWDICtx->wptMutex);
     return WDI_STATUS_E_FAILURE;
   }
@@ -9028,11 +8758,10 @@ WDI_ProcessRemoveStaBcastKeyReq
   ucCurrentBSSSesIdx = WDI_FindAssocSession( pWDICtx, macBSSID, &pBSSSes);
   if ( NULL == pBSSSes )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
               "%s: Association sequence for this BSS does not yet exist. macBSSID " MAC_ADDRESS_STR,
               __func__, MAC_ADDR_ARRAY(macBSSID));
-#endif
+
     wpalMutexRelease(&pWDICtx->wptMutex);
     return WDI_STATUS_E_NOT_ALLOWED;
   }
@@ -9043,11 +8772,10 @@ WDI_ProcessRemoveStaBcastKeyReq
   ------------------------------------------------------------------------*/
   if ( eWLAN_PAL_TRUE == pBSSSes->bAssocReqQueued )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
               "%s: Association sequence for this BSS exists but currently queued. macBSSID " MAC_ADDRESS_STR,
                __func__, MAC_ADDR_ARRAY(macBSSID));
-#endif
+
     wdiStatus = WDI_QueueAssocRequest( pWDICtx, pBSSSes, pEventData);
     wpalMutexRelease(&pWDICtx->wptMutex);
     return wdiStatus;
@@ -9064,12 +8792,10 @@ WDI_ProcessRemoveStaBcastKeyReq
                         &pSendBuffer, &usDataOffset, &usSendSize))||
       ( usSendSize < (usDataOffset + sizeof(halRemoveStaBcastKeyReqMsg.removeStaKeyParams) )))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
               "Unable to get send buffer in set bss key req %x %x %x",
                 pEventData, pwdiRemoveSTABcastKeyParams, wdiRemoveSTAKeyRspCb);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -9144,11 +8870,9 @@ WDI_ProcessAddTSpecReq
   if (( NULL == pEventData ) || ( NULL == pEventData->pEventData ) ||
       ( NULL == pEventData->pCBfnc ))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -9167,10 +8891,8 @@ WDI_ProcessAddTSpecReq
                                         pwdiAddTSParams->wdiTsInfo.ucSTAIdx,
                                         &macBSSID))
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
              "This station does not exist in the WDI Station Table %d");
-#endif
     wpalMutexRelease(&pWDICtx->wptMutex);
     return WDI_STATUS_E_FAILURE;
   }
@@ -9178,11 +8900,10 @@ WDI_ProcessAddTSpecReq
   ucCurrentBSSSesIdx = WDI_FindAssocSession( pWDICtx, macBSSID, &pBSSSes);
   if ( NULL == pBSSSes )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
               "%s: Association sequence for this BSS does not yet exist. macBSSID " MAC_ADDRESS_STR,
               __func__, MAC_ADDR_ARRAY(macBSSID));
-#endif
+
     wpalMutexRelease(&pWDICtx->wptMutex);
     return WDI_STATUS_E_NOT_ALLOWED;
   }
@@ -9193,11 +8914,10 @@ WDI_ProcessAddTSpecReq
   ------------------------------------------------------------------------*/
   if ( eWLAN_PAL_TRUE == pBSSSes->bAssocReqQueued )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
               "%s: Association sequence for this BSS exists but currently queued. macBSSID " MAC_ADDRESS_STR,
               __func__, MAC_ADDR_ARRAY(macBSSID));
-#endif
+
     wdiStatus = WDI_QueueAssocRequest( pWDICtx, pBSSSes, pEventData);
     wpalMutexRelease(&pWDICtx->wptMutex);
     return wdiStatus;
@@ -9214,12 +8934,10 @@ WDI_ProcessAddTSpecReq
                                                     &usSendSize))||
       ( usSendSize < (usDataOffset + sizeof(halAddTsParams) )))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
               "Unable to get send buffer in set bss key req %x %x %x",
                 pEventData, pwdiAddTSParams, wdiAddTSRspCb);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -9331,11 +9049,9 @@ WDI_ProcessDelTSpecReq
   if (( NULL == pEventData ) || ( NULL == pEventData->pEventData ) ||
       ( NULL == pEventData->pCBfnc ))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -9357,11 +9073,10 @@ WDI_ProcessDelTSpecReq
 
   if ( NULL == pBSSSes )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
             "%s: Association sequence for this BSS does not yet exist. macBSSID " MAC_ADDRESS_STR,
             __func__, MAC_ADDR_ARRAY(pwdiDelTSParams->wdiDelTSInfo.macBSSID));
-#endif
+
     wpalMutexRelease(&pWDICtx->wptMutex);
     return WDI_STATUS_E_NOT_ALLOWED;
   }
@@ -9372,11 +9087,10 @@ WDI_ProcessDelTSpecReq
   ------------------------------------------------------------------------*/
   if ( eWLAN_PAL_TRUE == pBSSSes->bAssocReqQueued )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
               "%s: Association sequence for this BSS exists but currently queued. macBSSID " MAC_ADDRESS_STR,
               __func__, MAC_ADDR_ARRAY(pwdiDelTSParams->wdiDelTSInfo.macBSSID));
-#endif
+
     wdiStatus = WDI_QueueAssocRequest( pWDICtx, pBSSSes, pEventData);
     wpalMutexRelease(&pWDICtx->wptMutex);
     return wdiStatus;
@@ -9393,12 +9107,10 @@ WDI_ProcessDelTSpecReq
                         &pSendBuffer, &usDataOffset, &usSendSize))||
       ( usSendSize < (usDataOffset + sizeof(pwdiDelTSParams->wdiDelTSInfo) )))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
               "Unable to get send buffer in set bss key req %x %x %x",
                 pEventData, pwdiDelTSParams, wdiDelTSRspCb);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -9449,11 +9161,9 @@ WDI_ProcessUpdateEDCAParamsReq
   if (( NULL == pEventData ) || ( NULL == pEventData->pEventData ) ||
       ( NULL == pEventData->pCBfnc ))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -9474,11 +9184,10 @@ WDI_ProcessUpdateEDCAParamsReq
 
   if ( NULL == pBSSSes )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
             "%s: Association sequence for this BSS does not yet exist. ucBssIdx %d",
             __func__, pwdiUpdateEDCAParams->wdiEDCAInfo.ucBssIdx);
-#endif
+
     wpalMutexRelease(&pWDICtx->wptMutex);
     return WDI_STATUS_E_NOT_ALLOWED;
   }
@@ -9489,11 +9198,10 @@ WDI_ProcessUpdateEDCAParamsReq
   ------------------------------------------------------------------------*/
   if ( eWLAN_PAL_TRUE == pBSSSes->bAssocReqQueued )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
               "%s: Association sequence for this BSS exists but currently queued. ucBssIdx %d",
               __func__, pwdiUpdateEDCAParams->wdiEDCAInfo.ucBssIdx);
-#endif
+
     wdiStatus = WDI_QueueAssocRequest( pWDICtx, pBSSSes, pEventData);
     wpalMutexRelease(&pWDICtx->wptMutex);
     return wdiStatus;
@@ -9510,12 +9218,10 @@ WDI_ProcessUpdateEDCAParamsReq
                         &pSendBuffer, &usDataOffset, &usSendSize))||
       ( usSendSize < (usDataOffset + sizeof(pwdiUpdateEDCAParams->wdiEDCAInfo) )))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
               "Unable to get send buffer in set bss key req %x %x %x",
                 pEventData, pwdiUpdateEDCAParams, wdiUpdateEDCARspCb);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -9570,11 +9276,9 @@ WDI_ProcessAddBASessionReq
   if (( NULL == pEventData ) || ( NULL == pEventData->pEventData ) ||
       ( NULL == pEventData->pCBfnc ))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -9595,10 +9299,8 @@ WDI_ProcessAddBASessionReq
                    pwdiAddBASessionParams->wdiBASessionInfoType.ucSTAIdx,
                    &macBSSID))
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
              "This station does not exist in the WDI Station Table %d");
-#endif
     wpalMutexRelease(&pWDICtx->wptMutex);
     return WDI_STATUS_E_FAILURE;
   }
@@ -9608,11 +9310,10 @@ WDI_ProcessAddBASessionReq
 
   if ( NULL == pBSSSes )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
           "%s: Association sequence for this BSS does not yet exist. macBSSID " MAC_ADDRESS_STR,
           __func__, MAC_ADDR_ARRAY(macBSSID));
-#endif
+
     wpalMutexRelease(&pWDICtx->wptMutex);
     return WDI_STATUS_E_NOT_ALLOWED;
   }
@@ -9623,11 +9324,10 @@ WDI_ProcessAddBASessionReq
   ------------------------------------------------------------------------*/
   if ( eWLAN_PAL_TRUE == pBSSSes->bAssocReqQueued )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
               "%s: Association sequence for this BSS exists but currently queued. macBSSID " MAC_ADDRESS_STR,
                __func__, MAC_ADDR_ARRAY(macBSSID));
-#endif
+
     wdiStatus = WDI_QueueAssocRequest( pWDICtx, pBSSSes, pEventData);
     wpalMutexRelease(&pWDICtx->wptMutex);
     return wdiStatus;
@@ -9645,12 +9345,10 @@ WDI_ProcessAddBASessionReq
       ( usSendSize <
             (usDataOffset + sizeof(halAddBASessionReq.addBASessionParams) )))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
               "Unable to get send buffer in Add BA session req %x %x %x",
                 pEventData, pwdiAddBASessionParams, wdiAddBASessionRspCb);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -9722,11 +9420,9 @@ WDI_ProcessDelBAReq
   if (( NULL == pEventData ) || ( NULL == pEventData->pEventData ) ||
       ( NULL == pEventData->pCBfnc ))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -9745,10 +9441,8 @@ WDI_ProcessDelBAReq
                                      pwdiDelBAParams->wdiBAInfo.ucSTAIdx,
                                      &macBSSID))
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
              "This station does not exist in the WDI Station Table %d");
-#endif
     wpalMutexRelease(&pWDICtx->wptMutex);
     return WDI_STATUS_E_FAILURE;
   }
@@ -9757,11 +9451,10 @@ WDI_ProcessDelBAReq
 
   if ( NULL == pBSSSes )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
             "%s: Association sequence for this BSS does not yet exist. macBSSID " MAC_ADDRESS_STR,
             __func__, MAC_ADDR_ARRAY(macBSSID));
-#endif
+
     wpalMutexRelease(&pWDICtx->wptMutex);
     return WDI_STATUS_E_NOT_ALLOWED;
   }
@@ -9772,11 +9465,10 @@ WDI_ProcessDelBAReq
   ------------------------------------------------------------------------*/
   if ( eWLAN_PAL_TRUE == pBSSSes->bAssocReqQueued )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
               "%s: Association sequence for this BSS exists but currently queued. macBSSID " MAC_ADDRESS_STR,
               __func__, MAC_ADDR_ARRAY(macBSSID));
-#endif
+
     wdiStatus = WDI_QueueAssocRequest( pWDICtx, pBSSSes, pEventData);
     wpalMutexRelease(&pWDICtx->wptMutex);
     return wdiStatus;
@@ -9788,12 +9480,10 @@ WDI_ProcessDelBAReq
                         &pSendBuffer, &usDataOffset, &usSendSize))||
       ( usSendSize < (usDataOffset + sizeof(halDelBAparam) )))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
               "Unable to get send buffer for DEL BA req %x %x %x",
                 pEventData, pwdiDelBAParams, wdiDelBARspCb);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -9842,11 +9532,9 @@ WDI_ProcessTSMStatsReq
   if (( NULL == pEventData ) || ( NULL == pEventData->pEventData ) ||
       ( NULL == pEventData->pCBfnc ))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -9861,11 +9549,10 @@ WDI_ProcessTSMStatsReq
   ucCurrentBSSSesIdx = WDI_FindAssocSession( pWDICtx, pwdiTSMParams->wdiTsmStatsParamsInfo.bssid, &pBSSSes);
   if ( NULL == pBSSSes )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
             "%s: Association sequence for this BSS does not yet exist. macBSSID " MAC_ADDRESS_STR,
             __func__, MAC_ADDR_ARRAY(pwdiTSMParams->wdiTsmStatsParamsInfo.bssid));
-#endif
+
     wpalMutexRelease(&pWDICtx->wptMutex);
     return WDI_STATUS_E_NOT_ALLOWED;
   }
@@ -9876,11 +9563,10 @@ WDI_ProcessTSMStatsReq
   ------------------------------------------------------------------------*/
   if ( eWLAN_PAL_TRUE == pBSSSes->bAssocReqQueued )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
               "s: Association sequence for this BSS exists but currently queued. macBSSID " MAC_ADDRESS_STR,
               __func__, MAC_ADDR_ARRAY(pwdiTSMParams->wdiTsmStatsParamsInfo.bssid));
-#endif
+
     wdiStatus = WDI_QueueAssocRequest( pWDICtx, pBSSSes, pEventData);
     wpalMutexRelease(&pWDICtx->wptMutex);
     return wdiStatus;
@@ -9896,12 +9582,10 @@ WDI_ProcessTSMStatsReq
                                                     &pSendBuffer, &usDataOffset,                                                     &usSendSize))||
       ( usSendSize < (usDataOffset + sizeof(halTsmStatsReqParams) )))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
               "Unable to get send buffer in set bss key req %x %x %x",
                 pEventData, pwdiTSMParams, wdiTSMRspCb);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -9957,11 +9641,9 @@ WDI_ProcessFlushAcReq
    if (( NULL == pEventData ) || ( NULL == pEventData->pEventData ) ||
        ( NULL == pEventData->pCBfnc ))
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                   "%s: Invalid parameters", __FUNCTION__);
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
    }
 
@@ -9976,12 +9658,10 @@ WDI_ProcessFlushAcReq
                          &pSendBuffer, &usDataOffset, &usSendSize))||
        ( usSendSize < (usDataOffset + sizeof(pwdiFlushAcParams->wdiFlushAcInfo) )))
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
                "Unable to get send buffer in set bss key req %x %x %x",
                  pEventData, pwdiFlushAcParams, wdiFlushAcRspCb);
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
    }
 
@@ -10031,11 +9711,9 @@ WDI_ProcessBtAmpEventReq
    if (( NULL == pEventData ) || ( NULL == pEventData->pEventData ) ||
        ( NULL == pEventData->pCBfnc ))
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                   "%s: Invalid parameters", __FUNCTION__);
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
    }
 
@@ -10050,12 +9728,10 @@ WDI_ProcessBtAmpEventReq
                          &pSendBuffer, &usDataOffset, &usSendSize))||
        ( usSendSize < (usDataOffset + sizeof(haltBtAmpEventMsg.btAmpEventParams) )))
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
                "Unable to get send buffer in BT AMP event req %x %x %x",
                  pEventData, pwdiBtAmpEventParams, wdiBtAmpEventRspCb);
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
    }
 
@@ -10107,11 +9783,9 @@ WDI_ProcessAddSTASelfReq
       ( NULL == pEventData->pEventData) ||
       ( NULL == pEventData->pCBfnc))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -10128,12 +9802,10 @@ WDI_ProcessAddSTASelfReq
                         &pSendBuffer, &usDataOffset, &usSendSize))||
       ( usSendSize < (usDataOffset + sizeof(tAddStaSelfParams) )))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
               "Unable to get send buffer in ADD STA SELF REQ %x %x %x",
      pEventData, pwdiAddSTASelfReqParams, wdiAddSTASelfReqRspCb);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -10191,11 +9863,9 @@ WDI_ProcessDelSTASelfReq
   if (( NULL == pEventData ) || ( NULL == pEventData->pEventData ) ||
       ( NULL == pEventData->pCBfnc ))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -10213,12 +9883,10 @@ WDI_ProcessDelSTASelfReq
     ( usSendSize <
          (usDataOffset + sizeof(pwdiDelStaSelfReqParams->wdiDelStaSelfInfo) )))
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
                "Unable to get send buffer in Del Sta Self req %x %x %x",
                  pEventData, pwdiDelStaSelfReqParams, wdiDelStaSelfRspCb);
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
   }
 
@@ -10272,11 +9940,9 @@ WDI_ProcessStartOemDataReq
   if (( NULL == pEventData ) || ( NULL == pEventData->pEventData ) ||
       ( NULL == pEventData->pCBfnc ))
   {
-#ifdef WLAN_DEBUG
       WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                   "%s: Invalid parameters", __FUNCTION__);
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
   }
 
@@ -10294,12 +9960,10 @@ WDI_ProcessStartOemDataReq
                               &pSendBuffer, &usDataOffset, &usSendSize))||
         (usSendSize < (usDataOffset + reqLen)))
   {
-#ifdef WLAN_DEBUG
       WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
                "Unable to get send buffer in Start Oem Data req %x %x %x",
                  pEventData, pwdiOemDataReqParams, wdiOemDataRspCb);
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
   }
 
@@ -10353,11 +10017,9 @@ WDI_ProcessHostResumeReq
   if (( NULL == pEventData ) || ( NULL == pEventData->pEventData ) ||
       ( NULL == pEventData->pCBfnc ))
   {
-#ifdef WLAN_DEBUG
       WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
                "%s: Invalid parameters ",__FUNCTION__);
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
   }
 
@@ -10372,12 +10034,10 @@ WDI_ProcessHostResumeReq
                               &pSendBuffer, &usDataOffset, &usSendSize))||
         (usSendSize < (usDataOffset + sizeof(halResumeReqParams))))
   {
-#ifdef WLAN_DEBUG
       WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
                "Unable to get send buffer in Start Oem Data req %x %x %x",
                  pEventData, pwdiHostResumeParams, wdiHostResumeRspCb);
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
   }
 
@@ -10430,11 +10090,9 @@ WDI_ProcessSetTxPerTrackingReq
    if (( NULL == pEventData ) || ( NULL == pEventData->pEventData ) ||
        ( NULL == pEventData->pCBfnc ))
    {
-#ifdef WLAN_DEBUG
        WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
                 "%s: Invalid parameters ",__FUNCTION__);
        WDI_ASSERT(0);
-#endif
        return WDI_STATUS_E_FAILURE;
    }
 
@@ -10450,12 +10108,10 @@ WDI_ProcessSetTxPerTrackingReq
                          &pSendBuffer, &usDataOffset, &usSendSize))||
        ( usSendSize < (usDataOffset + sizeof(halTxPerTrackingReqParam) )))
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
                   "Unable to get send buffer in set tx per tracking req %x %x %x",
                   pEventData, pwdiSetTxPerTrackingReqParams, pwdiSetTxPerTrackingRspCb);
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
    }
 
@@ -10511,11 +10167,9 @@ WDI_ProcessHostSuspendInd
   -------------------------------------------------------------------------*/
   if (( NULL == pEventData ) || ( NULL == pEventData->pEventData ))
   {
-#ifdef WLAN_DEBUG
       WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
                "%s: Invalid parameters in Suspend ind",__FUNCTION__);
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
   }
 
@@ -10530,11 +10184,9 @@ WDI_ProcessHostSuspendInd
                      &pSendBuffer, &usDataOffset, &usSendSize))||
         (usSendSize < (usDataOffset + sizeof(halWlanSuspendIndparams))))
   {
-#ifdef WLAN_DEBUG
       WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
                   "Unable to get send buffer in Suspend Ind ");
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
   }
 
@@ -10591,11 +10243,9 @@ WDI_ProcessChannelSwitchReq
   if (( NULL == pEventData ) || ( NULL == pEventData->pEventData ) ||
       ( NULL == pEventData->pCBfnc ))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -10610,12 +10260,10 @@ WDI_ProcessChannelSwitchReq
                         &pSendBuffer, &usDataOffset, &usSendSize))||
       ( usSendSize < (usDataOffset + sizeof(halSwitchChannelReq.switchChannelParams) )))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
               "Unable to get send buffer in channel switch req %x %x %x",
                 pEventData, pwdiSwitchChParams, wdiSwitchChRspCb);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -10688,11 +10336,9 @@ WDI_ProcessConfigStaReq
   if (( NULL == pEventData ) || ( NULL == pEventData->pEventData ) ||
       ( NULL == pEventData->pCBfnc ))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -10713,11 +10359,10 @@ WDI_ProcessConfigStaReq
 
   if ( NULL == pBSSSes )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
           "%s: Association sequence for this BSS does not yet exist. macBSSID " MAC_ADDRESS_STR,
           __func__, MAC_ADDR_ARRAY(pwdiConfigSTAParams->wdiReqInfo.macBSSID));
-#endif
+
     wpalMutexRelease(&pWDICtx->wptMutex);
     return WDI_STATUS_E_NOT_ALLOWED;
   }
@@ -10728,11 +10373,10 @@ WDI_ProcessConfigStaReq
   ------------------------------------------------------------------------*/
   if ( eWLAN_PAL_TRUE == pBSSSes->bAssocReqQueued )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
               "%s: Association sequence for this BSS exists but currently queued. macBSSID " MAC_ADDRESS_STR,
               __func__, MAC_ADDR_ARRAY(pwdiConfigSTAParams->wdiReqInfo.macBSSID));
-#endif
+
     wdiStatus = WDI_QueueAssocRequest( pWDICtx, pBSSSes, pEventData);
     wpalMutexRelease(&pWDICtx->wptMutex);
     return wdiStatus;
@@ -10756,12 +10400,10 @@ WDI_ProcessConfigStaReq
                         &pSendBuffer, &usDataOffset, &usSendSize))||
       ( usSendSize < (usDataOffset + uMsgSize )))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
               "Unable to get send buffer in config sta req %x %x %x",
                 pEventData, pwdiConfigSTAParams, wdiConfigSTARspCb);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -10777,10 +10419,8 @@ WDI_ProcessConfigStaReq
                                      pwdiConfigSTAParams->wdiReqInfo.macSTA,
                                      (wpt_uint8*)&halConfigStaReqMsg.uStaParams.configStaParams.staIdx ))
     {
-#ifdef WLAN_DEBUG
       WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
                "This station does not exist in the WDI Station Table %d");
-#endif
       wpalMutexRelease(&pWDICtx->wptMutex);
       return WDI_STATUS_E_FAILURE;
     }
@@ -10848,11 +10488,9 @@ WDI_ProcessSetLinkStateReq
   if (( NULL == pEventData ) || ( NULL == pEventData->pEventData ) ||
       ( NULL == pEventData->pCBfnc ))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -10873,11 +10511,9 @@ WDI_ProcessSetLinkStateReq
 
   if ( NULL == pBSSSes )
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_INFO, 
      "%s: Set link request received outside association session. macBSSID " MAC_ADDRESS_STR, 
      __func__, MAC_ADDR_ARRAY(pwdiSetLinkParams->wdiLinkInfo.macBSSID));
-#endif
   }
   else
   {
@@ -10887,11 +10523,10 @@ WDI_ProcessSetLinkStateReq
     ------------------------------------------------------------------------*/
     if ( eWLAN_PAL_TRUE == pBSSSes->bAssocReqQueued )
     {
-#ifdef WLAN_DEBUG
       WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                 "%s: Association sequence for this BSS exists but currently queued. macBSSID " MAC_ADDRESS_STR,
                 __func__, MAC_ADDR_ARRAY(pwdiSetLinkParams->wdiLinkInfo.macBSSID));
-#endif
+
       wdiStatus = WDI_QueueAssocRequest( pWDICtx, pBSSSes, pEventData);
       wpalMutexRelease(&pWDICtx->wptMutex);
       return wdiStatus;
@@ -10914,12 +10549,10 @@ WDI_ProcessSetLinkStateReq
                         &pSendBuffer, &usDataOffset, &usSendSize))||
       ( usSendSize < (usDataOffset + sizeof(halLinkStateReqMsg) )))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
               "Unable to get send buffer in set bss key req %x %x %x",
                 pEventData, pwdiSetLinkParams, wdiSetLinkRspCb);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -10982,11 +10615,9 @@ WDI_ProcessGetStatsReq
   if (( NULL == pEventData ) || ( NULL == pEventData->pEventData) ||
       ( NULL == pEventData->pCBfnc ) )
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -11006,10 +10637,8 @@ WDI_ProcessGetStatsReq
                         pwdiGetStatsParams->wdiGetStatsParamsInfo.ucSTAIdx,
                         &macBSSID))
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
              "This station does not exist in the WDI Station Table %d");
-#endif
     wpalMutexRelease(&pWDICtx->wptMutex);
     return WDI_STATUS_E_FAILURE;
   }
@@ -11017,11 +10646,10 @@ WDI_ProcessGetStatsReq
   ucCurrentBSSSesIdx = WDI_FindAssocSession( pWDICtx, macBSSID, &pBSSSes);
   if ( NULL == pBSSSes )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
         "%s: Association sequence for this BSS does not yet exist. macBSSID " MAC_ADDRESS_STR,
         __func__, MAC_ADDR_ARRAY(macBSSID));
-#endif
+
     wpalMutexRelease(&pWDICtx->wptMutex);
     return WDI_STATUS_E_NOT_ALLOWED;
   }
@@ -11032,11 +10660,10 @@ WDI_ProcessGetStatsReq
   ------------------------------------------------------------------------*/
   if ( eWLAN_PAL_TRUE == pBSSSes->bAssocReqQueued )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
               "%s: Association sequence for this BSS exists but currently queued. macBSSID " MAC_ADDRESS_STR,
               __func__, MAC_ADDR_ARRAY(macBSSID));
-#endif
+
     wdiStatus = WDI_QueueAssocRequest( pWDICtx, pBSSSes, pEventData);
     wpalMutexRelease(&pWDICtx->wptMutex);
     return wdiStatus;
@@ -11053,12 +10680,10 @@ WDI_ProcessGetStatsReq
                         &pSendBuffer, &usDataOffset, &usSendSize))||
       ( usSendSize < (usDataOffset + sizeof(halStatsReqMsg.statsReqParams) )))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
               "Unable to get send buffer in set bss key req %x %x %x",
                 pEventData, pwdiGetStatsParams, wdiGetStatsRspCb);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -11111,11 +10736,9 @@ WDI_ProcessUpdateCfgReq
   if (( NULL == pEventData ) || ( NULL == pEventData->pEventData ) ||
       ( NULL == pEventData->pCBfnc))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -11132,12 +10755,10 @@ WDI_ProcessUpdateCfgReq
                         &pSendBuffer, &usDataOffset, &usSendSize))||
       ( usSendSize < (usDataOffset +  pwdiUpdateCfgParams->uConfigBufferLen)))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
               "Unable to get send buffer in set bss key req %x %x %x",
                 pEventData, pwdiUpdateCfgParams, wdiUpdateCfgRspCb);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -11198,11 +10819,9 @@ WDI_ProcessAddBAReq
       ( NULL == pEventData->pEventData) ||
       ( NULL == pEventData->pCBfnc ))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -11222,10 +10841,8 @@ WDI_ProcessAddBAReq
                                   pwdiAddBAParams->wdiBAInfoType.ucSTAIdx,
                                   &macBSSID))
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
              "This station does not exist in the WDI Station Table %d");
-#endif
     wpalMutexRelease(&pWDICtx->wptMutex);
     return WDI_STATUS_E_FAILURE;
   }
@@ -11233,11 +10850,10 @@ WDI_ProcessAddBAReq
   ucCurrentBSSSesIdx = WDI_FindAssocSession( pWDICtx, macBSSID, &pBSSSes);
   if ( NULL == pBSSSes )
   {
-#ifdef WLAN_DEBUG
       WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
             "%s: Association sequence for this BSS does not yet exist. macBSSID " MAC_ADDRESS_STR,
             __func__, MAC_ADDR_ARRAY(macBSSID));
-#endif
+
     wpalMutexRelease(&pWDICtx->wptMutex);
     return WDI_STATUS_E_NOT_ALLOWED;
   }
@@ -11248,11 +10864,10 @@ WDI_ProcessAddBAReq
   ------------------------------------------------------------------------*/
   if ( eWLAN_PAL_TRUE == pBSSSes->bAssocReqQueued )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
               "%s: Association sequence for this BSS exists but currently queued. macBSSID " MAC_ADDRESS_STR,
               __func__, MAC_ADDR_ARRAY(macBSSID));
-#endif
+
     wdiStatus = WDI_QueueAssocRequest( pWDICtx, pBSSSes, pEventData);
     wpalMutexRelease(&pWDICtx->wptMutex);
     return wdiStatus;
@@ -11269,12 +10884,10 @@ WDI_ProcessAddBAReq
       ( usSendSize <
             (usDataOffset + sizeof(halAddBAReq.addBAParams) )))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
               "Unable to get send buffer in Add BA req %x %x %x",
                 pEventData, pwdiAddBAParams, wdiAddBARspCb);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -11343,11 +10956,9 @@ WDI_ProcessTriggerBAReq
       ( NULL == pEventData->pEventData ) ||
       ( NULL == pEventData->pCBfnc ))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -11366,10 +10977,8 @@ WDI_ProcessTriggerBAReq
                                   pwdiTriggerBAParams->wdiTriggerBAInfoType.ucSTAIdx,
                                   &macBSSID))
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
              "This station does not exist in the WDI Station Table %d");
-#endif
     wpalMutexRelease(&pWDICtx->wptMutex);
     return WDI_STATUS_E_FAILURE;
   }
@@ -11377,11 +10986,10 @@ WDI_ProcessTriggerBAReq
   ucCurrentBSSSesIdx = WDI_FindAssocSession( pWDICtx, macBSSID, &pBSSSes);
   if ( NULL == pBSSSes )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
         "%s: Association sequence for this BSS does not yet exist. macBSSID " MAC_ADDRESS_STR,
         __func__, MAC_ADDR_ARRAY(macBSSID));
-#endif
+
     wpalMutexRelease(&pWDICtx->wptMutex);
     return WDI_STATUS_E_NOT_ALLOWED;
   }
@@ -11392,11 +11000,10 @@ WDI_ProcessTriggerBAReq
   ------------------------------------------------------------------------*/
   if ( eWLAN_PAL_TRUE == pBSSSes->bAssocReqQueued )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
               "%s: Association sequence for this BSS exists but currently queued. macBSSID " MAC_ADDRESS_STR,
               __func__, MAC_ADDR_ARRAY(macBSSID));
-#endif
+
     wdiStatus = WDI_QueueAssocRequest( pWDICtx, pBSSSes, pEventData);
     wpalMutexRelease(&pWDICtx->wptMutex);
     return wdiStatus;
@@ -11418,12 +11025,10 @@ WDI_ProcessTriggerBAReq
                (sizeof(tTriggerBaReqCandidate) *
                pwdiTriggerBAParams->wdiTriggerBAInfoType.usBACandidateCnt) )))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
               "Unable to get send buffer in Trigger BA req %x %x %x",
                 pEventData, pwdiTriggerBAParams, wdiTriggerBARspCb);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -11495,11 +11100,9 @@ WDI_ProcessUpdateBeaconParamsReq
       ( NULL == pEventData->pEventData) ||
       ( NULL == pEventData->pCBfnc))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -11513,12 +11116,10 @@ WDI_ProcessUpdateBeaconParamsReq
                         &pSendBuffer, &usDataOffset, &usSendSize))||
       ( usSendSize < (usDataOffset + sizeof(halUpdateBeaconParams) )))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
               "Unable to get send buffer in set bss key req %x %x %x",
                 pEventData, pwdiUpdateBeaconParams, wdiUpdateBeaconParamsRspCb);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -11601,11 +11202,9 @@ WDI_ProcessSendBeaconParamsReq
       ( NULL == pEventData->pEventData ) ||
       ( NULL == pEventData->pCBfnc ))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -11619,12 +11218,10 @@ WDI_ProcessSendBeaconParamsReq
                         &pSendBuffer, &usDataOffset, &usSendSize))||
       ( usSendSize < (usDataOffset + sizeof(halSendBeaconReq.sendBeaconParam) )))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
               "Unable to get send buffer in send beacon req %x %x %x",
                 pEventData, pwdiSendBeaconParams, wdiSendBeaconParamsRspCb);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -11691,11 +11288,9 @@ WDI_ProcessUpdateProbeRspTemplateReq
       ( NULL == pEventData->pEventData) ||
       ( NULL == pEventData->pCBfnc))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -11711,12 +11306,10 @@ WDI_ProcessUpdateProbeRspTemplateReq
                         &pSendBuffer, &usDataOffset, &usSendSize))||
       ( usSendSize < (usDataOffset + sizeof(halUpdateProbeRspTmplParams) )))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
               "Unable to get send buffer in set bss key req %x %x %x",
      pEventData, pwdiUpdateProbeRespTmplParams, wdiUpdateProbeRespTmplRspCb);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -11781,11 +11374,9 @@ WDI_ProcessNvDownloadReq
       ( NULL == (wdiNvDownloadRspCb =
                 (WDI_NvDownloadRspCb)pEventData->pCBfnc)))
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                 "%s: Invalid parameters", __FUNCTION__);
     WDI_ASSERT(0);
-#endif
     return WDI_STATUS_E_FAILURE;
   }
 
@@ -11839,11 +11430,9 @@ WDI_Status WDI_ProcessSetMaxTxPowerReq
       ( NULL == pEventData->pEventData ) ||
       ( NULL == pEventData->pCBfnc ))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
   pwdiSetMaxTxPowerParams =
@@ -11860,12 +11449,10 @@ if (( WDI_STATUS_SUCCESS != WDI_GetMessageBuffer( pWDICtx, WDI_SET_MAX_TX_POWER_
       ( usSendSize < (usDataOffset + sizeof(halSetMaxTxPower.setMaxTxPwrParams)
 )))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_ERROR,
               "Unable to get Set Max Tx Power req %x %x %x",
                 pEventData, pwdiSetMaxTxPowerParams, wdiSetMaxTxPowerRspCb);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -11929,11 +11516,9 @@ WDI_ProcessP2PGONOAReq
       ( NULL == pEventData->pEventData) ||
       ( NULL == pEventData->pCBfnc))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -11950,12 +11535,10 @@ WDI_ProcessP2PGONOAReq
                         &pSendBuffer, &usDataOffset, &usSendSize))||
       ( usSendSize < (usDataOffset + sizeof(halSetP2PGONOAParams) )))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
               "Unable to get send buffer in set P2P GO NOA REQ %x %x %x",
      pEventData, pwdiP2PGONOAReqParams, wdiP2PGONOAReqRspCb);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -12029,7 +11612,6 @@ WDI_SetPowerStateCb
    }
    pCB->dxePhyAddr = dxePhyAddr;
    wptStatus  = wpalEventSet(&pCB->setPowerStateEvent);
-#ifdef WLAN_DEBUG
    if ( eWLAN_PAL_STATUS_SUCCESS !=  wptStatus )
    {
       WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
@@ -12037,7 +11619,6 @@ WDI_SetPowerStateCb
 
       WDI_ASSERT(0);
    }
-#endif
    return;
 }
 
@@ -12072,11 +11653,9 @@ WDI_ProcessEnterImpsReq
    if (( NULL == pEventData ) ||
        ( NULL == (wdiEnterImpsRspCb   = (WDI_EnterImpsRspCb)pEventData->pCBfnc)))
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                   "%s: Invalid parameters", __FUNCTION__);
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
    }
 
@@ -12089,12 +11668,10 @@ WDI_ProcessEnterImpsReq
                                                      &pSendBuffer, &usDataOffset, &usSendSize))||
        ( usSendSize < (usDataOffset )))
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
                "Unable to get send buffer in Enter IMPS req %x %x",
                  pEventData, wdiEnterImpsRspCb);
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
    }
 
@@ -12102,12 +11679,10 @@ WDI_ProcessEnterImpsReq
    wptStatus = wpalEventReset(&pWDICtx->setPowerStateEvent);
    if ( eWLAN_PAL_STATUS_SUCCESS != wptStatus )
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                 "WDI Init failed to reset an event");
 
       WDI_ASSERT(0);
-#endif
       return VOS_STATUS_E_FAILURE;
    }
 
@@ -12121,12 +11696,10 @@ WDI_ProcessEnterImpsReq
                              WDI_SET_POWER_STATE_TIMEOUT);
    if ( eWLAN_PAL_STATUS_SUCCESS != wptStatus )
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                 "WDI Init failed to wait on an event");
 
       WDI_ASSERT(0);
-#endif
       return VOS_STATUS_E_FAILURE;
    }
 
@@ -12166,11 +11739,9 @@ WDI_ProcessExitImpsReq
    if (( NULL == pEventData ) ||
        ( NULL == (wdiExitImpsRspCb   = (WDI_ExitImpsRspCb)pEventData->pCBfnc)))
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                   "%s: Invalid parameters", __FUNCTION__);
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
    }
 
@@ -12183,12 +11754,10 @@ WDI_ProcessExitImpsReq
                                                      &pSendBuffer, &usDataOffset, &usSendSize))||
        ( usSendSize < (usDataOffset )))
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
                "Unable to get send buffer in Exit IMPS req %x %x",
                  pEventData, wdiExitImpsRspCb);
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
    }
 
@@ -12233,11 +11802,9 @@ WDI_ProcessEnterBmpsReq
        ( NULL == (pwdiEnterBmpsReqParams = (WDI_EnterBmpsReqParamsType*)pEventData->pEventData)) ||
        ( NULL == (wdiEnterBmpsRspCb   = (WDI_EnterBmpsRspCb)pEventData->pCBfnc)))
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                   "%s: Invalid parameters", __FUNCTION__);
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
    }
 
@@ -12250,12 +11817,10 @@ WDI_ProcessEnterBmpsReq
                          &pSendBuffer, &usDataOffset, &usSendSize))||
        ( usSendSize < (usDataOffset + sizeof(enterBmpsReq) )))
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
                "Unable to get send buffer in Enter BMPS req %x %x %x",
                  pEventData, pwdiEnterBmpsReqParams, wdiEnterBmpsRspCb);
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
    }
 
@@ -12263,12 +11828,10 @@ WDI_ProcessEnterBmpsReq
    wptStatus = wpalEventReset(&pWDICtx->setPowerStateEvent);
    if ( eWLAN_PAL_STATUS_SUCCESS != wptStatus )
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                 "WDI Init failed to reset an event");
 
       WDI_ASSERT(0);
-#endif
       return VOS_STATUS_E_FAILURE;
    }
 
@@ -12282,12 +11845,10 @@ WDI_ProcessEnterBmpsReq
                              WDI_SET_POWER_STATE_TIMEOUT);
    if ( eWLAN_PAL_STATUS_SUCCESS != wptStatus )
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                 "WDI Init failed to wait on an event");
 
       WDI_ASSERT(0);
-#endif
       return VOS_STATUS_E_FAILURE;
    }
 
@@ -12349,11 +11910,9 @@ WDI_ProcessExitBmpsReq
        ( NULL == (pwdiExitBmpsReqParams = (WDI_ExitBmpsReqParamsType*)pEventData->pEventData)) ||
        ( NULL == (wdiExitBmpsRspCb   = (WDI_ExitBmpsRspCb)pEventData->pCBfnc)))
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                   "%s: Invalid parameters", __FUNCTION__);
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
    }
 
@@ -12366,12 +11925,10 @@ WDI_ProcessExitBmpsReq
                          &pSendBuffer, &usDataOffset, &usSendSize))||
        ( usSendSize < (usDataOffset + sizeof(exitBmpsReq) )))
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
                "Unable to get send buffer in Exit BMPS req %x %x %x",
                  pEventData, pwdiExitBmpsReqParams, wdiExitBmpsRspCb);
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
    }
    exitBmpsReq.sendDataNull = pwdiExitBmpsReqParams->wdiExitBmpsInfo.ucSendDataNull;
@@ -12424,11 +11981,9 @@ WDI_ProcessEnterUapsdReq
        ( NULL == (pwdiEnterUapsdReqParams = (WDI_EnterUapsdReqParamsType*)pEventData->pEventData)) ||
        ( NULL == (wdiEnterUapsdRspCb   = (WDI_EnterUapsdRspCb)pEventData->pCBfnc)))
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                   "%s: Invalid parameters", __FUNCTION__);
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
    }
 
@@ -12441,12 +11996,10 @@ WDI_ProcessEnterUapsdReq
                          &pSendBuffer, &usDataOffset, &usSendSize))||
        ( usSendSize < (usDataOffset + sizeof(enterUapsdReq) )))
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
                "Unable to get send buffer in Enter UAPSD req %x %x %x",
                  pEventData, pwdiEnterUapsdReqParams, wdiEnterUapsdRspCb);
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
    }
 
@@ -12503,11 +12056,9 @@ WDI_ProcessExitUapsdReq
    if (( NULL == pEventData ) ||
        ( NULL == (wdiExitUapsdRspCb   = (WDI_ExitUapsdRspCb)pEventData->pCBfnc)))
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                   "%s: Invalid parameters", __FUNCTION__);
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
    }
 
@@ -12520,12 +12071,10 @@ WDI_ProcessExitUapsdReq
                                                      &pSendBuffer, &usDataOffset, &usSendSize))||
        ( usSendSize < (usDataOffset )))
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
                "Unable to get send buffer in Exit UAPSD req %x %x",
                  pEventData, wdiExitUapsdRspCb);
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
    }
 
@@ -12568,11 +12117,9 @@ WDI_ProcessSetUapsdAcParamsReq
       ( NULL == (pwdiSetUapsdAcParams = (WDI_SetUapsdAcParamsReqParamsType*)pEventData->pEventData)) ||
       ( NULL == (wdiSetUapsdAcParamsCb   = (WDI_SetUapsdAcParamsCb)pEventData->pCBfnc)))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -12585,12 +12132,10 @@ WDI_ProcessSetUapsdAcParamsReq
                         &pSendBuffer, &usDataOffset, &usSendSize))||
       ( usSendSize < (usDataOffset + sizeof(uapsdAcParamsReq) )))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
               "Unable to get send buffer in Set UAPSD params req %x %x %x",
                 pEventData, pwdiSetUapsdAcParams, wdiSetUapsdAcParamsCb);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -12646,11 +12191,9 @@ WDI_ProcessUpdateUapsdParamsReq
        ( NULL == (pwdiUpdateUapsdReqParams = (WDI_UpdateUapsdReqParamsType*)pEventData->pEventData)) ||
        ( NULL == (wdiUpdateUapsdParamsCb   = (WDI_UpdateUapsdParamsCb)pEventData->pCBfnc)))
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                   "%s: Invalid parameters", __FUNCTION__);
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
    }
 
@@ -12663,12 +12206,10 @@ WDI_ProcessUpdateUapsdParamsReq
                          &pSendBuffer, &usDataOffset, &usSendSize))||
        ( usSendSize < (usDataOffset + sizeof(pwdiUpdateUapsdReqParams->wdiUpdateUapsdInfo) )))
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
                "Unable to get send buffer in Update UAPSD params req %x %x %x",
                  pEventData, pwdiUpdateUapsdReqParams, wdiUpdateUapsdParamsCb);
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
    }
 
@@ -12719,11 +12260,9 @@ WDI_ProcessConfigureRxpFilterReq
       ( NULL == (pwdiRxpFilterParams = (WDI_ConfigureRxpFilterReqParamsType*)pEventData->pEventData)) ||
       ( NULL == (wdiConfigureRxpFilterCb   = (WDI_ConfigureRxpFilterCb)pEventData->pCBfnc)))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -12735,12 +12274,10 @@ WDI_ProcessConfigureRxpFilterReq
                         &pSendBuffer, &usDataOffset, &usSendSize))||
       ( usSendSize < (usDataOffset + sizeof(halRxpFilterParams) )))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
               "Unable to get send buffer in Set UAPSD params req %x %x %x",
                 pEventData, pwdiRxpFilterParams, wdiConfigureRxpFilterCb);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -12794,11 +12331,9 @@ WDI_ProcessSetBeaconFilterReq
        ( NULL == (pwdiBeaconFilterParams = (WDI_BeaconFilterReqParamsType*)pEventData->pEventData)) ||
        ( NULL == (wdiBeaconFilterCb   = (WDI_SetBeaconFilterCb)pEventData->pCBfnc)))
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                   "%s: Invalid parameters", __FUNCTION__);
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
    }
 
@@ -12811,12 +12346,10 @@ WDI_ProcessSetBeaconFilterReq
                          &pSendBuffer, &usDataOffset, &usSendSize))||
        ( usSendSize < (usDataOffset + sizeof(pwdiBeaconFilterParams->wdiBeaconFilterInfo) )))
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
                "Unable to get send buffer in Set beacon filter req %x %x %x",
                  pEventData, pwdiBeaconFilterParams, wdiBeaconFilterCb);
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
    }
 
@@ -12868,11 +12401,9 @@ WDI_ProcessRemBeaconFilterReq
        ( NULL == (pwdiBeaconFilterParams = (WDI_RemBeaconFilterReqParamsType*)pEventData->pEventData)) ||
        ( NULL == (wdiBeaconFilterCb   = (WDI_RemBeaconFilterCb)pEventData->pCBfnc)))
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                   "%s: Invalid parameters", __FUNCTION__);
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
    }
 
@@ -12885,12 +12416,10 @@ WDI_ProcessRemBeaconFilterReq
                          &pSendBuffer, &usDataOffset, &usSendSize))||
        ( usSendSize < (usDataOffset + sizeof(pwdiBeaconFilterParams->wdiBeaconFilterInfo) )))
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
                   "Unable to get send buffer in remove beacon filter req %x %x %x",
                   pEventData, pwdiBeaconFilterParams, wdiBeaconFilterCb);
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
    }
 
@@ -12941,11 +12470,9 @@ WDI_ProcessSetRSSIThresholdsReq
        ( NULL == (pwdiRSSIThresholdsParams = (WDI_SetRSSIThresholdsReqParamsType*)pEventData->pEventData)) ||
        ( NULL == (wdiRSSIThresholdsCb   = (WDI_SetRSSIThresholdsCb)pEventData->pCBfnc)))
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                   "%s: Invalid parameters", __FUNCTION__);
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
    }
 
@@ -12958,12 +12485,10 @@ WDI_ProcessSetRSSIThresholdsReq
                          &pSendBuffer, &usDataOffset, &usSendSize))||
        ( usSendSize < (usDataOffset + sizeof(rssiThresholdsReq) )))
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
                   "Unable to get send buffer in remove beacon filter req %x %x %x",
                   pEventData, pwdiRSSIThresholdsParams, wdiRSSIThresholdsCb);
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
    }
 
@@ -13047,11 +12572,9 @@ WDI_ProcessHostOffloadReq
        ( NULL == (pwdiHostOffloadParams = (WDI_HostOffloadReqParamsType*)pEventData->pEventData)) ||
        ( NULL == (wdiHostOffloadCb   = (WDI_HostOffloadCb)pEventData->pCBfnc)))
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                   "%s: Invalid parameters", __FUNCTION__);
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
    }
 
@@ -13064,12 +12587,10 @@ WDI_ProcessHostOffloadReq
                          &pSendBuffer, &usDataOffset, &usSendSize))||
        ( usSendSize < (usDataOffset + sizeof(hostOffloadParams) + sizeof(nsOffloadParams) )))
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
                   "Unable to get send buffer in host offload req %x %x %x",
                   pEventData, pwdiHostOffloadParams, wdiHostOffloadCb);
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
    }
 
@@ -13173,11 +12694,9 @@ WDI_ProcessKeepAliveReq
        ( NULL == (pwdiKeepAliveParams = (WDI_KeepAliveReqParamsType*)pEventData->pEventData)) ||
        ( NULL == (wdiKeepAliveCb   = (WDI_KeepAliveCb)pEventData->pCBfnc)))
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_ERROR,
                "Invalid parameters in Keep Alive req");
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
    }
 
@@ -13190,12 +12709,10 @@ WDI_ProcessKeepAliveReq
                          &pSendBuffer, &usDataOffset, &usSendSize))||
        ( usSendSize < (usDataOffset + sizeof(keepAliveReq) )))
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_ERROR,
                   "Unable to get send buffer in keep alive req %x %x %x",
                   pEventData, pwdiKeepAliveParams, wdiKeepAliveCb);
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
    }
 
@@ -13221,20 +12738,18 @@ WDI_ProcessKeepAliveReq
                    &keepAliveReq,
                    sizeof(keepAliveReq));
 
-#ifdef WLAN_DEBUG
    WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_INFO,
                "Process keep alive req %d",sizeof(keepAliveReq));
 
    WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_INFO,
                "Process keep alive req time period %d",keepAliveReq.timePeriod);
-#endif
+
    pWDICtx->wdiReqStatusCB     = pwdiKeepAliveParams->wdiReqStatusCB;
    pWDICtx->pReqStatusUserData = pwdiKeepAliveParams->pUserData;
 
-#ifdef WLAN_DEBUG
   WPAL_TRACE(eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_INFO,
                   "Sending keep alive req to HAL");
-#endif
+
    /*-------------------------------------------------------------------------
      Send Get STA Request to HAL
    -------------------------------------------------------------------------*/
@@ -13275,11 +12790,9 @@ WDI_ProcessWowlAddBcPtrnReq
        ( NULL == (pwdiWowlAddBcPtrnParams = (WDI_WowlAddBcPtrnReqParamsType*)pEventData->pEventData)) ||
        ( NULL == (wdiWowlAddBcPtrnCb   = (WDI_WowlAddBcPtrnCb)pEventData->pCBfnc)))
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                   "%s: Invalid parameters", __FUNCTION__);
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
    }
 
@@ -13292,12 +12805,10 @@ WDI_ProcessWowlAddBcPtrnReq
                          &pSendBuffer, &usDataOffset, &usSendSize))||
        ( usSendSize < (usDataOffset + sizeof(wowlAddBcPtrnReq) )))
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
                   "Unable to get send buffer in Wowl add bc ptrn req %x %x %x",
                   pEventData, pwdiWowlAddBcPtrnParams, wdiWowlAddBcPtrnCb);
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
    }
 
@@ -13382,11 +12893,9 @@ WDI_ProcessWowlDelBcPtrnReq
        ( NULL == (pwdiWowlDelBcPtrnParams = (WDI_WowlDelBcPtrnReqParamsType*)pEventData->pEventData)) ||
        ( NULL == (wdiWowlDelBcPtrnCb   = (WDI_WowlDelBcPtrnCb)pEventData->pCBfnc)))
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                   "%s: Invalid parameters", __FUNCTION__);
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
    }
 
@@ -13399,12 +12908,10 @@ WDI_ProcessWowlDelBcPtrnReq
                          &pSendBuffer, &usDataOffset, &usSendSize))||
        ( usSendSize < (usDataOffset + sizeof(wowlDelBcPtrnReq) )))
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
                   "Unable to get send buffer in Wowl del bc ptrn req %x %x %x",
                   pEventData, pwdiWowlDelBcPtrnParams, wdiWowlDelBcPtrnCb);
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
    }
 
@@ -13456,11 +12963,9 @@ WDI_ProcessWowlEnterReq
        ( NULL == (pwdiWowlEnterParams = (WDI_WowlEnterReqParamsType*)pEventData->pEventData)) ||
        ( NULL == (wdiWowlEnterCb   = (WDI_WowlEnterReqCb)pEventData->pCBfnc)))
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                   "%s: Invalid parameters", __FUNCTION__);
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
    }
 
@@ -13473,12 +12978,10 @@ WDI_ProcessWowlEnterReq
                          &pSendBuffer, &usDataOffset, &usSendSize))||
        ( usSendSize < (usDataOffset + sizeof(wowlEnterReq) )))
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
                   "Unable to get send buffer in Wowl enter req %x %x %x",
                   pEventData, pwdiWowlEnterParams, wdiWowlEnterCb);
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
    }
 
@@ -13563,11 +13066,9 @@ WDI_ProcessWowlExitReq
    if (( NULL == pEventData ) ||
        ( NULL == (wdiWowlExitCb   = (WDI_WowlExitReqCb)pEventData->pCBfnc)))
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                   "%s: Invalid parameters", __FUNCTION__);
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
    }
 
@@ -13580,12 +13081,10 @@ WDI_ProcessWowlExitReq
                                                      &pSendBuffer, &usDataOffset, &usSendSize))||
        ( usSendSize < (usDataOffset )))
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
                "Unable to get send buffer in Wowl Exit req %x %x",
                  pEventData, wdiWowlExitCb);
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
    }
 
@@ -13628,11 +13127,9 @@ WDI_ProcessConfigureAppsCpuWakeupStateReq
        ( NULL == (pwdiAppsCpuWakeupStateParams = (WDI_ConfigureAppsCpuWakeupStateReqParamsType*)pEventData->pEventData)) ||
        ( NULL == (wdiConfigureAppsCpuWakeupStateCb   = (WDI_ConfigureAppsCpuWakeupStateCb)pEventData->pCBfnc)))
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                   "%s: Invalid parameters", __FUNCTION__);
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
    }
 
@@ -13644,12 +13141,10 @@ WDI_ProcessConfigureAppsCpuWakeupStateReq
                          &pSendBuffer, &usDataOffset, &usSendSize))||
        ( usSendSize < (usDataOffset + sizeof(pwdiAppsCpuWakeupStateParams->bIsAppsAwake) )))
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
                "Unable to get send buffer in Apps CPU Wakeup State req %x %x %x",
                  pEventData, pwdiAppsCpuWakeupStateParams, wdiConfigureAppsCpuWakeupStateCb);
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
    }
 
@@ -13708,11 +13203,9 @@ WDI_ProcessAggrAddTSpecReq
   if (( NULL == pEventData ) || ( NULL == pEventData->pEventData ) ||
       ( NULL == pEventData->pCBfnc ))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
   wpalMemoryFill( &halAggrAddTsReq, sizeof(tAggrAddTsReq), 0 );
@@ -13731,10 +13224,8 @@ WDI_ProcessAggrAddTSpecReq
                                         pwdiAggrAddTSParams->wdiAggrTsInfo.ucSTAIdx,
                                         &macBSSID))
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
              "This station does not exist in the WDI Station Table %d");
-#endif
     wpalMutexRelease(&pWDICtx->wptMutex);
     return WDI_STATUS_E_FAILURE;
   }
@@ -13742,11 +13233,10 @@ WDI_ProcessAggrAddTSpecReq
   ucCurrentBSSSesIdx = WDI_FindAssocSession( pWDICtx, macBSSID, &pBSSSes);
   if ( NULL == pBSSSes )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
         "%s: Association sequence for this BSS does not yet exist. macBSSID " MAC_ADDRESS_STR,
         __func__, MAC_ADDR_ARRAY(macBSSID));
-#endif
+
     wpalMutexRelease(&pWDICtx->wptMutex);
     return WDI_STATUS_E_NOT_ALLOWED;
   }
@@ -13757,11 +13247,10 @@ WDI_ProcessAggrAddTSpecReq
   ------------------------------------------------------------------------*/
   if ( eWLAN_PAL_TRUE == pBSSSes->bAssocReqQueued )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
               "%s: Association sequence for this BSS exists but currently queued. macBSSID " MAC_ADDRESS_STR,
               __func__, MAC_ADDR_ARRAY(macBSSID));
-#endif
+
     wdiStatus = WDI_QueueAssocRequest( pWDICtx, pBSSSes, pEventData);
     wpalMutexRelease(&pWDICtx->wptMutex);
     return wdiStatus;
@@ -13777,12 +13266,10 @@ WDI_ProcessAggrAddTSpecReq
                         &pSendBuffer, &usDataOffset, &usSendSize))||
       ( usSendSize < (usDataOffset + sizeof(tAggrAddTsParams) )))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
               "Unable to get send buffer in set bss key req %x %x %x",
                 pEventData, pwdiAggrAddTSParams, wdiAggrAddTSRspCb);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -13902,11 +13389,9 @@ WDI_ProcessShutdownReq
      -------------------------------------------------------------------------*/
    if ( NULL == pEventData )
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
             "%s: Invalid parameters", __FUNCTION__);
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
    }
 
@@ -13937,14 +13422,13 @@ WDI_ProcessShutdownReq
    WDI_STATableClose(pWDICtx);
    /*close the PAL */
    wptStatus = wpalClose(pWDICtx->pPALContext);
-#ifdef WLAN_DEBUG
    if ( eWLAN_PAL_STATUS_SUCCESS !=  wptStatus )
    {
       WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
             "Failed to wpal Close %d", wptStatus);
       WDI_ASSERT(0);
    }
-#endif
+
    /*Transition back to init state*/
    WDI_STATE_TRANSITION( pWDICtx, WDI_INIT_ST);
 
@@ -13996,11 +13480,9 @@ WDI_ProcessStartRsp
       ( NULL == pEventData->pEventData) ||
       ( NULL == wdiStartRspCb ))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -14010,12 +13492,10 @@ WDI_ProcessStartRsp
   if ( sizeof(tHalMacStartRspParams) > pEventData->uEventDataSize )
   {
      // not enough data was received
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_FATAL,
                  "Invalid response length in Start Resp Expect %x Rcvd %x",
                  sizeof(tHalMacStartRspParams), pEventData->uEventDataSize);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -14060,12 +13540,11 @@ WDI_ProcessStartRsp
   }
   else
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_ERROR,
                "Failed to start device with status %s(%d)",
                WDI_getHALStatusMsgString(startRspParams->status),
                startRspParams->status);
-#endif
+
     /*Set the expected state transition to stopped - because the start has
       failed*/
     pWDICtx->ucExpectedStateTransition =  WDI_STOPPED_ST;
@@ -14169,11 +13648,9 @@ WDI_ProcessStopRsp
       ( NULL == pEventData->pEventData) ||
       ( NULL == wdiStopRspCb ))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -14182,12 +13659,10 @@ WDI_ProcessStopRsp
   -------------------------------------------------------------------------*/
   if ( sizeof(halMacStopRspMsg) < pEventData->uEventDataSize )
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
               "Invalid response length in Stop Resp %x %x",
                 pEventData->uEventDataSize);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -14208,12 +13683,11 @@ WDI_ProcessStopRsp
   --------------------------------------------------------------------------*/
   if ( WDI_STATUS_SUCCESS != wdiStatus  )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_ERROR,
                "Failed to stop the device with status %s (%d)",
                WDI_getHALStatusMsgString(halMacStopRspMsg.stopRspParams.status),
                halMacStopRspMsg.stopRspParams.status);
-#endif
+
     WDI_DetectedDeviceError( pWDICtx, WDI_ERR_BASIC_OP_FAILURE);
 
     wpalMutexRelease(&pWDICtx->wptMutex);
@@ -14255,9 +13729,7 @@ WDI_ProcessCloseRsp
 {
   /*There is no close response comming from HAL - function just kept for
   simmetry */
-#ifdef WLAN_DEBUG
   WDI_ASSERT(0);
-#endif
   return WDI_STATUS_SUCCESS;
 }/*WDI_ProcessCloseRsp*/
 
@@ -14294,22 +13766,18 @@ WDI_ProcessInitScanRsp
   if (( NULL == pWDICtx ) || ( NULL == pEventData ) ||
       ( NULL == pEventData->pEventData))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
   wdiInitScanRspCb = (WDI_InitScanRspCb)pWDICtx->pfncRspCB;
   if( NULL == wdiInitScanRspCb)
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_FATAL,
                  "%s: call back function is NULL", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -14365,22 +13833,18 @@ WDI_ProcessStartScanRsp
   if (( NULL == pWDICtx ) || ( NULL == pEventData ) ||
       ( NULL == pEventData->pEventData))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
   wdiStartScanRspCb = (WDI_StartScanRspCb)pWDICtx->pfncRspCB;
   if( NULL == wdiStartScanRspCb)
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_FATAL,
                  "%s: call back function is NULL", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -14401,7 +13865,6 @@ WDI_ProcessStartScanRsp
                   2);
 #endif
 
-#ifdef WLAN_DEBUG
   if ( eHAL_STATUS_SUCCESS != halStartScanRspMsg.startScanRspParams.status )
   {
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_ERROR,
@@ -14410,7 +13873,7 @@ WDI_ProcessStartScanRsp
               halStartScanRspMsg.startScanRspParams.status);
      /* send the status to UMAC, don't return from here*/
   }
-#endif
+
   /*Notify UMAC*/
   wdiStartScanRspCb( &wdiStartScanParams, pWDICtx->pRspCBUserData);
 
@@ -14447,11 +13910,9 @@ WDI_ProcessEndScanRsp
   if (( NULL == pWDICtx ) || ( NULL == pEventData ) ||
       ( NULL == pEventData->pEventData))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -14466,7 +13927,6 @@ WDI_ProcessEndScanRsp
 
   wdiStatus   =   WDI_HAL_2_WDI_STATUS(halEndScanRspMsg.endScanRspParams.status);
 
-#ifdef WLAN_DEBUG
   if ( eHAL_STATUS_SUCCESS != halEndScanRspMsg.endScanRspParams.status )
   {
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_ERROR,
@@ -14475,7 +13935,7 @@ WDI_ProcessEndScanRsp
               halEndScanRspMsg.endScanRspParams.status);
      /* send the status to UMAC, don't return from here*/
   }
-#endif
+
   /*Notify UMAC*/
   wdiEndScanRspCb( wdiStatus, pWDICtx->pRspCBUserData);
 
@@ -14512,11 +13972,9 @@ WDI_ProcessFinishScanRsp
   if (( NULL == pWDICtx ) || ( NULL == pEventData ) ||
       ( NULL == pEventData->pEventData))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -14531,10 +13989,10 @@ WDI_ProcessFinishScanRsp
 
   wdiStatus   =   WDI_HAL_2_WDI_STATUS(halFinishScanRspMsg.finishScanRspParams.status);
 
-#ifdef WLAN_DEBUG
   WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_INFO_LOW,
               "Finish scan response reported status: %d",
               halFinishScanRspMsg.finishScanRspParams.status);
+
   if (( eHAL_STATUS_SUCCESS != halFinishScanRspMsg.finishScanRspParams.status )&&
       ( eHAL_STATUS_NOTIFY_BSS_FAIL  != halFinishScanRspMsg.finishScanRspParams.status ))
   {
@@ -14544,7 +14002,6 @@ WDI_ProcessFinishScanRsp
               halFinishScanRspMsg.finishScanRspParams.status);
      /* send the status to UMAC, don't return from here*/
   }
-#endif
 
   /*Notify UMAC*/
   wdiFinishScanRspCb( wdiStatus, pWDICtx->pRspCBUserData);
@@ -14584,11 +14041,9 @@ WDI_ProcessJoinRsp
       ( NULL == pEventData ) ||
       ( NULL == pEventData->pEventData))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -14612,12 +14067,11 @@ WDI_ProcessJoinRsp
   if (( !WDI_VALID_SESSION_IDX(pWDICtx->ucCurrentBSSSesIdx )) ||
       ( eWLAN_PAL_FALSE == pWDICtx->bAssociationInProgress ))
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
               "%s: Association sequence for this BSS does not yet exist (bssIdx %d) or "
               "association no longer in progress %d - mysterious HAL response",
               __func__, pWDICtx->ucCurrentBSSSesIdx, pWDICtx->bAssociationInProgress);
-#endif
+
     WDI_DetectedDeviceError( pWDICtx, WDI_ERR_BASIC_OP_FAILURE);
     wpalMutexRelease(&pWDICtx->wptMutex);
     return WDI_STATUS_E_NOT_ALLOWED;
@@ -14630,11 +14084,10 @@ WDI_ProcessJoinRsp
   -----------------------------------------------------------------------*/
   if ( WDI_ASSOC_JOINING_ST != pBSSSes->wdiAssocState)
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
               "Join only allowed in Joining state - failure state is %d "
               "strange HAL response", pBSSSes->wdiAssocState);
-#endif
+
     WDI_DetectedDeviceError( pWDICtx, WDI_ERR_BASIC_OP_FAILURE);
 
     wpalMutexRelease(&pWDICtx->wptMutex);
@@ -14707,11 +14160,9 @@ WDI_ProcessConfigBSSRsp
   if (( NULL == pEventData ) ||
       ( NULL == pEventData->pEventData))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -14764,11 +14215,10 @@ WDI_ProcessConfigBSSRsp
       -----------------------------------------------------------------------*/
     if ( NULL == pBSSSes )
     {
-#ifdef WLAN_DEBUG
       WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
                 "Association sequence for this BSS does not yet exist "
                 "- mysterious HAL response");
-#endif
+
       WDI_DetectedDeviceError( pWDICtx, WDI_ERR_BASIC_OP_FAILURE);
 
       wpalMutexRelease(&pWDICtx->wptMutex);
@@ -14831,10 +14281,9 @@ WDI_ProcessConfigBSSRsp
     wdiAddSTAParam.ucBSSIdx =
        halConfigBssRspMsg.configBssRspParams.bssIdx;
 
-#ifdef WLAN_DEBUG
     WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_INFO,
                 "Add STA to the table index: %d", wdiAddSTAParam.ucSTAIdx );
-#endif
+
     WDI_STATableAddSta(pWDICtx,&wdiAddSTAParam);
     /*-------------------------------------------------------------------------
         Add Broadcast STA only in AP mode
@@ -14842,11 +14291,10 @@ WDI_ProcessConfigBSSRsp
     if( pWDICtx->wdiCachedConfigBssReq.wdiReqInfo.ucOperMode ==
         WDI_BSS_OPERATIONAL_MODE_AP )
     {
-#ifdef WLAN_DEBUG
        WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_INFO,
                   "Add BCAST STA to table for index: %d",
                   halConfigBssRspMsg.configBssRspParams.bssBcastStaIdx );
-#endif
+
        wpalMemoryCopy( &wdiBcastAddSTAParam, &wdiAddSTAParam,
                        sizeof(WDI_AddStaParams) );
 
@@ -14857,13 +14305,12 @@ WDI_ProcessConfigBSSRsp
   }
   else
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
                   "Config BSS RSP failed with status : %s(%d)",
                   WDI_getHALStatusMsgString(
                   halConfigBssRspMsg.configBssRspParams.status),
                   halConfigBssRspMsg.configBssRspParams.status);
-#endif
+
 
     /*Association was failed by HAL - remove session*/
     WDI_DeleteSession(pWDICtx, pBSSSes);
@@ -14914,11 +14361,9 @@ WDI_ProcessDelBSSRsp
   if (( NULL == pEventData ) ||
       ( NULL == pEventData->pEventData))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -14950,11 +14395,10 @@ WDI_ProcessDelBSSRsp
     -----------------------------------------------------------------------*/
   if ( NULL == pBSSSes )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
               "Association sequence for this BSS does not yet exist or "
               "association no longer in progress - mysterious HAL response");
-#endif
+
     WDI_DetectedDeviceError( pWDICtx, WDI_ERR_BASIC_OP_FAILURE);
 
     wpalMutexRelease(&pWDICtx->wptMutex);
@@ -15020,11 +14464,9 @@ WDI_ProcessPostAssocRsp
   if (( NULL == pEventData ) ||
       ( NULL == pEventData->pEventData))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -15096,11 +14538,10 @@ WDI_ProcessPostAssocRsp
       ( ucCurrentBSSSesIdx != pWDICtx->ucCurrentBSSSesIdx ) ||
       ( eWLAN_PAL_FALSE == pWDICtx->bAssociationInProgress ))
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
               "Association sequence for this BSS does not yet exist or "
               "association no longer in progress - mysterious HAL response");
-#endif
+
     WDI_DetectedDeviceError( pWDICtx, WDI_ERR_BASIC_OP_FAILURE);
 
     wpalMutexRelease(&pWDICtx->wptMutex);
@@ -15112,11 +14553,10 @@ WDI_ProcessPostAssocRsp
   -----------------------------------------------------------------------*/
   if ( WDI_ASSOC_JOINING_ST != pBSSSes->wdiAssocState)
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
               "Post Assoc not allowed before JOIN - failing request "
               "strange HAL response");
-#endif
+
     WDI_DetectedDeviceError( pWDICtx, WDI_ERR_BASIC_OP_FAILURE);
 
     wpalMutexRelease(&pWDICtx->wptMutex);
@@ -15193,11 +14633,9 @@ WDI_ProcessDelSTARsp
   if (( NULL == pWDICtx ) || ( NULL == pEventData ) ||
       ( NULL == pEventData->pEventData))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -15285,11 +14723,9 @@ WDI_ProcessSetBssKeyRsp
   if (( NULL == pWDICtx ) || ( NULL == pEventData ) ||
       ( NULL == pEventData->pEventData))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -15301,7 +14737,6 @@ WDI_ProcessSetBssKeyRsp
   halStatus = *((eHalStatus*)pEventData->pEventData);
   wdiStatus   =   WDI_HAL_2_WDI_STATUS(halStatus);
 
-#ifdef WLAN_DEBUG
   if ( eHAL_STATUS_SUCCESS != halStatus )
   {
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_ERROR,
@@ -15310,7 +14745,7 @@ WDI_ProcessSetBssKeyRsp
               halStatus);
      /* send the status to UMAC, don't return from here*/
   }
-#endif
+
   /*Notify UMAC*/
   wdiSetBSSKeyRspCb( wdiStatus, pWDICtx->pRspCBUserData);
 
@@ -15345,11 +14780,9 @@ WDI_ProcessRemoveBssKeyRsp
   if (( NULL == pWDICtx ) || ( NULL == pEventData ) ||
       ( NULL == pEventData->pEventData))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -15361,7 +14794,6 @@ WDI_ProcessRemoveBssKeyRsp
   halStatus = *((eHalStatus*)pEventData->pEventData);
   wdiStatus   =   WDI_HAL_2_WDI_STATUS(halStatus);
 
-#ifdef WLAN_DEBUG
   if ( eHAL_STATUS_SUCCESS != halStatus )
   {
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_ERROR,
@@ -15370,7 +14802,7 @@ WDI_ProcessRemoveBssKeyRsp
               halStatus);
      /* send the status to UMAC, don't return from here*/
   }
-#endif
+
   /*Notify UMAC*/
   wdiRemoveBSSKeyRspCb( wdiStatus, pWDICtx->pRspCBUserData);
 
@@ -15406,11 +14838,9 @@ WDI_ProcessSetStaKeyRsp
   if (( NULL == pWDICtx ) || ( NULL == pEventData ) ||
       ( NULL == pEventData->pEventData))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -15422,7 +14852,6 @@ WDI_ProcessSetStaKeyRsp
   halStatus = *((eHalStatus*)pEventData->pEventData);
   wdiStatus   =   WDI_HAL_2_WDI_STATUS(halStatus);
 
-#ifdef WLAN_DEBUG
   if ( eHAL_STATUS_SUCCESS != halStatus )
   {
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_ERROR,
@@ -15431,7 +14860,7 @@ WDI_ProcessSetStaKeyRsp
               halStatus);
      /* send the status to UMAC, don't return from here*/
   }
-#endif
+
   /*Notify UMAC*/
   wdiSetSTAKeyRspCb( wdiStatus, pWDICtx->pRspCBUserData);
 
@@ -15466,11 +14895,9 @@ WDI_ProcessRemoveStaKeyRsp
   if (( NULL == pWDICtx ) || ( NULL == pEventData ) ||
       ( NULL == pEventData->pEventData))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -15482,7 +14909,6 @@ WDI_ProcessRemoveStaKeyRsp
   halStatus = *((eHalStatus*)pEventData->pEventData);
   wdiStatus   =   WDI_HAL_2_WDI_STATUS(halStatus);
 
-#ifdef WLAN_DEBUG
   if ( eHAL_STATUS_SUCCESS != halStatus )
   {
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_ERROR,
@@ -15491,7 +14917,7 @@ WDI_ProcessRemoveStaKeyRsp
               halStatus);
      /* send the status to UMAC, don't return from here*/
   }
-#endif
+
   /*Notify UMAC*/
   wdiRemoveSTAKeyRspCb( wdiStatus, pWDICtx->pRspCBUserData);
 
@@ -15526,11 +14952,9 @@ WDI_ProcessSetStaBcastKeyRsp
   if (( NULL == pWDICtx ) || ( NULL == pEventData ) ||
       ( NULL == pEventData->pEventData))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -15545,7 +14969,6 @@ WDI_ProcessSetStaBcastKeyRsp
 
   wdiStatus   =   WDI_HAL_2_WDI_STATUS(halStatus);
 
-#ifdef WLAN_DEBUG
   if ( eHAL_STATUS_SUCCESS != halStatus )
   {
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_ERROR,
@@ -15554,7 +14977,7 @@ WDI_ProcessSetStaBcastKeyRsp
               halStatus);
      /* send the status to UMAC, don't return from here*/
   }
-#endif
+
   /*Notify UMAC*/
   wdiSetSTABcastKeyRspCb( wdiStatus, pWDICtx->pRspCBUserData);
 
@@ -15589,11 +15012,9 @@ WDI_ProcessRemoveStaBcastKeyRsp
   if (( NULL == pWDICtx ) || ( NULL == pEventData ) ||
       ( NULL == pEventData->pEventData))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -15608,7 +15029,6 @@ WDI_ProcessRemoveStaBcastKeyRsp
 
   wdiStatus   =   WDI_HAL_2_WDI_STATUS(halStatus);
 
-#ifdef WLAN_DEBUG
   if ( eHAL_STATUS_SUCCESS != halStatus )
   {
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_ERROR,
@@ -15617,7 +15037,7 @@ WDI_ProcessRemoveStaBcastKeyRsp
               halStatus);
      /* send the status to UMAC, don't return from here*/
   }
-#endif
+
   /*Notify UMAC*/
   wdiRemoveSTABcastKeyRspCb( wdiStatus, pWDICtx->pRspCBUserData);
 
@@ -15657,11 +15077,9 @@ WDI_ProcessAddTSpecRsp
   if (( NULL == pWDICtx ) || ( NULL == pEventData ) ||
       ( NULL == pEventData->pEventData))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -15708,11 +15126,9 @@ WDI_ProcessDelTSpecRsp
   if (( NULL == pWDICtx ) || ( NULL == pEventData ) ||
       ( NULL == pEventData->pEventData))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -15758,11 +15174,9 @@ WDI_ProcessUpdateEDCAParamsRsp
   if (( NULL == pWDICtx ) || ( NULL == pEventData ) ||
       ( NULL == pEventData->pEventData))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -15812,11 +15226,9 @@ WDI_ProcessAddBASessionRsp
   if (( NULL == pWDICtx ) || ( NULL == pEventData ) ||
       ( NULL == pEventData->pEventData))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -15877,11 +15289,9 @@ WDI_ProcessDelBARsp
   if (( NULL == pWDICtx ) || ( NULL == pEventData ) ||
       ( NULL == pEventData->pEventData))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -15933,11 +15343,9 @@ WDI_ProcessTsmStatsRsp
   if (( NULL == pWDICtx ) || ( NULL == pEventData ) ||
       ( NULL == pEventData->pEventData))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -16002,11 +15410,9 @@ WDI_ProcessFlushAcRsp
   if (( NULL == pWDICtx ) || ( NULL == pEventData ) ||
       ( NULL == pEventData->pEventData))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -16055,11 +15461,9 @@ WDI_ProcessBtAmpEventRsp
    if (( NULL == pWDICtx ) || ( NULL == pEventData ) ||
        ( NULL == pEventData->pEventData))
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                   "%s: Invalid parameters", __FUNCTION__);
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
    }
 
@@ -16110,11 +15514,9 @@ WDI_ProcessAddSTASelfRsp
   if (( NULL == pWDICtx ) || ( NULL == pEventData ) ||
       ( NULL == pEventData->pEventData))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -16213,11 +15615,9 @@ WDI_ProcessDelSTASelfRsp
   if (( NULL == pWDICtx ) || ( NULL == pEventData ) ||
       ( NULL == pEventData->pEventData))
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                 "%s: Invalid parameters", __FUNCTION__);
     WDI_ASSERT(0);
-#endif
     return WDI_STATUS_E_FAILURE;
   }
 
@@ -16244,11 +15644,9 @@ WDI_ProcessDelSTASelfRsp
                                &ucStaIdx);
     if(WDI_STATUS_E_FAILURE == wdiStatus)
     {
-#ifdef WLAN_DEBUG
       WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
                  "%s: Unable to extract the STA Idx ", __FUNCTION__);
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
     }
     WDI_STATableDelSta(pWDICtx, ucStaIdx);
@@ -16290,11 +15688,9 @@ WDI_ProcessStartOemDataRsp
   if (( NULL == pWDICtx ) || ( NULL == pEventData ) ||
       ( NULL == pEventData->pEventData))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -16314,12 +15710,10 @@ WDI_ProcessStartOemDataRsp
 
   if(NULL == wdiOemDataRspParams)
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
             "Failed to allocate memory in OEM DATA Response %x %x %x ",
                 pWDICtx, pEventData, pEventData->pEventData);
     WDI_ASSERT(0);
-#endif
     return WDI_STATUS_E_FAILURE;
   }
 
@@ -16368,11 +15762,9 @@ WDI_ProcessChannelSwitchRsp
   if (( NULL == pWDICtx ) || ( NULL == pEventData ) ||
       ( NULL == pEventData->pEventData))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -16433,11 +15825,9 @@ WDI_ProcessConfigStaRsp
   if (( NULL == pWDICtx ) || ( NULL == pEventData ) ||
       ( NULL == pEventData->pEventData))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -16502,12 +15892,10 @@ WDI_ProcessConfigStaRsp
 
       if ( NULL == pBSSSes )
       {
-#ifdef WLAN_DEBUG
         WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
                   "Association for this BSSID is not in place");
 
         WDI_ASSERT(0);
-#endif
         return WDI_STATUS_E_NOT_ALLOWED;
       }
 
@@ -16584,11 +15972,9 @@ WDI_ProcessSetLinkStateRsp
   if (( NULL == pWDICtx ) || ( NULL == pEventData ) ||
       ( NULL == pEventData->pEventData))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -16615,10 +16001,8 @@ WDI_ProcessSetLinkStateRsp
       -----------------------------------------------------------------------*/
     if ( NULL == pBSSSes )
     {
-#ifdef WLAN_DEBUG
       WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_INFO,
                 "Set link response received outside association session");
-#endif
     }
     else
     {
@@ -16702,11 +16086,9 @@ WDI_ProcessGetStatsRsp
   if (( NULL == pWDICtx ) || ( NULL == pEventData ) ||
       ( NULL == pEventData->pEventData))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -16722,12 +16104,10 @@ WDI_ProcessGetStatsRsp
 
   if(NULL == wdiGetStatsRsp)
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_ERROR,
                 "Failed to allocate memory in Get Stats Response %x %x %x ",
                  pWDICtx, pEventData, pEventData->pEventData);
     WDI_ASSERT(0);
-#endif
     return WDI_STATUS_E_FAILURE;
   }
 
@@ -16782,11 +16162,9 @@ WDI_ProcessUpdateCfgRsp
   if (( NULL == pWDICtx ) || ( NULL == pEventData ) ||
       ( NULL == pEventData->pEventData))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -16836,11 +16214,9 @@ WDI_ProcessAddBARsp
   if (( NULL == pWDICtx ) || ( NULL == pEventData ) ||
       ( NULL == pEventData->pEventData))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -16900,11 +16276,9 @@ WDI_ProcessTriggerBARsp
   if (( NULL == pWDICtx ) || ( NULL == pEventData ) ||
       ( NULL == pEventData->pEventData))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -16920,13 +16294,11 @@ WDI_ProcessTriggerBARsp
                       sizeof(WDI_TriggerBARspCandidateType));
   if(NULL == wdiTriggerBARsp)
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
                 "Failed to allocate memory in Trigger BA Response %x %x %x ",
                  pWDICtx, pEventData, pEventData->pEventData);
-    WDI_ASSERT(0);
-#endif
     wpalMemoryFree(halTriggerBARsp);
+    WDI_ASSERT(0);
     return WDI_STATUS_E_FAILURE;
   }
 
@@ -16992,11 +16364,9 @@ WDI_ProcessUpdateBeaconParamsRsp
   if (( NULL == pWDICtx ) || ( NULL == pEventData ) ||
       ( NULL == pEventData->pEventData))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -17045,11 +16415,9 @@ WDI_ProcessSendBeaconParamsRsp
   if (( NULL == pWDICtx ) || ( NULL == pEventData ) ||
       ( NULL == pEventData->pEventData))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -17099,11 +16467,9 @@ WDI_ProcessUpdateProbeRspTemplateRsp
   if (( NULL == pWDICtx ) || ( NULL == pEventData ) ||
       ( NULL == pEventData->pEventData))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -17154,11 +16520,9 @@ WDI_ProcessSetMaxTxPowerRsp
   if (( NULL == pWDICtx ) || ( NULL == pEventData ) ||
       ( NULL == pEventData->pEventData))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -17173,10 +16537,8 @@ WDI_ProcessSetMaxTxPowerRsp
 
   if ( eHAL_STATUS_SUCCESS != halTxpowerrsp.setMaxTxPwrRspParams.status )
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_ERROR,
               "Error status returned in Set Max Tx Power Response ");
-#endif
      WDI_DetectedDeviceError( pWDICtx, WDI_ERR_BASIC_OP_FAILURE);
      return WDI_STATUS_E_FAILURE;
   }
@@ -17220,11 +16582,9 @@ WDI_ProcessP2PGONOARsp
   if (( NULL == pWDICtx ) || ( NULL == pEventData ) ||
       ( NULL == pEventData->pEventData))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -17273,11 +16633,9 @@ WDI_ProcessEnterImpsRsp
   if (( NULL == pWDICtx ) || ( NULL == pEventData ) ||
       ( NULL == pEventData->pEventData))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -17296,10 +16654,8 @@ WDI_ProcessEnterImpsRsp
    */
   if (wdiStatus != WDI_STATUS_SUCCESS) {
 
-#ifdef WLAN_DEBUG
 	  WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_FATAL,
 		 "WDI PRocess Enter IMPS RSP failed With HAL Status Code: %d",halStatus);
-#endif
 	  /* Call Back is not required as we are putting the DXE in FULL
 	   * and riva is already in full (IMPS RSP Failed)*/
 	  WDTS_SetPowerState(pWDICtx, WDTS_POWER_STATE_FULL, NULL);
@@ -17338,11 +16694,9 @@ WDI_ProcessExitImpsRsp
   if (( NULL == pWDICtx ) || ( NULL == pEventData ) ||
       ( NULL == pEventData->pEventData))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -17391,11 +16745,9 @@ WDI_ProcessEnterBmpsRsp
   if (( NULL == pWDICtx ) || ( NULL == pEventData ) ||
       ( NULL == pEventData->pEventData))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -17413,10 +16765,8 @@ WDI_ProcessEnterBmpsRsp
    */
    if (wdiStatus != WDI_STATUS_SUCCESS) {
 
-#ifdef WLAN_DEBUG
 	  WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_FATAL,
 		 "WDI PRocess Enter BMPS RSP failed With HAL Status Code: %d",halStatus);
-#endif
 	  /* Call Back is not required as we are putting the DXE in FULL
 	   * and riva is already in FULL (BMPS RSP Failed)*/
 	  WDTS_SetPowerState(pWDICtx, WDTS_POWER_STATE_FULL, NULL);
@@ -17457,11 +16807,9 @@ WDI_ProcessExitBmpsRsp
   if (( NULL == pWDICtx ) || ( NULL == pEventData ) ||
       ( NULL == pEventData->pEventData))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -17512,11 +16860,9 @@ WDI_ProcessEnterUapsdRsp
   if (( NULL == pWDICtx ) || ( NULL == pEventData ) ||
       ( NULL == pEventData->pEventData))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -17576,11 +16922,9 @@ WDI_ProcessExitUapsdRsp
   if (( NULL == pWDICtx ) || ( NULL == pEventData ) ||
       ( NULL == pEventData->pEventData))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -17635,11 +16979,9 @@ WDI_ProcessSetUapsdAcParamsRsp
   if (( NULL == pWDICtx ) || ( NULL == pEventData ) ||
       ( NULL == pEventData->pEventData))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -17685,11 +17027,9 @@ WDI_ProcessUpdateUapsdParamsRsp
   if (( NULL == pWDICtx ) || ( NULL == pEventData ) ||
       ( NULL == pEventData->pEventData))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -17735,11 +17075,9 @@ WDI_ProcessConfigureRxpFilterRsp
   if (( NULL == pWDICtx ) || ( NULL == pEventData ) ||
       ( NULL == pEventData->pEventData))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -17785,11 +17123,9 @@ WDI_ProcessSetBeaconFilterRsp
    if (( NULL == pWDICtx ) || ( NULL == pEventData ) ||
        ( NULL == pEventData->pEventData))
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                   "%s: Invalid parameters", __FUNCTION__);
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
    }
 
@@ -17835,11 +17171,9 @@ WDI_ProcessRemBeaconFilterRsp
    if (( NULL == pWDICtx ) || ( NULL == pEventData ) ||
        ( NULL == pEventData->pEventData))
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                   "%s: Invalid parameters", __FUNCTION__);
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
    }
 
@@ -17885,11 +17219,9 @@ WDI_ProcessSetRSSIThresoldsRsp
    if (( NULL == pWDICtx ) || ( NULL == pEventData ) ||
        ( NULL == pEventData->pEventData))
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                   "%s: Invalid parameters", __FUNCTION__);
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
    }
 
@@ -17935,11 +17267,9 @@ WDI_ProcessHostOffloadRsp
    if (( NULL == pWDICtx ) || ( NULL == pEventData ) ||
        ( NULL == pEventData->pEventData))
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                   "%s: Invalid parameters", __FUNCTION__);
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
    }
 
@@ -17978,10 +17308,9 @@ WDI_ProcessKeepAliveRsp
    eHalStatus           halStatus;
    WDI_KeepAliveCb      wdiKeepAliveCb;
    /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
-#ifdef WLAN_DEBUG
    WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_ERROR,
                "Received WDI_ProcessKeepAliveRsp Callback from HAL");
-#endif
+
 
    /*-------------------------------------------------------------------------
      Sanity check
@@ -17989,11 +17318,9 @@ WDI_ProcessKeepAliveRsp
    if (( NULL == pWDICtx ) || ( NULL == pEventData ) ||
        ( NULL == pEventData->pEventData))
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
                   "%s: Invalid parameters", __FUNCTION__);
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
    }
 
@@ -18039,11 +17366,9 @@ WDI_ProcessWowlAddBcPtrnRsp
    if (( NULL == pWDICtx ) || ( NULL == pEventData ) ||
        ( NULL == pEventData->pEventData))
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                   "%s: Invalid parameters", __FUNCTION__);
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
    }
 
@@ -18089,11 +17414,9 @@ WDI_ProcessWowlDelBcPtrnRsp
    if (( NULL == pWDICtx ) || ( NULL == pEventData ) ||
        ( NULL == pEventData->pEventData))
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                   "%s: Invalid parameters", __FUNCTION__);
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
    }
 
@@ -18139,11 +17462,9 @@ WDI_ProcessWowlEnterRsp
    if (( NULL == pWDICtx ) || ( NULL == pEventData ) ||
        ( NULL == pEventData->pEventData))
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                   "%s: Invalid parameters", __FUNCTION__);
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
    }
 
@@ -18189,11 +17510,9 @@ WDI_ProcessWowlExitRsp
    if (( NULL == pWDICtx ) || ( NULL == pEventData ) ||
        ( NULL == pEventData->pEventData))
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                   "%s: Invalid parameters", __FUNCTION__);
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
    }
 
@@ -18240,11 +17559,9 @@ WDI_ProcessConfigureAppsCpuWakeupStateRsp
    if (( NULL == pWDICtx ) || ( NULL == pEventData ) ||
        ( NULL == pEventData->pEventData))
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                   "%s: Invalid parameters", __FUNCTION__);
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
    }
 
@@ -18291,11 +17608,9 @@ WDI_ProcessNvDownloadRsp
   if (( NULL == pWDICtx ) || ( NULL == pEventData ) ||
     ( NULL == pEventData->pEventData))
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                 "%s: Invalid parameters", __FUNCTION__);
     WDI_ASSERT(0);
-#endif
     return WDI_STATUS_E_FAILURE;
   }
 
@@ -18357,11 +17672,9 @@ WDI_ProcessAggrAddTSpecRsp
   if (( NULL == pWDICtx ) || ( NULL == pEventData ) ||
       ( NULL == pEventData->pEventData))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -18412,11 +17725,9 @@ WDI_ProcessHostResumeRsp
   if (( NULL == pWDICtx ) || ( NULL == pEventData ) ||
       ( NULL == pEventData->pEventData))
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
                 "%s: Invalid parameters", __FUNCTION__);
     WDI_ASSERT(0);
-#endif
     return WDI_STATUS_E_FAILURE;
   }
 
@@ -18467,11 +17778,9 @@ WDI_ProcessSetTxPerTrackingRsp
   if (( NULL == pWDICtx ) || ( NULL == pEventData ) ||
       ( NULL == pEventData->pEventData))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -18520,11 +17829,9 @@ WDI_ProcessLowRSSIInd
   if (( NULL == pWDICtx ) || ( NULL == pEventData ) ||
       ( NULL == pEventData->pEventData))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -18586,11 +17893,9 @@ WDI_ProcessMissedBeaconInd
   if (( NULL == pWDICtx ) || ( NULL == pEventData ) ||
       ( NULL == pEventData->pEventData))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -18640,11 +17945,9 @@ WDI_ProcessUnkAddrFrameInd
   if (( NULL == pWDICtx ) || ( NULL == pEventData ) ||
       ( NULL == pEventData->pEventData))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -18696,11 +17999,9 @@ WDI_ProcessMicFailureInd
   if (( NULL == pWDICtx ) || ( NULL == pEventData ) ||
       ( NULL == pEventData->pEventData))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -18765,11 +18066,9 @@ WDI_ProcessFatalErrorInd
   if (( NULL == pWDICtx ) || ( NULL == pEventData ) ||
       ( NULL == pEventData->pEventData))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -18781,10 +18080,9 @@ WDI_ProcessFatalErrorInd
   halStatus = *((eHalStatus*)pEventData->pEventData);
   wdiStatus   =   WDI_HAL_2_WDI_STATUS(halStatus);
 
-#ifdef WLAN_DEBUG
   WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_ERROR,
               "Fatal failure received from device %d ", halStatus );
-#endif
+
   /*Fill in the indication parameters*/
   wdiInd.wdiIndicationType             = WDI_FATAL_ERROR_IND;
   wdiInd.wdiIndicationData.usErrorCode = WDI_ERR_DEV_INTERNAL_FAILURE;
@@ -18823,11 +18121,9 @@ WDI_ProcessDelSTAInd
   if (( NULL == pWDICtx ) || ( NULL == pEventData ) ||
       ( NULL == pEventData->pEventData))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -18890,11 +18186,9 @@ WDI_ProcessCoexInd
   if (( NULL == pWDICtx ) || ( NULL == pEventData ) ||
       ( NULL == pEventData->pEventData ))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT( 0 );
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -18914,7 +18208,6 @@ WDI_ProcessCoexInd
   }
 
   // DEBUG
-#ifdef WLAN_DEBUG
   WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_INFO,
               "[COEX WDI] Coex Ind Type (%x) data (%x %x %x %x)",
               wdiInd.wdiIndicationData.wdiCoexInfo.coexIndType,
@@ -18922,7 +18215,7 @@ WDI_ProcessCoexInd
               wdiInd.wdiIndicationData.wdiCoexInfo.coexIndData[1],
               wdiInd.wdiIndicationData.wdiCoexInfo.coexIndData[2],
               wdiInd.wdiIndicationData.wdiCoexInfo.coexIndData[3] );
-#endif
+
   /*Notify UMAC*/
   pWDICtx->wdiLowLevelIndCB( &wdiInd, pWDICtx->pIndUserData );
 
@@ -18957,11 +18250,9 @@ WDI_ProcessTxCompleteInd
   if (( NULL == pWDICtx ) || ( NULL == pEventData ) ||
       ( NULL == pEventData->pEventData ))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT( 0 );
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -19012,11 +18303,9 @@ WDI_ProcessP2pNoaAttrInd
   if (( NULL == pWDICtx ) || ( NULL == pEventData ) ||
       ( NULL == pEventData->pEventData ))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT( 0 );
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -19127,11 +18416,9 @@ WDI_ProcessFTMCommandReq
       ( NULL == pEventData->pEventData))
 
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -19185,11 +18472,9 @@ WDI_ProcessFTMCommandRsp
   if (( NULL == pWDICtx ) || ( NULL == pEventData ) ||
       ( NULL == pEventData->pEventData))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -19238,11 +18523,9 @@ WDI_ProcessHALDumpCmdReq
       ( NULL == pEventData->pEventData) ||
       ( NULL == pEventData->pCBfnc ))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -19270,12 +18553,10 @@ WDI_ProcessHALDumpCmdReq
       ( usSendSize <
             (usDataOffset + sizeof(halDumpCmdReqMsg.dumpCmdReqParams) )))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
               "Unable to get send buffer in HAL Dump Command req %x %x %x",
                 pEventData, pwdiHALDumpCmdParams, wdiHALDumpCmdRspCb);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -19321,11 +18602,9 @@ WDI_ProcessHALDumpCmdRsp
   if (( NULL == pWDICtx ) || ( NULL == pEventData ) ||
       ( NULL == pEventData->pEventData))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -19396,21 +18675,17 @@ WDI_NotifyMsgCTSCB
 
   if (NULL == pWDICtx )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                 "%s: Invalid parameters", __FUNCTION__);
     WDI_ASSERT(0);
-#endif
     return;
   }
 
   if (WDI_CONTROL_BLOCK_MAGIC != pWDICtx->magic)
   {
     /* callback presumably occurred after close */
-#ifdef WLAN_DEBUG
     WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                 "%s: Invalid control block", __FUNCTION__);
-#endif
     return;
   }
 
@@ -19480,21 +18755,17 @@ WDI_RXMsgCTSCB
   if ((NULL == pWDICtx ) || ( NULL == pMsg ) ||
       ( uLen < sizeof(tHalMsgHeader)))
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                 "%s: Invalid parameters", __FUNCTION__);
     WDI_ASSERT(0);
-#endif
     return;
   }
 
   if (WDI_CONTROL_BLOCK_MAGIC != pWDICtx->magic)
   {
     /* callback presumably occurred after close */
-#ifdef WLAN_DEBUG
     WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                 "%s: Invalid control block", __FUNCTION__);
-#endif
     return;
   }
 
@@ -19506,10 +18777,8 @@ WDI_RXMsgCTSCB
 
   if ( uLen != pHalMsgHeader->msgLen )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
               "Invalid packet received from HAL - catastrophic failure");
-#endif
     WDI_DetectedDeviceError( pWDICtx, WDI_ERR_INVALID_RSP_FMT);
     return;
   }
@@ -19532,7 +18801,6 @@ WDI_RXMsgCTSCB
   /* Check if we receive a response message which is not expected */
   else if ( wdiEventData.wdiResponse < WDI_HAL_IND_MIN )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_FATAL,
                "Received response %s (%d) when expecting %s (%d) - catastrophic failure",
                WDI_getRespMsgString(wdiEventData.wdiResponse),
@@ -19540,14 +18808,12 @@ WDI_RXMsgCTSCB
                WDI_getRespMsgString(pWDICtx->wdiExpectedResponse),
                pWDICtx->wdiExpectedResponse);
     /* WDI_DetectedDeviceError( pWDICtx, WDI_ERR_INVALID_RSP_FMT); */
-#endif
     return;
   }
 
-#ifdef WLAN_DEBUG
   WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_INFO,
            "Rx smth from HAL: %d", wdiEventData.wdiResponse);
-#endif
+
   /*Post response event to the state machine*/
   WDI_PostMainEvent(pWDICtx, WDI_RESPONSE_EVENT, &wdiEventData);
 
@@ -19612,21 +18878,17 @@ WDI_ProcessRequest
   if (( pEventData->wdiRequest < WDI_MAX_UMAC_IND ) &&
       ( NULL != pfnReqProcTbl[pEventData->wdiRequest] ))
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_INFO,
               "Calling request processing function for req %s (%d) %x",
               WDI_getReqMsgString(pEventData->wdiRequest),
               pEventData->wdiRequest, pfnReqProcTbl[pEventData->wdiRequest]);
-#endif
     return pfnReqProcTbl[pEventData->wdiRequest](pWDICtx, pEventData);
   }
   else
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
               "Operation %d is not yet implemented ",
                pEventData->wdiRequest);
-#endif
     return WDI_STATUS_E_NOT_IMPLEMENT;
   }
 }/*WDI_ProcessRequest*/
@@ -19673,13 +18935,11 @@ WDI_GetMessageBuffer
   *pMsgBuffer   = (wpt_uint8*)wpalMemoryAllocate(*pusBufferSize);
   if ( NULL ==  *pMsgBuffer )
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
                "Unable to allocate message buffer for req %s (%d)",
                WDI_getReqMsgString(wdiReqType),
                wdiReqType);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_MEM_FAILURE;
   }
 
@@ -19750,10 +19010,9 @@ WDI_SendMsg
    -----------------------------------------------------------------------*/
    if ( 0 != WCTS_SendMessage( pWDICtx->wctsHandle, (void*)pSendBuffer, usSendSize ))
    {
-#ifdef WLAN_DEBUG
      WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_FATAL,
                 "Failed to send message over the bus - catastrophic failure");
-#endif
+
      wdiStatus = WDI_STATUS_E_FAILURE;
    }
 
@@ -19826,10 +19085,9 @@ WDI_SendIndication
    /*Inform Upper MAC about the outcome of the request*/
    if ( NULL != pWDICtx->wdiReqStatusCB )
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_INFO,
                 "Send indication status : %d", uStatus);
-#endif
+
       pWDICtx->wdiReqStatusCB( (uStatus != 0 ) ? WDI_STATUS_E_FAILURE:
                                                  WDI_STATUS_SUCCESS,
                                pWDICtx->pReqStatusUserData);
@@ -19839,10 +19097,9 @@ WDI_SendIndication
      indicates an error with the device*/
    if ( 0 != uStatus)
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_FATAL,
                 "Failed to send indication over the bus - catastrophic failure");
-#endif
+
       WDI_DetectedDeviceError( pWDICtx, WDI_ERR_TRANSPORT_FAILURE);
       return WDI_STATUS_E_FAILURE;
    }
@@ -19872,11 +19129,10 @@ WDI_DetectedDeviceError
   WDI_LowLevelIndType  wdiInd;
   /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
 
-#ifdef WLAN_DEBUG
   WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
             "Device Error detected code: %d - transitioning to stopped state",
             usErrorCode);
-#endif
+
   wpalMutexAcquire(&pWDICtx->wptMutex);
 
   WDI_STATableStop(pWDICtx);
@@ -19931,37 +19187,32 @@ WDI_ResponseTimerCB
 
   if (NULL == pWDICtx )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                 "%s: Invalid parameters", __FUNCTION__);
     WDI_ASSERT(0);
-#endif
     return;
   }
 
   if ( WDI_MAX_RESP != pWDICtx->wdiExpectedResponse )
   {
 
-#ifdef WLAN_DEBUG
   WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
             "Timeout occurred while waiting for %s (%d) message from device "
             " - catastrophic failure",
             WDI_getRespMsgString(pWDICtx->wdiExpectedResponse),
             pWDICtx->wdiExpectedResponse);
-#endif
   /* WDI timeout means Riva is not responding or SMD communication to Riva
    * is not happening. The only possible way to recover from this error
    * is to initiate SSR from APPS */
   wpalRivaSubystemRestart();
   }
-#ifdef WLAN_DEBUG
   else
   {
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
                  "Timeout occurred but not waiting for any response %d",
                  pWDICtx->wdiExpectedResponse);
   }
-#endif
+
   return;
 
 }/*WDI_ResponseTimerCB*/
@@ -19992,21 +19243,17 @@ WDI_ProcessResponse
   if (( pEventData->wdiResponse < WDI_MAX_RESP ) &&
       ( NULL != pfnRspProcTbl[pEventData->wdiResponse] ))
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_INFO,
               "Calling response processing function for resp %s (%d) %x",
               WDI_getRespMsgString(pEventData->wdiResponse),
               pEventData->wdiResponse, pfnRspProcTbl[pEventData->wdiResponse]);
-#endif
     return pfnRspProcTbl[pEventData->wdiResponse](pWDICtx, pEventData);
   }
   else
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
               "Operation %d is not yet implemented ",
               pEventData->wdiResponse);
-#endif
     return WDI_STATUS_E_NOT_IMPLEMENT;
   }
 }/*WDI_ProcessResponse*/
@@ -20042,11 +19289,9 @@ WDI_QueuePendingReq
 
   if ( NULL ==  pEventDataQueue )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
               "Cannot allocate memory for queueing");
     WDI_ASSERT(0);
-#endif
     return WDI_STATUS_MEM_FAILURE;
   }
 
@@ -20062,11 +19307,9 @@ WDI_QueuePendingReq
 
      if ( NULL ==  pEventInfo )
      {
-#ifdef WLAN_DEBUG
        WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
                  "Cannot allocate memory for queueing event data info");
        WDI_ASSERT(0);
-#endif
        wpalMemoryFree(pEventDataQueue);
        return WDI_STATUS_MEM_FAILURE;
      }
@@ -20111,11 +19354,9 @@ WDI_PALCtrlMsgCB
       ( NULL == (pEventData = (WDI_EventInfoType*)pMsg->ptr)) ||
       ( NULL == (pWDICtx  = (WDI_ControlBlockType*)pMsg->pContext )))
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
               "Invalid message received on serialize ctrl context API");
     WDI_ASSERT(0);
-#endif
     return;
   }
 
@@ -20142,10 +19383,8 @@ WDI_PALCtrlMsgCB
       // In this case, because this request is called from response process, we could call WDI_ProcessRequest() directly.
       if (pWDICtx->uGlobalState == WDI_STARTED_ST)
       {
-#ifdef WLAN_DEBUG
         WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_INFO,
                  "%s: WDI_NV_DOWNLOAD_REQ called in WDI_STARTED_ST - send with WDI_REQUEST_EVENT", __FUNCTION__);
-#endif
         wdiStatus = WDI_PostMainEvent(&gWDICb, WDI_REQUEST_EVENT, pEventData);
       }
       else
@@ -20215,10 +19454,8 @@ WDI_DequeuePendingReq
 
   if ( NULL ==  pNode )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
               "List is empty - return");
-#endif
     return WDI_STATUS_SUCCESS;
   }
 
@@ -20233,11 +19470,9 @@ WDI_DequeuePendingReq
 
   if ( NULL ==  palMsg )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
                "WDI_DequeuePendingReq: Cannot allocate memory for palMsg.");
     WDI_ASSERT(0);
-#endif
     return WDI_STATUS_MEM_FAILURE;
   }
   palMsg->pContext = pWDICtx;
@@ -20317,22 +19552,18 @@ WDI_QueueNewAssocRequest
   pEventDataQueue = (WDI_EventInfoType*)wpalMemoryAllocate(sizeof(WDI_EventInfoType));
   if ( NULL == pEventDataQueue )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
                "%s: Cannot allocate memory for queue node", __FUNCTION__);
     WDI_ASSERT(0);
-#endif
     return WDI_STATUS_MEM_FAILURE;
   }
 
   pSessionIdElement = (WDI_NextSessionIdType*)wpalMemoryAllocate(sizeof(WDI_NextSessionIdType));
   if ( NULL == pSessionIdElement )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
                "%s: Cannot allocate memory for session ID", __FUNCTION__);
     WDI_ASSERT(0);
-#endif
     wpalMemoryFree(pEventDataQueue);
     return WDI_STATUS_MEM_FAILURE;
   }
@@ -20340,11 +19571,9 @@ WDI_QueueNewAssocRequest
   pEventInfo = wpalMemoryAllocate(pEventData->uEventDataSize);
   if ( NULL == pEventInfo )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
                "%s: Cannot allocate memory for event data info", __FUNCTION__);
     WDI_ASSERT(0);
-#endif
     wpalMemoryFree(pSessionIdElement);
     wpalMemoryFree(pEventDataQueue);
     return WDI_STATUS_MEM_FAILURE;
@@ -20373,10 +19602,8 @@ WDI_QueueNewAssocRequest
   pSessionIdElement->ucIndex = i;
   pNode = (wpt_list_node*)pSessionIdElement;
 
-#ifdef WLAN_DEBUG
   WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_INFO,
        "Queueing up new assoc session : %d ", pSessionIdElement->ucIndex);
-#endif
   wpal_list_insert_back(&pWDICtx->wptPendingAssocSessionIdQueue, pNode);
 
   /*Return pending as this is what the status of the request is since it has
@@ -20416,10 +19643,9 @@ WDI_QueueAssocRequest
     ------------------------------------------------------------------------*/
   if (( NULL == pSession ) || ( NULL == pWDICtx ))
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                 "%s: Invalid parameters", __FUNCTION__);
-#endif
+
     return WDI_STATUS_E_FAILURE;
   }
 
@@ -20429,23 +19655,19 @@ WDI_QueueAssocRequest
   pEventDataQueue = (WDI_EventInfoType*)wpalMemoryAllocate(sizeof(WDI_EventInfoType));
   if ( NULL ==  pEventDataQueue )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
                "%s: Cannot allocate memory for queueing", __FUNCTION__);
     WDI_ASSERT(0);
-#endif
     return WDI_STATUS_MEM_FAILURE;
   }
 
   pEventInfo = wpalMemoryAllocate(pEventData->uEventDataSize);
   if ( NULL ==  pEventInfo )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
                "%s: Cannot allocate memory for queueing event data info",
                __FUNCTION__);
     WDI_ASSERT(0);
-#endif
     wpalMemoryFree(pEventDataQueue);
     return WDI_STATUS_MEM_FAILURE;
   }
@@ -20501,10 +19723,9 @@ WDI_DequeueAssocRequest
     ------------------------------------------------------------------------*/
   if ( NULL == pWDICtx )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                 "%s: Invalid parameters", __FUNCTION__);
-#endif
+
     return WDI_STATUS_E_FAILURE;
   }
 
@@ -20521,10 +19742,8 @@ WDI_DequeueAssocRequest
 
   if ( NULL ==  pNode )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
               "List is empty - return");
-#endif
     return WDI_STATUS_SUCCESS;
   }
 
@@ -20532,10 +19751,9 @@ WDI_DequeueAssocRequest
     just cast it back to the struct*/
   pSessionIdElement = (WDI_NextSessionIdType*)pNode;
 
-#ifdef WLAN_DEBUG
   WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_INFO,
        "Dequeueing new assoc session : %d ", pSessionIdElement->ucIndex);
-#endif
+
   if ( pSessionIdElement->ucIndex < WDI_MAX_BSS_SESSIONS )
   {
       pSession = &pWDICtx->aBSSSessions[pSessionIdElement->ucIndex];
@@ -20553,11 +19771,9 @@ WDI_DequeueAssocRequest
   }
   else
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_FATAL,
               "Invalid session id queued up for assoc");
      WPAL_ASSERT(0);
-#endif
      wpalMemoryFree(pSessionIdElement);
      return WDI_STATUS_E_FAILURE;
   }
@@ -20681,10 +19897,8 @@ WDI_FindAssocSession
   -------------------------------------------------------------------------*/
   if ( NULL == ppSession )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                 "%s: Invalid parameters", __FUNCTION__);
-#endif
      return WDI_MAX_BSS_SESSIONS;
   }
 
@@ -20734,10 +19948,8 @@ WDI_FindAssocSessionByBSSIdx
   -------------------------------------------------------------------------*/
   if ( NULL == ppSession )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                 "%s: Invalid parameters", __FUNCTION__);
-#endif
      return WDI_MAX_BSS_SESSIONS;
   }
 
@@ -20785,10 +19997,8 @@ WDI_FindAssocSessionByIdx
   -------------------------------------------------------------------------*/
   if ( NULL == ppSession || usIdx >= WDI_MAX_BSS_SESSIONS )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                 "%s: Invalid parameters", __FUNCTION__);
-#endif
      return WDI_MAX_BSS_SESSIONS;
   }
 
@@ -20824,10 +20034,8 @@ WDI_FindEmptySession
   -------------------------------------------------------------------------*/
   if ( NULL == ppSession )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                 "%s: Invalid parameters", __FUNCTION__);
-#endif
      return WDI_MAX_BSS_SESSIONS;
   }
 
@@ -20906,10 +20114,8 @@ WDI_DeleteSession
   -------------------------------------------------------------------------*/
   if ( NULL == ppSession )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                 "%s: Invalid parameters", __FUNCTION__);
-#endif
      return ;
   }
 
@@ -20953,10 +20159,9 @@ WDI_AddBcastSTAtoSTATable
   ---------------------------------------------------------------------*/
   if ( NULL == staParams )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                 "%s: Invalid parameters", __FUNCTION__);
-#endif
+
     return;
   }
 
@@ -21007,9 +20212,7 @@ WDI_Status WDI_SendNvBlobReq
   WDI_NvDownloadRspCb      wdiNvDownloadRspCb;
 
   wdiNvDownloadRspCb = (WDI_NvDownloadRspCb)pEventData->pCBfnc;
-#ifdef WLAN_DEBUG
   WDI_ASSERT(NULL != wdiNvDownloadRspCb);
-#endif
   pwdiNvDownloadReqParams = (WDI_NvDownloadReqParamsType*)pEventData->pEventData;
 
   /* Sanity Check is done by the caller */
@@ -21058,12 +20261,10 @@ WDI_Status WDI_SendNvBlobReq
       ( usSendSize <
            (usDataOffset + sizeof(halNvImgDownloadParam.nvImageReqParams) + usCurrentFragmentSize )))
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
          "Unable to get send buffer in NV Download req %x %x ",
          pEventData, pwdiNvDownloadReqParams);
     WDI_ASSERT(0);
-#endif
     return WDI_STATUS_E_FAILURE;
   }
 
@@ -22580,10 +21781,9 @@ WDI_IsHwFrameTxTranslationCapable
   ------------------------------------------------------------------------*/
   if ( eWLAN_PAL_FALSE == gWDIInitialized )
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
               "WDI API call before module is initialized - Fail request");
-#endif
+
     return WDI_STATUS_E_NOT_ALLOWED;
   }
 
@@ -22623,10 +21823,9 @@ WDI_SetPreferredNetworkReq
    ------------------------------------------------------------------------*/
    if ( eWLAN_PAL_FALSE == gWDIInitialized )
    {
-#ifdef WLAN_DEBUG
      WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
                "WDI API call before module is initialized - Fail request");
-#endif
+
      return WDI_STATUS_E_NOT_ALLOWED;
    }
 
@@ -22674,10 +21873,9 @@ WDI_SetRssiFilterReq
    ------------------------------------------------------------------------*/
    if ( eWLAN_PAL_FALSE == gWDIInitialized )
    {
-#ifdef WLAN_DEBUG
      WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
                "WDI API call before module is initialized - Fail request");
-#endif
+
      return WDI_STATUS_E_NOT_ALLOWED;
    }
 
@@ -22724,10 +21922,9 @@ WDI_UpdateScanParamsReq
    ------------------------------------------------------------------------*/
    if ( eWLAN_PAL_FALSE == gWDIInitialized )
    {
-#ifdef WLAN_DEBUG
      WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
                "WDI API call before module is initialized - Fail request");
-#endif
+
      return WDI_STATUS_E_NOT_ALLOWED;
    }
 
@@ -22778,12 +21975,10 @@ WDI_PackPreferredNetworkList
                          &pSendBuffer, &usDataOffset, &usSendSize))||
        ( usSendSize < (usDataOffset + sizeof(tPrefNetwListParams) )))
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
                   "Unable to get send buffer in Set PNO req %x ",
                    pwdiPNOScanReqParams);
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
    }
 
@@ -22803,13 +21998,12 @@ WDI_PackPreferredNetworkList
      pwdiPNOScanReqParams->wdiPNOScanInfo.ucNetworksCount :
       WLAN_HAL_PNO_MAX_SUPP_NETWORKS;
 
-#ifdef WLAN_DEBUG
    WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_INFO,
                "WDI SET PNO: Enable %d, Mode %d, Netw Count %d",
                pwdiPNOScanReqParams->wdiPNOScanInfo.bEnable,
                pwdiPNOScanReqParams->wdiPNOScanInfo.wdiModePNO,
                pwdiPNOScanReqParams->wdiPNOScanInfo.ucNetworksCount);
-#endif
+
    for ( i = 0; i < pPrefNetwListParams->ucNetworksCount; i++ )
    {
      /*SSID of the BSS*/
@@ -22844,12 +22038,10 @@ WDI_PackPreferredNetworkList
      pPrefNetwListParams->aNetworks[i].rssiThreshold =
        pwdiPNOScanReqParams->wdiPNOScanInfo.aNetworks[i].rssiThreshold;
 
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
                "WDI SET PNO: SSID %d %s",
                pPrefNetwListParams->aNetworks[i].ssId.length,
                pPrefNetwListParams->aNetworks[i].ssId.ssId);
-#endif
    }
 
    pPrefNetwListParams->scanTimers.ucScanTimersCount = 
@@ -22858,13 +22050,12 @@ WDI_PackPreferredNetworkList
      pwdiPNOScanReqParams->wdiPNOScanInfo.scanTimers.ucScanTimersCount :
       WLAN_HAL_PNO_MAX_SCAN_TIMERS;
 
-#ifdef WLAN_DEBUG
    WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
                "WDI SET PNO: Scan timers count %d 24G P %d 5G Probe %d",
                pPrefNetwListParams->scanTimers.ucScanTimersCount,
                pwdiPNOScanReqParams->wdiPNOScanInfo.us24GProbeSize,
                pwdiPNOScanReqParams->wdiPNOScanInfo.us5GProbeSize);
-#endif
+
    for ( i = 0; i < pPrefNetwListParams->scanTimers.ucScanTimersCount; i++   )
    {
      pPrefNetwListParams->scanTimers.aTimerValues[i].uTimerValue  = 
@@ -22937,12 +22128,10 @@ WDI_PackPreferredNetworkListNew
                          &pSendBuffer, &usDataOffset, &usSendSize))||
        ( usSendSize < (usDataOffset + sizeof(tPrefNetwListParamsNew) )))
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
                   "Unable to get send buffer in Set PNO req %x  ",
                    pwdiPNOScanReqParams);
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
    }
 
@@ -22962,13 +22151,12 @@ WDI_PackPreferredNetworkListNew
      pwdiPNOScanReqParams->wdiPNOScanInfo.ucNetworksCount :
       WLAN_HAL_PNO_MAX_SUPP_NETWORKS;
 
-#ifdef WLAN_DEBUG
    WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_INFO,
                "WDI SET PNO: Enable %d, Mode %d, Netw Count %d",
                pwdiPNOScanReqParams->wdiPNOScanInfo.bEnable,
                pwdiPNOScanReqParams->wdiPNOScanInfo.wdiModePNO,
                pwdiPNOScanReqParams->wdiPNOScanInfo.ucNetworksCount);
-#endif
+
    for ( i = 0; i < pPrefNetwListParams->ucNetworksCount; i++ )
    {
      /*SSID of the BSS*/
@@ -23004,12 +22192,10 @@ WDI_PackPreferredNetworkListNew
      pPrefNetwListParams->aNetworks[i].rssiThreshold =
        pwdiPNOScanReqParams->wdiPNOScanInfo.aNetworks[i].rssiThreshold;
 
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_INFO,
                "WDI SET PNO: SSID %d %s",
                pPrefNetwListParams->aNetworks[i].ssId.length,
                pPrefNetwListParams->aNetworks[i].ssId.ssId);
-#endif
    }
 
    pPrefNetwListParams->scanTimers.ucScanTimersCount = 
@@ -23018,13 +22204,12 @@ WDI_PackPreferredNetworkListNew
      pwdiPNOScanReqParams->wdiPNOScanInfo.scanTimers.ucScanTimersCount :
       WLAN_HAL_PNO_MAX_SCAN_TIMERS;
 
-#ifdef WLAN_DEBUG
    WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_INFO,
                "WDI SET PNO: Scan timers count %d 24G P %d 5G Probe %d",
                pPrefNetwListParams->scanTimers.ucScanTimersCount,
                pwdiPNOScanReqParams->wdiPNOScanInfo.us24GProbeSize,
                pwdiPNOScanReqParams->wdiPNOScanInfo.us5GProbeSize);
-#endif
+
    for ( i = 0; i < pPrefNetwListParams->scanTimers.ucScanTimersCount; i++   )
    {
      pPrefNetwListParams->scanTimers.aTimerValues[i].uTimerValue  = 
@@ -23090,11 +22275,9 @@ WDI_ProcessSetPreferredNetworkReq
        ( NULL == (pwdiPNOScanReqParams = (WDI_PNOScanReqParamsType*)pEventData->pEventData)) ||
        ( NULL == (wdiPNOScanCb   = (WDI_PNOScanCb)pEventData->pCBfnc)))
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                   "%s: Invalid parameters", __FUNCTION__);
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
    }
 
@@ -23103,21 +22286,19 @@ WDI_ProcessSetPreferredNetworkReq
    -------------------------------------------------------------------------*/
    if ( pWDICtx->wdiPNOVersion > 0 )
    {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_INFO,
                   "%s: PNO new version %d ", __FUNCTION__,
                   pWDICtx->wdiPNOVersion);
-#endif
+
      wdiStatus = WDI_PackPreferredNetworkListNew( pWDICtx, pwdiPNOScanReqParams,
                                       &pSendBuffer, &usSendSize);
    }
    else
    {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_INFO,
                   "%s: PNO old version %d ", __FUNCTION__,
                   pWDICtx->wdiPNOVersion);
-#endif
+
      wdiStatus = WDI_PackPreferredNetworkList( pWDICtx, pwdiPNOScanReqParams,
                                       &pSendBuffer, &usSendSize);
    }
@@ -23125,11 +22306,9 @@ WDI_ProcessSetPreferredNetworkReq
    if (( WDI_STATUS_SUCCESS != wdiStatus )||
        ( NULL == pSendBuffer )||( 0 == usSendSize ))
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                   "%s: failed to pack request parameters", __FUNCTION__);
       WDI_ASSERT(0);
-#endif
       return wdiStatus;
    }
 
@@ -23173,11 +22352,9 @@ WDI_ProcessSetRssiFilterReq
        ( NULL == (pwdiRssiFilterReqParams = (WDI_SetRssiFilterReqParamsType*)pEventData->pEventData)) ||
        ( NULL == (wdiRssiFilterCb   = (WDI_RssiFilterCb)pEventData->pCBfnc)))
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                   "%s: Invalid parameters", __FUNCTION__);
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
    }
 
@@ -23189,12 +22366,10 @@ WDI_ProcessSetRssiFilterReq
                          &pSendBuffer, &usDataOffset, &usSendSize))||
        ( usSendSize < (usDataOffset + sizeof(ucRssiThreshold) )))
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
                   "Unable to get send buffer in Set PNO req %x %x %x",
                   pEventData, pwdiRssiFilterReqParams, wdiRssiFilterCb);
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
    }
 
@@ -23246,18 +22421,14 @@ WDI_ProcessUpdateScanParamsReq
        ( NULL == (pwdiUpdateScanParams = (WDI_UpdateScanParamsInfoType*)pEventData->pEventData)) ||
        ( NULL == (wdiUpdateScanParamsCb   = (WDI_UpdateScanParamsCb)pEventData->pCBfnc)))
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                   "%s: Invalid parameters", __FUNCTION__);
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
    }
 
-#ifdef WLAN_DEBUG
    WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_INFO,
                "Begin WDI Update Scan Parameters");
-#endif
    /*-----------------------------------------------------------------------
      Get message buffer
    -----------------------------------------------------------------------*/
@@ -23266,12 +22437,10 @@ WDI_ProcessUpdateScanParamsReq
                          &pSendBuffer, &usDataOffset, &usSendSize))||
        ( usSendSize < (usDataOffset + sizeof(updateScanParams) )))
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
                   "Unable to get send buffer in Update Scan Params req %x %x %x",
                   pEventData, pwdiUpdateScanParams, wdiUpdateScanParamsCb);
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
    }
 
@@ -23304,10 +22473,8 @@ WDI_ProcessUpdateScanParamsReq
    pWDICtx->wdiReqStatusCB     = pwdiUpdateScanParams->wdiReqStatusCB;
    pWDICtx->pReqStatusUserData = pwdiUpdateScanParams->pUserData;
 
-#ifdef WLAN_DEBUG
    WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_INFO,
                "End Update Scan Parameters");
-#endif
    /*-------------------------------------------------------------------------
      Send Get STA Request to HAL
    -------------------------------------------------------------------------*/
@@ -23341,11 +22508,9 @@ WDI_ProcessPrefNetworkFoundInd
   if (( NULL == pWDICtx ) || ( NULL == pEventData ) ||
       ( NULL == pEventData->pEventData ))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT( 0 );
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -23373,13 +22538,12 @@ WDI_ProcessPrefNetworkFoundInd
      prefNetwFoundInd.prefNetwFoundParams.rssi;
 
   // DEBUG
-#ifdef WLAN_DEBUG
   WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_FATAL,
               "[PNO WDI] PREF_NETWORK_FOUND_IND Type (%x) data (SSID=%s, RSSI=%d)",
               wdiInd.wdiIndicationType,
               wdiInd.wdiIndicationData.wdiPrefNetworkFoundInd.ssId.sSSID,
               wdiInd.wdiIndicationData.wdiPrefNetworkFoundInd.rssi );
-#endif
+
   /*Notify UMAC*/
   pWDICtx->wdiLowLevelIndCB( &wdiInd, pWDICtx->pIndUserData );
 
@@ -23414,11 +22578,9 @@ WDI_ProcessSetPreferredNetworkRsp
    if (( NULL == pWDICtx ) || ( NULL == pEventData ) ||
        ( NULL == pEventData->pEventData ))
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                   "%s: Invalid parameters", __FUNCTION__);
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
    }
 
@@ -23465,11 +22627,9 @@ WDI_ProcessSetRssiFilterRsp
    if (( NULL == pWDICtx ) || ( NULL == pEventData ) ||
        ( NULL == pEventData->pEventData ))
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                   "%s: Invalid parameters", __FUNCTION__);
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
    }
 
@@ -23516,18 +22676,15 @@ WDI_ProcessUpdateScanParamsRsp
    if (( NULL == pWDICtx ) || ( NULL == pEventData ) ||
        ( NULL == pEventData->pEventData ))
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                   "%s: Invalid parameters", __FUNCTION__);
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
    }
 
-#ifdef WLAN_DEBUG
    WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_INFO,
                   "Process UPD scan params ptr : %x", __FUNCTION__);
-#endif
+
   wdiUpdateScanParamsCb = (WDI_UpdateScanParamsCb)pWDICtx->pfncRspCB;
 
   /*-------------------------------------------------------------------------
@@ -23547,11 +22704,10 @@ WDI_ProcessUpdateScanParamsRsp
 
   wdiStatus   =   WDI_HAL_2_WDI_STATUS(uStatus);
 
-#ifdef WLAN_DEBUG
   WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_INFO,
               "UPD Scan Parameters rsp with status: %d",
               halUpdScanParams.status);
-#endif
+
   /*Notify UMAC*/
   wdiUpdateScanParamsCb(wdiStatus, pWDICtx->pRspCBUserData);
 
@@ -23571,19 +22727,17 @@ WDI_8023MulticastListReq
    WDI_EventInfoType      wdiEventData;
    /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 
-#ifdef WLAN_DEBUG
    WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_INFO,
              "%s", __FUNCTION__);
-#endif
+
    /*------------------------------------------------------------------------
      Sanity Check
    ------------------------------------------------------------------------*/
    if ( eWLAN_PAL_FALSE == gWDIInitialized )
    {
-#ifdef WLAN_DEBUG
      WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
                "WDI API call before module is initialized - Fail request");
-#endif
+
      return WDI_STATUS_E_NOT_ALLOWED;
    }
 
@@ -23610,19 +22764,17 @@ WDI_ReceiveFilterSetFilterReq
    WDI_EventInfoType      wdiEventData;
    /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 
-#ifdef WLAN_DEBUG
    WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_INFO,
              "%s",__FUNCTION__);
-#endif
+
    /*------------------------------------------------------------------------
      Sanity Check
    ------------------------------------------------------------------------*/
    if ( eWLAN_PAL_FALSE == gWDIInitialized )
    {
-#ifdef WLAN_DEBUG
      WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
                "WDI API call before module is initialized - Fail request");
-#endif
+
      return WDI_STATUS_E_NOT_ALLOWED;
    }
 
@@ -23652,19 +22804,17 @@ WDI_FilterMatchCountReq
    WDI_EventInfoType      wdiEventData;
    /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 
-#ifdef WLAN_DEBUG
    WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_INFO,
              "%s",__FUNCTION__);
-#endif
+
    /*------------------------------------------------------------------------
      Sanity Check
    ------------------------------------------------------------------------*/
    if ( eWLAN_PAL_FALSE == gWDIInitialized )
    {
-#ifdef WLAN_DEBUG
      WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
                "WDI API call before module is initialized - Fail request");
-#endif
+
      return WDI_STATUS_E_NOT_ALLOWED;
    }
 
@@ -23692,19 +22842,17 @@ WDI_ReceiveFilterClearFilterReq
    WDI_EventInfoType      wdiEventData;
    /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 
-#ifdef WLAN_DEBUG
    WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_INFO,
              "%s",__FUNCTION__);
-#endif
+
    /*------------------------------------------------------------------------
      Sanity Check
    ------------------------------------------------------------------------*/
    if ( eWLAN_PAL_FALSE == gWDIInitialized )
    {
-#ifdef WLAN_DEBUG
      WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
                "WDI API call before module is initialized - Fail request");
-#endif
+
      return WDI_STATUS_E_NOT_ALLOWED;
    }
 
@@ -23747,17 +22895,14 @@ WDI_Process8023MulticastListReq
    wpt_uint8                  ucCurrentBSSSesIdx = 0;
    WDI_BSSSessionType*        pBSSSes = NULL;
 
-#ifdef WLAN_DEBUG
    WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_INFO,
              "%s",__FUNCTION__);
-#endif
+
    pRcvFltMcAddrListType = wpalMemoryAllocate(sizeof(tHalRcvFltMcAddrListType)) ;
    if( NULL == pRcvFltMcAddrListType )
    {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
                  "Failed to alloc in WDI_Process8023MulticastListReq");
-#endif
      return WDI_STATUS_E_FAILURE; 
    }
 
@@ -23770,12 +22915,10 @@ WDI_Process8023MulticastListReq
        ( NULL == (wdi8023MulticastListCb =
        (WDI_8023MulticastListCb)pEventData->pCBfnc)))
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                   "%s: Invalid parameters", __FUNCTION__);
-      WDI_ASSERT(0);
-#endif
       wpalMemoryFree(pRcvFltMcAddrListType);
+      WDI_ASSERT(0);
       return WDI_STATUS_E_FAILURE;
    }
 
@@ -23784,10 +22927,8 @@ WDI_Process8023MulticastListReq
                             &pBSSSes);
    if ( NULL == pBSSSes )
    {
-#ifdef WLAN_DEBUG
        WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
                  " %s : Association for this BSSID does not exist",__FUNCTION__);
-#endif
        wpalMemoryFree(pRcvFltMcAddrListType);   
        return WDI_STATUS_E_FAILURE; 
    }
@@ -23801,14 +22942,12 @@ WDI_Process8023MulticastListReq
                          &pSendBuffer, &usDataOffset, &usSendSize))||
        ( usSendSize < (usDataOffset + sizeof(tHalRcvFltMcAddrListType))))
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
                   "Unable to get send buffer in "
                   "WDI_Process8023MulticastListReq() %x %x %x",
                   pEventData, pwdiFltPktSetMcListReqParamsType,
                   wdi8023MulticastListCb);
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
    }
 
@@ -23866,10 +23005,9 @@ WDI_ProcessReceiveFilterSetFilterReq
    wpt_uint8                  ucCurrentBSSSesIdx = 0;
    WDI_BSSSessionType*        pBSSSes = NULL;
 
-#ifdef WLAN_DEBUG
    WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_INFO,
              "%s",__FUNCTION__);
-#endif
+
    /*-------------------------------------------------------------------------
      Sanity check
    -------------------------------------------------------------------------*/
@@ -23879,11 +23017,9 @@ WDI_ProcessReceiveFilterSetFilterReq
        ( NULL == (wdiReceiveFilterSetFilterCb =
        (WDI_ReceiveFilterSetFilterCb)pEventData->pCBfnc)))
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                   "%s: Invalid parameters", __FUNCTION__);
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
    }
 
@@ -23892,10 +23028,8 @@ WDI_ProcessReceiveFilterSetFilterReq
                             &pBSSSes);
    if ( NULL == pBSSSes )
    {
-#ifdef WLAN_DEBUG
        WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
                  " %s : Association for this BSSID does not exist",__FUNCTION__);
-#endif
        return WDI_STATUS_E_FAILURE;
    }
 
@@ -23908,13 +23042,11 @@ WDI_ProcessReceiveFilterSetFilterReq
 
   if(NULL == pRcvPktFilterCfg)
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
             "%s: Failed to allocate memory for "
             "tHalRcvPktFilterCfgType: %x %x %x ",
             __FUNCTION__, pWDICtx, pEventData, pEventData->pEventData);
     WDI_ASSERT(0);
-#endif
     return WDI_STATUS_E_FAILURE;
   }
 
@@ -23929,23 +23061,20 @@ WDI_ProcessReceiveFilterSetFilterReq
                          &pSendBuffer, &usDataOffset, &usSendSize))||
        ( usSendSize < (usDataOffset + usRcvPktFilterCfgSize)))
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
                   "Unable to get send buffer in "
                   "WDI_ProcessReceiveFilterSetFilterReq() %x %x %x",
                   pEventData, pwdiSetRcvPktFilterReqInfo,
                   wdiReceiveFilterSetFilterCb);
       WDI_ASSERT(0);
-#endif
       wpalMemoryFree(pRcvPktFilterCfg);
       return WDI_STATUS_E_FAILURE;
    }
 
-#ifdef WLAN_DEBUG
    WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_INFO,
               "UsData Off %d UsSend %d cfg %d",usDataOffset,
               usSendSize,usRcvPktFilterCfgSize);
-#endif
+
    pRcvPktFilterCfg->filterId = pwdiSetRcvPktFilterReqInfo->wdiPktFilterCfg.filterId;
    pRcvPktFilterCfg->filterType = pwdiSetRcvPktFilterReqInfo->wdiPktFilterCfg.filterType;
    pRcvPktFilterCfg->numParams = pwdiSetRcvPktFilterReqInfo->wdiPktFilterCfg.numFieldParams;
@@ -23953,14 +23082,13 @@ WDI_ProcessReceiveFilterSetFilterReq
 
    //pRcvPktFilterCfg->bssIdx = pBSSSes->ucBSSIdx;
 
-#ifdef WLAN_DEBUG
    WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_INFO,
               "Out: FID %d FT %d",pRcvPktFilterCfg->filterId,
               pRcvPktFilterCfg->filterType);
    WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_INFO,
               "NParams %d CT %d",pRcvPktFilterCfg->numParams,
               pRcvPktFilterCfg->coalesceTime);
-#endif
+
    for ( i = 0; i < pRcvPktFilterCfg->numParams; i++ )
    {
        pRcvPktFilterCfg->paramsData[i].protocolLayer =
@@ -23979,7 +23107,6 @@ WDI_ProcessReceiveFilterSetFilterReq
                     &pwdiSetRcvPktFilterReqInfo->wdiPktFilterCfg.paramsData[i].dataMask,
                     8);
 
-#ifdef WLAN_DEBUG
       WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_INFO,
            "Out:Proto %d Comp Flag %d \n",
            pRcvPktFilterCfg->paramsData[i].protocolLayer,
@@ -24007,7 +23134,6 @@ WDI_ProcessReceiveFilterSetFilterReq
            pRcvPktFilterCfg->paramsData[i].dataMask[3],
            pRcvPktFilterCfg->paramsData[i].dataMask[4],
            pRcvPktFilterCfg->paramsData[i].dataMask[5]);
-#endif
    }
 
    wpalMemoryCopy( pSendBuffer+usDataOffset,
@@ -24018,10 +23144,8 @@ WDI_ProcessReceiveFilterSetFilterReq
    pWDICtx->wdiReqStatusCB     = pwdiSetRcvPktFilterReqInfo->wdiReqStatusCB;
    pWDICtx->pReqStatusUserData = pwdiSetRcvPktFilterReqInfo->pUserData;
 
-#ifdef WLAN_DEBUG
    WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_INFO,
              "%s",__FUNCTION__);
-#endif
    wpalMemoryFree(pRcvPktFilterCfg);
 
    /*-------------------------------------------------------------------------
@@ -24056,10 +23180,9 @@ WDI_ProcessFilterMatchCountReq
    wpt_uint16                             usDataOffset          = 0;
    wpt_uint16                             usSendSize            = 0;
 
-#ifdef WLAN_DEBUG
    WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_INFO,
              "%s",__FUNCTION__);
-#endif
+
    /*-------------------------------------------------------------------------
      Sanity check
    -------------------------------------------------------------------------*/
@@ -24069,11 +23192,9 @@ WDI_ProcessFilterMatchCountReq
        ( NULL == (wdiFilterMatchCountCb =
        (WDI_FilterMatchCountCb)pEventData->pCBfnc)))
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                   "%s: Invalid parameters", __FUNCTION__);
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
    }
 
@@ -24086,14 +23207,12 @@ WDI_ProcessFilterMatchCountReq
                          &pSendBuffer, &usDataOffset, &usSendSize))||
        ( usSendSize < usDataOffset))
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
                   "Unable to get send buffer in "
                   "WDI_ProcessFilterMatchCountReq() %x %x %x",
                   pEventData, pwdiRcvFltPktMatchCntReqParamsType,
                   wdiFilterMatchCountCb);
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
    }
 
@@ -24138,10 +23257,9 @@ WDI_ProcessReceiveFilterClearFilterReq
    wpt_uint8                        ucCurrentBSSSesIdx = 0;
    WDI_BSSSessionType*              pBSSSes = NULL;
 
-#ifdef WLAN_DEBUG
    WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_INFO,
              "%s",__FUNCTION__);
-#endif
+
    /*-------------------------------------------------------------------------
      Sanity check
    -------------------------------------------------------------------------*/
@@ -24151,11 +23269,9 @@ WDI_ProcessReceiveFilterClearFilterReq
        ( NULL == (wdiRcvFltPktClearFilterCb =
        (WDI_ReceiveFilterClearFilterCb)pEventData->pCBfnc)))
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                   "%s: Invalid parameters", __FUNCTION__);
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
    }
 
@@ -24164,10 +23280,8 @@ WDI_ProcessReceiveFilterClearFilterReq
                             &pBSSSes);
    if ( NULL == pBSSSes )
    {
-#ifdef WLAN_DEBUG
        WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
                  " %s : Association for this BSSID does not exist",__FUNCTION__);
-#endif
        return WDI_STATUS_E_FAILURE;
    }
 
@@ -24180,14 +23294,12 @@ WDI_ProcessReceiveFilterClearFilterReq
                          &pSendBuffer, &usDataOffset, &usSendSize))||
        ( usSendSize < (usDataOffset + sizeof(tHalRcvFltPktClearParam))))
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
                   "Unable to get send buffer in "
                   "WDI_ProcessReceiveFilterClearFilterReq() %x %x %x",
                   pEventData, pwdiRcvFltPktClearReqParamsType,
                   wdiRcvFltPktClearFilterCb);
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
    }
 
@@ -24235,21 +23347,18 @@ WDI_Process8023MulticastListRsp
    WDI_8023MulticastListCb wdi8023MulticastListCb;
    /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 
-#ifdef WLAN_DEBUG
    WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_INFO,
              "%s",__FUNCTION__);
-#endif
+
    /*-------------------------------------------------------------------------
      Sanity check
    -------------------------------------------------------------------------*/
    if (( NULL == pWDICtx ) || ( NULL == pEventData ) ||
        ( NULL == pEventData->pEventData ))
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                   "%s: Invalid parameters", __FUNCTION__);
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
    }
 
@@ -24289,21 +23398,18 @@ WDI_ProcessReceiveFilterSetFilterRsp
    WDI_ReceiveFilterSetFilterCb wdiReceiveFilterSetFilterCb;
    /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 
-#ifdef WLAN_DEBUG
    WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_INFO,
           "%s",__FUNCTION__);
-#endif
+
    /*-------------------------------------------------------------------------
      Sanity check
    -------------------------------------------------------------------------*/
    if (( NULL == pWDICtx ) || ( NULL == pEventData ) ||
        ( NULL == pEventData->pEventData ))
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                   "%s: Invalid parameters", __FUNCTION__);
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
    }
 
@@ -24345,21 +23451,18 @@ WDI_ProcessFilterMatchCountRsp
 
    /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 
-#ifdef WLAN_DEBUG
    WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_INFO,
              "%s",__FUNCTION__);
-#endif
+
    /*-------------------------------------------------------------------------
      Sanity check
    -------------------------------------------------------------------------*/
    if (( NULL == pWDICtx ) || ( NULL == pEventData ) ||
        ( NULL == pEventData->pEventData ))
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                   "%s: Invalid parameters", __FUNCTION__);
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
    }
 
@@ -24398,21 +23501,18 @@ WDI_ProcessReceiveFilterClearFilterRsp
    WDI_ReceiveFilterClearFilterCb wdiReceiveFilterClearFilterCb;
    /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 
-#ifdef WLAN_DEBUG
    WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_INFO,
              "%s",__FUNCTION__);
-#endif
+
    /*-------------------------------------------------------------------------
      Sanity check
    -------------------------------------------------------------------------*/
    if (( NULL == pWDICtx ) || ( NULL == pEventData ) ||
        ( NULL == pEventData->pEventData ))
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                   "%s: Invalid parameters", __FUNCTION__);
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
    }
 
@@ -24452,9 +23552,7 @@ WDI_ProcessShutdownRsp
 {
   /*There is no shutdown response comming from HAL - function just kept for
   simmetry */
-#ifdef WLAN_DEBUG
   WDI_ASSERT(0);
-#endif
   return WDI_STATUS_SUCCESS;
 }/*WDI_ProcessShutdownRsp*/
 
@@ -24489,10 +23587,9 @@ WDI_SetPowerParamsReq
    ------------------------------------------------------------------------*/
    if ( eWLAN_PAL_FALSE == gWDIInitialized )
    {
-#ifdef WLAN_DEBUG
      WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
                "WDI API call before module is initialized - Fail request");
-#endif
+
      return WDI_STATUS_E_NOT_ALLOWED;
    }
 
@@ -24538,11 +23635,9 @@ WDI_ProcessSetPowerParamsReq
        ( NULL == (pwdiPowerParamsReqParams = (WDI_SetPowerParamsReqParamsType*)pEventData->pEventData)) ||
        ( NULL == (wdiPowerParamsCb   = (WDI_SetPowerParamsCb)pEventData->pCBfnc)))
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                   "%s: Invalid parameters", __FUNCTION__);
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
    }
 
@@ -24554,12 +23649,10 @@ WDI_ProcessSetPowerParamsReq
                          &pSendBuffer, &usDataOffset, &usSendSize))||
        ( usSendSize < (usDataOffset + sizeof(powerParams) )))
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
                   "Unable to get send buffer in Set PNO req %x %x %x",
                   pEventData, pwdiPowerParamsReqParams, wdiPowerParamsCb);
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
    }
 
@@ -24630,11 +23723,9 @@ WDI_ProcessSetPowerParamsRsp
    if (( NULL == pWDICtx ) || ( NULL == pEventData ) ||
        ( NULL == pEventData->pEventData ))
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                   "%s: Invalid parameters", __FUNCTION__);
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
    }
 
@@ -24693,10 +23784,9 @@ WDI_GTKOffloadReq
    ------------------------------------------------------------------------*/
    if ( eWLAN_PAL_FALSE == gWDIInitialized )
    {
-#ifdef WLAN_DEBUG
      WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
                "WDI API call before module is initialized - Fail request");
-#endif
+
      return WDI_STATUS_E_NOT_ALLOWED;
    }
 
@@ -24755,10 +23845,9 @@ WDI_GTKOffloadGetInfoReq
    ------------------------------------------------------------------------*/
    if ( eWLAN_PAL_FALSE == gWDIInitialized )
    {
-#ifdef WLAN_DEBUG
      WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
                "WDI API call before module is initialized - Fail request");
-#endif
+
      return WDI_STATUS_E_NOT_ALLOWED;
    }
 
@@ -24806,11 +23895,9 @@ WDI_ProcessGTKOffloadReq
        ( NULL == (pwdiGtkOffloadReqMsg = (WDI_GtkOffloadReqMsg*)pEventData->pEventData)) ||
        ( NULL == (wdiGtkOffloadCb   = (WDI_GtkOffloadCb)pEventData->pCBfnc)))
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                   "%s: Invalid parameters", __FUNCTION__);
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
    }
 
@@ -24822,12 +23909,10 @@ WDI_ProcessGTKOffloadReq
                          &pSendBuffer, &usDataOffset, &usSendSize))||
        ( usSendSize < (usDataOffset + sizeof(gtkOffloadReqParams) )))
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
                   "Unable to get send buffer in GTK offload req %x %x %x",
                   pEventData, pwdiGtkOffloadReqMsg, wdiGtkOffloadCb);
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
    }
 
@@ -24886,11 +23971,9 @@ WDI_ProcessGTKOffloadGetInfoReq
        ( NULL == (pwdiGtkOffloadGetInfoReqMsg = (WDI_GtkOffloadGetInfoReqMsg*)pEventData->pEventData)) ||
        ( NULL == (wdiGtkOffloadGetInfoCb = (WDI_GtkOffloadGetInfoCb)pEventData->pCBfnc)))
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                   "%s: Invalid parameters", __FUNCTION__);
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
    }
 
@@ -24902,12 +23985,10 @@ WDI_ProcessGTKOffloadGetInfoReq
                          &pSendBuffer, &usDataOffset, &usSendSize))||
        ( usSendSize < usDataOffset))
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
                   "Unable to get send buffer in WDI_ProcessGTKOffloadGetInfoReq() %x %x %x",
                   pEventData, pwdiGtkOffloadGetInfoReqMsg, wdiGtkOffloadGetInfoCb);
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
    }
 
@@ -24955,11 +24036,9 @@ WDI_ProcessGtkOffloadRsp
    if (( NULL == pWDICtx ) || ( NULL == pEventData ) ||
        ( NULL == pEventData->pEventData))
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                   "%s: Invalid parameters", __FUNCTION__);
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
    }
 
@@ -25006,11 +24085,9 @@ WDI_ProcessGTKOffloadGetInfoRsp
    if (( NULL == pWDICtx ) || ( NULL == pEventData ) ||
        ( NULL == pEventData->pEventData ))
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                   "%s: Invalid parameters", __FUNCTION__);
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
    }
 
@@ -25050,11 +24127,9 @@ WDI_ProcessWakeReasonInd
   if (( NULL == pWDICtx ) || ( NULL == pEventData ) ||
       ( NULL == pEventData->pEventData ))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT( 0 );
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -25070,12 +24145,10 @@ WDI_ProcessWakeReasonInd
 
   if(NULL == pWdiInd)
   {
-#ifdef WLAN_DEBUG
     WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
             "%s: Failed to allocate memory for WDI_WakeReasonIndType: %x %x %x ",
                 __FUNCTION__, pWDICtx, pEventData, pEventData->pEventData);
     WDI_ASSERT(0);
-#endif
     return WDI_STATUS_E_FAILURE;
   }
 
@@ -25098,10 +24171,9 @@ WDI_ProcessWakeReasonInd
   //Free memory allocated for WDI_WakeReasonIndType structure
   wpalMemoryFree(pWdiInd);
 
-#ifdef WLAN_DEBUG
   WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_INFO,
             "-%s", __FUNCTION__);
-#endif
+
   return WDI_STATUS_SUCCESS;
 }
 #endif // WLAN_WAKEUP_EVENTS
@@ -25145,11 +24217,9 @@ WDI_ProcessSetTmLevelRsp
    if (( NULL == pWDICtx ) || ( NULL == pEventData ) ||
        ( NULL == pEventData->pEventData ))
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                   "%s: Invalid parameters", __FUNCTION__);
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
    }
 
@@ -25197,11 +24267,9 @@ WDI_ProcessSetTmLevelReq
        ( NULL == (pwdiSetTmLevelReq = (WDI_SetTmLevelReqType*)pEventData->pEventData)) ||
        ( NULL == (wdiSetTmLevelCb   = (WDI_SetTmLevelCb)pEventData->pCBfnc)))
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                   "%s: Invalid parameters", __FUNCTION__);
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
    }
 
@@ -25213,12 +24281,10 @@ WDI_ProcessSetTmLevelReq
                          &pSendBuffer, &usDataOffset, &usSendSize))||
        ( usSendSize < (usDataOffset + sizeof(halTmMsg) )))
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
                   "Unable to get send buffer in Set PNO req %x %x %x",
                   pEventData, pwdiSetTmLevelReq, wdiSetTmLevelCb);
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
    }
 
@@ -25284,10 +24350,9 @@ WDI_featureCapsExchangeReq
    ------------------------------------------------------------------------*/
    if ( eWLAN_PAL_FALSE == gWDIInitialized )
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
                "WDI API call before module is initialized - Fail request");
-#endif
+
       return WDI_STATUS_E_NOT_ALLOWED;
    }
 
@@ -25296,11 +24361,9 @@ WDI_featureCapsExchangeReq
    gpHostWlanFeatCaps = wpalMemoryAllocate(fCapsStructSize);
    if ( NULL ==  gpHostWlanFeatCaps )
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
                "Cannot allocate memory for host capability info\n");
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_MEM_FAILURE;
    }
 
@@ -25311,7 +24374,6 @@ WDI_featureCapsExchangeReq
    ------------------------------------------------------------------------*/
    FillAllFeatureCaps(gpHostWlanFeatCaps, supportEnabledFeatures,
       (sizeof(supportEnabledFeatures)/sizeof(supportEnabledFeatures[0])));
-#ifdef WLAN_DEBUG
    WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_INFO,
       "Host caps %x %x %x %x\n",
       gpHostWlanFeatCaps->featCaps[0],
@@ -25319,7 +24381,7 @@ WDI_featureCapsExchangeReq
       gpHostWlanFeatCaps->featCaps[2],
       gpHostWlanFeatCaps->featCaps[3]
    );
-#endif
+
    wdiEventData.wdiRequest      = WDI_FEATURE_CAPS_EXCHANGE_REQ;
    wdiEventData.pEventData      = gpHostWlanFeatCaps;
    wdiEventData.uEventDataSize  = fCapsStructSize;
@@ -25352,10 +24414,9 @@ WDI_ProcessFeatureCapsExchangeReq
 
   /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 
-#ifdef WLAN_DEBUG
   WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_INFO,
          "%s", __FUNCTION__);
-#endif
+
   /*-------------------------------------------------------------------------
     Sanity check
   -------------------------------------------------------------------------*/
@@ -25363,11 +24424,9 @@ WDI_ProcessFeatureCapsExchangeReq
   if (( NULL == pEventData ) ||
       ( NULL == (tWlanFeatCaps *)pEventData->pEventData))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_FATAL,
                  "%s: Invalid parameters", __FUNCTION__);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
@@ -25382,16 +24441,13 @@ WDI_ProcessFeatureCapsExchangeReq
                         &pSendBuffer, &usDataOffset, &usSendSize))||
       ( usSendSize < (usDataOffset + usLen )))
   {
-#ifdef WLAN_DEBUG
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_FATAL,
               "Unable to get send buffer in feat caps exchange req %x %x",
                 pEventData, (tWlanFeatCaps *)pEventData->pEventData);
      WDI_ASSERT(0);
-#endif
      return WDI_STATUS_E_FAILURE;
   }
 
-#ifdef WLAN_DEBUG
   WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_INFO,
        "Host Caps - %x %x %x %x\n",
       ((tWlanFeatCaps *)pEventData->pEventData)->featCaps[0],
@@ -25399,7 +24455,7 @@ WDI_ProcessFeatureCapsExchangeReq
       ((tWlanFeatCaps *)pEventData->pEventData)->featCaps[2],
       ((tWlanFeatCaps *)pEventData->pEventData)->featCaps[3]
     );
-#endif
+
   /* Copy host caps after the offset in the send buffer */
   wpalMemoryCopy( pSendBuffer+usDataOffset,
                   (tWlanFeatCaps *)pEventData->pEventData,
@@ -25434,10 +24490,9 @@ WDI_ProcessFeatureCapsExchangeRsp
    wpt_int32                   fCapsStructSize;
    /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 
-#ifdef WLAN_DEBUG
    WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_INFO,
           "%s", __FUNCTION__);
-#endif
+
    /*-------------------------------------------------------------------------
      Sanity check
    -------------------------------------------------------------------------*/
@@ -25445,11 +24500,9 @@ WDI_ProcessFeatureCapsExchangeRsp
        ( NULL == pEventData->pEventData ))
    {
       /* It will go here when riva is old (doesn't understand this msg) and host is new */
-#ifdef WLAN_DEBUG
       WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_WARN,
                   "%s: Invalid parameters", __FUNCTION__);
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_E_FAILURE;
    }
 
@@ -25458,11 +24511,9 @@ WDI_ProcessFeatureCapsExchangeRsp
    gpFwWlanFeatCaps = wpalMemoryAllocate(fCapsStructSize);
    if ( NULL ==  gpFwWlanFeatCaps )
    {
-#ifdef WLAN_DEBUG
       WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
                "Cannot allocate memory for host capability info\n");
       WDI_ASSERT(0);
-#endif
       return WDI_STATUS_MEM_FAILURE;
    }
 
@@ -25476,7 +24527,6 @@ WDI_ProcessFeatureCapsExchangeRsp
 
    wpalMemoryCopy(gpFwWlanFeatCaps,(tWlanFeatCaps *) pEventData -> pEventData,
                     fCapsStructSize);
-#ifdef WLAN_DEBUG
    WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_INFO,
       "FW caps %x %x %x %x\n",
       gpFwWlanFeatCaps->featCaps[0],
@@ -25484,7 +24534,7 @@ WDI_ProcessFeatureCapsExchangeRsp
       gpFwWlanFeatCaps->featCaps[2],
       gpFwWlanFeatCaps->featCaps[3]
      );
-#endif
+
    wdiFeatureCapsExchangeCb = (WDI_featureCapsExchangeCb) pWDICtx -> pfncRspCB;
 
    /*Notify UMAC - there is no callback right now but can be used in future if reqd */
@@ -25518,13 +24568,11 @@ wpt_uint8 WDI_getHostWlanFeatCaps(wpt_uint8 feat_enum_value)
    {
       getFeatCaps(gpHostWlanFeatCaps, feat_enum_value, featSupported);
    }
-#ifdef WLAN_DEBUG
    else
    {
       WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
         "Caps exchange feature NOT supported. Return NOT SUPPORTED for %u feature", feat_enum_value);
    }
-#endif
    return featSupported;
 }
 
@@ -25553,13 +24601,11 @@ wpt_uint8 WDI_getFwWlanFeatCaps(wpt_uint8 feat_enum_value)
     {
       getFeatCaps(gpFwWlanFeatCaps, feat_enum_value, featSupported);
     }
-#ifdef WLAN_DEBUG
     else
     {
        WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
          "Caps exchange feature NOT supported. Return NOT SUPPORTED for %u feature", feat_enum_value);
     }
-#endif
     return featSupported;
 }
 
