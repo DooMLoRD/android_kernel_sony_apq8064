@@ -229,14 +229,24 @@ static struct kgsl_device_platform_data kgsl_3d0_pdata = {
 	.pwrlevel = {
 #ifdef CONFIG_GPU_OVERCLOCK
 		{
+			.gpu_freq = 533333000,
+			.bus_freq = 6,
+			.io_fraction = 0,
+		},
+		{
 			.gpu_freq = 487500000,
-			.bus_freq = 4,
+			.bus_freq = 5,
 			.io_fraction = 0,
 		},
 		{
 			.gpu_freq = 400000000,
-			.bus_freq = 3,
+			.bus_freq = 4,
 			.io_fraction = 0,
+		},
+		{
+			.gpu_freq = 325000000,
+			.bus_freq = 3,
+			.io_fraction = 33,
 		},
 #else
 		{
@@ -266,7 +276,11 @@ static struct kgsl_device_platform_data kgsl_3d0_pdata = {
 		},
 	},
 	.init_level = 1,
+#ifdef CONFIG_GPU_OVERCLOCK
+	.num_levels = 7,
+#else
 	.num_levels = 5,
+#endif
 	.set_grp_async = NULL,
 	.idle_timeout = HZ/10,
 	.nap_allowed = true,
