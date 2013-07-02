@@ -31,7 +31,6 @@ enum sony_hw {
 	HW_ODIN,
 	HW_YUGA,
 	HW_POLLUX,
-	HW_GAGA,
 	HW_DOGO,
 };
 
@@ -47,10 +46,6 @@ enum odin_hw_rev {
 	HW_REV_ODIN_AP101,
 	HW_REV_ODIN_AP105,
 	HW_REV_ODIN_FUTURE = HW_REV_FUTURE,
-};
-
-enum gaga_hw_rev {
-	HW_REV_GAGA_FUTURE = HW_REV_FUTURE,
 };
 
 enum dogo_hw_rev {
@@ -91,9 +86,6 @@ enum pollux_hw_rev {
 	HW_REV_POLLUX_GINA_AP1,
 	HW_REV_POLLUX_REX_DP1,
 	HW_REV_POLLUX_REX_SP1,
-	HW_REV_POLLUX_WINDY_DP11,
-	HW_REV_POLLUX_WINDY_DP2_DP3,
-	HW_REV_POLLUX_WINDY_AP1,
 	HW_REV_POLLUX_FUTURE = HW_REV_FUTURE,
 };
 
