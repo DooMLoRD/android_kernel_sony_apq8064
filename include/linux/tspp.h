@@ -42,6 +42,10 @@ struct tspp_filter {
 struct tspp_select_source {
 	enum tspp_source source;
 	enum tspp_tsif_mode mode;
+	int clk_inverse;
+	int data_inverse;
+	int sync_inverse;
+	int enable_inverse;
 };
 
 struct tspp_pid {
@@ -84,5 +88,7 @@ struct tspp_buffer {
 	_IOW(TSPP_IOCTL_BASE, 5, struct tspp_system_keys)
 #define TSPP_IOCTL_BUFFER_SIZE		\
 	_IOW(TSPP_IOCTL_BASE, 6, struct tspp_buffer)
+#define TSPP_IOCTL_CLOSE_STREAM		\
+	_IO(TSPP_IOCTL_BASE, 7)
 
 #endif /* _TSPP_H_ */

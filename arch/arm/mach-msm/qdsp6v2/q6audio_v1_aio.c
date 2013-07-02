@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2013 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,7 +19,7 @@
 #include <linux/wait.h>
 #include <linux/dma-mapping.h>
 #include <linux/slab.h>
-#include <linux/atomic.h>
+#include <asm/atomic.h>
 #include <asm/ioctls.h>
 #include "audio_utils_aio.h"
 
@@ -37,6 +37,9 @@ void q6_audio_cb(uint32_t opcode, uint32_t token,
 	case ASM_STREAM_CMD_SET_ENCDEC_PARAM:
 	case ASM_DATA_EVENT_SR_CM_CHANGE_NOTIFY:
 	case ASM_DATA_EVENT_ENC_SR_CM_NOTIFY:
+		audio_aio_cb(opcode, token, payload, audio);
+		break;
+	case APR_BASIC_RSP_RESULT:
 		audio_aio_cb(opcode, token, payload, audio);
 		break;
 	default:
@@ -106,41 +109,28 @@ void audio_aio_cb(uint32_t opcode, uint32_t token,
 		e_payload.stream_info.sample_rate = audio->pcm_cfg.sample_rate;
 		audio_aio_post_event(audio, AUDIO_EVENT_STREAM_INFO, e_payload);
 		break;
+	case APR_BASIC_RSP_RESULT:
+		switch (payload[0]) {
+		case ASM_STREAM_CMD_FLUSH:
+			if (payload[1] == ADSP_EOK) {
+				pr_debug("%s: FLUSH CMD success\n", __func__);
+				audio_aio_ioport_reset(audio);
+				audio->wflush = 0;
+				audio->rflush = 0;
+			} else {
+				pr_err("%s: FLUSH CMD failed with status:%d\n",
+					__func__, payload[1]);
+				audio_aio_ioport_reset(audio);
+				audio->wflush = 0;
+				audio->rflush = 0;
+			}
+			break;
+		default:
+			pr_debug("%s: cmd%x cmd_status:%d\n",
+				__func__, payload[0], payload[1]);
+		}
 	default:
 		break;
-	}
-}
-
-void extract_meta_out_info(struct q6audio_aio *audio,
-		struct audio_aio_buffer_node *buf_node, int dir)
-{
-	struct dec_meta_out *meta_data = buf_node->kvaddr;
-	if (dir) { /* input buffer - Write */
-		if (audio->buf_cfg.meta_info_enable)
-			memcpy(&buf_node->meta_info.meta_in,
-			(char *)buf_node->kvaddr, sizeof(struct dec_meta_in));
-		else
-			memset(&buf_node->meta_info.meta_in,
-			0, sizeof(struct dec_meta_in));
-		pr_debug("%s[%p]:i/p: msw_ts 0x%lx lsw_ts 0x%lx nflags 0x%8x\n",
-			__func__, audio,
-			buf_node->meta_info.meta_in.ntimestamp.highpart,
-			buf_node->meta_info.meta_in.ntimestamp.lowpart,
-			buf_node->meta_info.meta_in.nflags);
-	} else { /* output buffer - Read */
-		memcpy((char *)buf_node->kvaddr,
-			&buf_node->meta_info.meta_out,
-			sizeof(struct dec_meta_out));
-		meta_data->meta_out_dsp[0].nflags = 0x00000000;
-		pr_debug("%s[%p]:o/p: msw_ts 0x%8x lsw_ts 0x%8x nflags 0x%8x, num_frames = %d\n",
-		__func__, audio,
-		((struct dec_meta_out *)buf_node->kvaddr)->\
-			meta_out_dsp[0].msw_ts,
-		((struct dec_meta_out *)buf_node->kvaddr)->\
-			meta_out_dsp[0].lsw_ts,
-		((struct dec_meta_out *)buf_node->kvaddr)->\
-			meta_out_dsp[0].nflags,
-		((struct dec_meta_out *)buf_node->kvaddr)->num_of_frames);
 	}
 }
 

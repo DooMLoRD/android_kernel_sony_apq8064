@@ -34,6 +34,12 @@ struct mdp_prop {
 	u32 width;
 };
 
+struct mdp_msg_ops {
+	void *cookie;
+	bool secure;
+	bool iommu_split_domain;
+};
+
 static inline bool mdp_buf_info_equals(struct mdp_buf_info *a,
 		struct mdp_buf_info *b)
 {
@@ -51,6 +57,10 @@ static inline bool mdp_buf_info_equals(struct mdp_buf_info *a,
 #define MDP_CLOSE  _IOR(MDP_MAGIC_IOCTL, 5, void *)
 #define MDP_START  _IOR(MDP_MAGIC_IOCTL, 6, void *)
 #define MDP_STOP  _IOR(MDP_MAGIC_IOCTL, 7, void *)
+#define MDP_MMAP  _IOR(MDP_MAGIC_IOCTL, 8, struct mem_region_map *)
+#define MDP_MUNMAP  _IOR(MDP_MAGIC_IOCTL, 9, struct mem_region_map *)
+
+
 extern int mdp_init(struct v4l2_subdev *sd, u32 val);
 extern long mdp_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg);
 

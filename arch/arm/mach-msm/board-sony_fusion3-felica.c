@@ -68,6 +68,17 @@ static struct pm_gpio pm_gpio_disable = {
 	.inv_int_pol      = 0,
 	.disable_pin      = 0,
 };
+static struct pm_gpio pm_gpio_input = {
+	.direction        = PM_GPIO_DIR_IN,
+	.output_buffer    = PM_GPIO_OUT_BUF_CMOS,
+	.output_value     = 0,
+	.pull             = PM_GPIO_PULL_NO,
+	.vin_sel          = PM_GPIO_VIN_S4,
+	.out_strength     = PM_GPIO_STRENGTH_NO,
+	.function         = PM_GPIO_FUNC_NORMAL,
+	.inv_int_pol      = 0,
+	.disable_pin      = 0,
+};
 
 static void uart_gpio_enable(struct felica_dev *dev)
 {
@@ -332,6 +343,8 @@ static void felica_pon_write(int val, struct felica_dev *dev)
 			goto exit;
 		}
 		msleep_interruptible(1);
+		pm8xxx_gpio_config(PM8921_GPIO_PM_TO_SYS(PM_GPIO_FELICA_RFS),
+			&pm_gpio_input);
 		uart_gpio_enable(dev);
 	}
 exit:
@@ -462,25 +475,33 @@ static void snfc_hsel_release(struct felica_dev *dev)
 
 static void snfc_ldo_write(int val, struct felica_dev *dev)
 {
+	int ret;
+
 	if (!dev)
 		return;
 	dev_dbg(dev->dev, ": %s\n", __func__);
 
-#ifdef CONFIG_SONY_FELICA_NFC_SUPPORT
 	if (!val && regulator_is_enabled(hvdd_reg)) {
 		dev_dbg(dev->dev, ": %s HVDD off\n", __func__);
 		uart_gpio_disable(dev);
 		gpio_free(MSM_GPIO_S_COMBO_HSEL);
 		gpio_free(MSM_GPIO_S_COMBO_INTU);
 		gpio_free(MSM_GPIO_FELICA_INT);
-		pm8xxx_gpio_config(PM8921_GPIO_PM_TO_SYS(PM_GPIO_FELICA_RFS),
+		ret = pm8xxx_gpio_config(
+			PM8921_GPIO_PM_TO_SYS(PM_GPIO_FELICA_RFS),
 			&pm_gpio_disable);
-		pm8xxx_gpio_config(PM8921_GPIO_PM_TO_SYS(PM_GPIO_FELICA_PON),
+		if (ret)
+			dev_err(dev->dev, "%s: Error pm8xxx_gpio_config RFS:%d\n",
+				__func__, ret);
+		ret = pm8xxx_gpio_config(
+			PM8921_GPIO_PM_TO_SYS(PM_GPIO_FELICA_PON),
 			&pm_gpio_disable);
+		if (ret)
+			dev_err(dev->dev, "%s: Error pm8xxx_gpio_config PON:%d\n",
+				__func__, ret);
 		regulator_disable(hvdd_reg);
 		msleep_interruptible(100);
 	}
-#endif
 
 	gpio_set_value_cansleep(
 		PM8921_GPIO_PM_TO_SYS(PM_GPIO_NFC_EXT_LDO_EN), val);

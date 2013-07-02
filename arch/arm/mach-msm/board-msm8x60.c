@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -100,6 +100,7 @@
 #include "peripheral-loader.h"
 #include <linux/platform_data/qcom_crypto_device.h>
 #include "rpm_resources.h"
+#include "clock.h"
 #include "pm-boot.h"
 #include "board-storage-common-a.h"
 
@@ -3599,30 +3600,14 @@ static struct i2c_board_info cy8ctma340_dragon_board_info[] = {
 };
 
 #ifdef CONFIG_SERIAL_MSM_HS
-static int configure_uart_gpios(int on)
-{
-	int ret = 0, i;
-	int uart_gpios[] = {53, 54, 55, 56};
-	for (i = 0; i < ARRAY_SIZE(uart_gpios); i++) {
-		if (on) {
-			ret = msm_gpiomux_get(uart_gpios[i]);
-			if (unlikely(ret))
-				break;
-		} else {
-			ret = msm_gpiomux_put(uart_gpios[i]);
-			if (unlikely(ret))
-				return ret;
-		}
-	}
-	if (ret)
-		for (; i >= 0; i--)
-			msm_gpiomux_put(uart_gpios[i]);
-	return ret;
-}
 static struct msm_serial_hs_platform_data msm_uart_dm1_pdata = {
-       .inject_rx_on_wakeup = 1,
-       .rx_to_inject = 0xFD,
-       .gpio_config = configure_uart_gpios,
+	.inject_rx_on_wakeup	= 1,
+	.rx_to_inject		= 0xFD,
+	.config_gpio		= 4,
+	.uart_tx_gpio		= 53,
+	.uart_rx_gpio		= 54,
+	.uart_cts_gpio		= 55,
+	.uart_rfr_gpio		= 56,
 };
 #endif
 
@@ -5346,9 +5331,7 @@ static struct ion_co_heap_pdata co_ion_pdata = {
  * to each other.
  * Don't swap the order unless you know what you are doing!
  */
-static struct ion_platform_data ion_pdata = {
-	.nr = MSM_ION_HEAP_NUM,
-	.heaps = {
+struct ion_platform_heap msm8x60_heaps [] = {
 		{
 			.id	= ION_SYSTEM_HEAP_ID,
 			.type	= ION_HEAP_TYPE_SYSTEM,
@@ -5423,7 +5406,11 @@ static struct ion_platform_data ion_pdata = {
 			.extra_data = (void *)&co_ion_pdata,
 		},
 #endif
-	}
+};
+
+static struct ion_platform_data ion_pdata = {
+	.nr = MSM_ION_HEAP_NUM,
+	.heaps = msm8x60_heaps,
 };
 
 static struct platform_device ion_dev = {
@@ -5477,7 +5464,8 @@ static void __init reserve_ion_memory(void)
 	for (i = 0; i < ion_pdata.nr; i++) {
 		struct ion_platform_heap *heap = &(ion_pdata.heaps[i]);
 
-		if (heap->extra_data && heap->type == ION_HEAP_TYPE_CP) {
+		if (heap->extra_data &&
+			heap->type == (enum ion_heap_type) ION_HEAP_TYPE_CP) {
 			int map_all = ((struct ion_cp_heap_pdata *)
 				heap->extra_data)->iommu_map_all;
 

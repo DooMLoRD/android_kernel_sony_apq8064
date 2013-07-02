@@ -28,12 +28,15 @@
 		qcom,clk-map = <0x00000016>; //KGSL_CLK_CORE | KGSL_CLK_IFACE | KGSL_CLK_MEM_IFACE
 
 		/* Bus Scale Settings */
-		qcom,grp3d-vectors = <0 0 0 0>, <2 1 0 0>,
-				<0 0 0 2000>, <2 1 0 3000>,
-				<0 0 0 4000>, <2 1 0 5000>,
-				<0 0 0 6400>, <2 1 0 7600>;
-		qcom,grp3d-num-vectors-per-usecase = <2>;
-		qcom,grp3d-num-bus-scale-usecases = <4>;
+		qcom,msm-bus,name = "grp3d";
+		qcom,msm-bus,num-cases = <4>;
+		qcom,msm-bus,active-only = <0>;
+		qcom,msm-bus,num-paths = <2>;
+		qcom,msm-bus,vectors-KBps =
+				<26 512 0 0>, <89 604 0 0>,
+				<26 512 0 2000000>, <89 604 0 3000000>,
+				<26 512 0 4000000>, <89 604 0 5000000>,
+				<26 512 0 6400000>, <89 604 0 7600000>;
 
 		/* GDSC oxili regulators */
 		vddcx-supply = <&gdsc_oxili_cx>;
@@ -52,14 +55,14 @@
 
 			qcom,gpu-pwrlevel@0 {
 				reg = <0>;
-				qcom,gpu-freq = <450000000>;
+				qcom,gpu-freq = <500000000>;
 				qcom,bus-freq = <3>;
 				qcom,io-fraction = <0>;
 			};
 
 			qcom,gpu-pwrlevel@1 {
 				reg = <1>;
-				qcom,gpu-freq = <300000000>;
+				qcom,gpu-freq = <333000000>;
 				qcom,bus-freq = <2>;
 				qcom,io-fraction = <33>;
 			};
@@ -85,40 +88,71 @@
 
 			compatible = "qcom,dcvs-core-info";
 
-			qcom,core-max-time-us = <100000>;
-			qcom,algo-slack-time-us = <39000>;
-			qcom,algo-disable-pc-threshold = <86000>;
-			qcom,algo-ss-window-size = <1000000>;
-			qcom,algo-ss-util-pct = <95>;
+			qcom,num-cores = <1>;
+			qcom,sensors = <0>;
+
+			qcom,core-core-type = <1>;
+
+			qcom,algo-disable-pc-threshold = <0>;
+			qcom,algo-em-win-size-min-us = <100000>;
+			qcom,algo-em-win-size-max-us = <300000>;
 			qcom,algo-em-max-util-pct = <97>;
-			qcom,algo-ss-iobusy-conv = <100>;
+			qcom,algo-group-id = <95>;
+			qcom,algo-max-freq-chg-time-us = <100000>;
+			qcom,algo-slack-mode-dynamic = <100000>;
+			qcom,algo-slack-weight-thresh-pct = <0>;
+			qcom,algo-slack-time-min-us = <39000>;
+			qcom,algo-slack-time-max-us = <39000>;
+			qcom,algo-ss-win-size-min-us = <1000000>;
+			qcom,algo-ss-win-size-max-us = <1000000>;
+			qcom,algo-ss-util-pct = <95>;
+			qcom,algo-ss-no-corr-below-freq = <0>;
+
+			qcom,energy-active-coeff-a = <2492>;
+			qcom,energy-active-coeff-b = <0>;
+			qcom,energy-active-coeff-c = <0>;
+			qcom,energy-leakage-coeff-a = <11>;
+			qcom,energy-leakage-coeff-b = <157150>;
+			qcom,energy-leakage-coeff-c = <0>;
+			qcom,energy-leakage-coeff-d = <0>;
+
+			qcom,power-current-temp = <25>;
+			qcom,power-num-freq = <4>;
 
 			qcom,dcvs-freq@0 {
 				reg = <0>;
 				qcom,freq = <0>;
-				qcom,idle-energy = <0>;
-				qcom,active-energy = <333932>;
+				qcom,voltage = <0>;
+				qcom,is_trans_level = <0>;
+				qcom,active-energy-offset = <100>;
+				qcom,leakage-energy-offset = <0>;
 			};
 
 			qcom,dcvs-freq@1 {
 				reg = <1>;
 				qcom,freq = <0>;
-				qcom,idle-energy = <0>;
-				qcom,active-energy = <497532>;
+				qcom,voltage = <0>;
+				qcom,is_trans_level = <0>;
+				qcom,active-energy-offset = <100>;
+				qcom,leakage-energy-offset = <0>;
 			};
 
 			qcom,dcvs-freq@2 {
 				reg = <2>;
 				qcom,freq = <0>;
-				qcom,idle-energy = <0>;
-				qcom,active-energy = <707610>;
+				qcom,voltage = <0>;
+				qcom,is_trans_level = <0>;
+				qcom,active-energy-offset = <100>;
+				qcom,leakage-energy-offset = <0>;
 			};
 
 			qcom,dcvs-freq@3 {
 				reg = <3>;
 				qcom,freq = <0>;
-				qcom,idle-energy = <0>;
-				qcom,active-energy = <844545>;
+				qcom,voltage = <0>;
+				qcom,is_trans_level = <0>;
+				qcom,active-energy-offset = <844545>;
+				qcom,leakage-energy-offset = <0>;
 			};
 		};
 

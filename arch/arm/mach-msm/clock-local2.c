@@ -24,8 +24,8 @@
 #include <linux/clk.h>
 
 #include <mach/clk.h>
+#include <mach/clk-provider.h>
 
-#include "clock.h"
 #include "clock-local2.h"
 
 /*
@@ -163,8 +163,7 @@ static int rcg_clk_set_rate(struct clk *c, unsigned long rate)
 {
 	struct clk_freq_tbl *cf, *nf;
 	struct rcg_clk *rcg = to_rcg_clk(c);
-	int rc;
-	unsigned long flags;
+	int rc = 0;
 
 	for (nf = rcg->freq_tbl; nf->freq_hz != FREQ_END
 			&& nf->freq_hz != rate; nf++)

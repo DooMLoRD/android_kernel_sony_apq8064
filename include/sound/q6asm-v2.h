@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -242,6 +242,8 @@ int q6asm_enable_sbrps(struct audio_client *ac,
 int q6asm_cfg_dual_mono_aac(struct audio_client *ac,
 			uint16_t sce_left, uint16_t sce_right);
 
+int q6asm_cfg_aac_sel_mix_coef(struct audio_client *ac, uint32_t mix_coeff);
+
 int q6asm_enc_cfg_blk_qcelp(struct audio_client *ac, uint32_t frames_per_buf,
 		uint16_t min_rate, uint16_t max_rate,
 		uint16_t reduced_rate_level, uint16_t rate_modulation_cmd);
@@ -294,7 +296,7 @@ int q6asm_set_lrgain(struct audio_client *ac, int left_gain, int right_gain);
 /* Enable Mute/unmute flag */
 int q6asm_set_mute(struct audio_client *ac, int muteflag);
 
-uint64_t q6asm_get_session_time(struct audio_client *ac);
+int q6asm_get_session_time(struct audio_client *ac, uint64_t *tstamp);
 
 /* Client can set the IO mode to either AIO/SIO mode */
 int q6asm_set_io_mode(struct audio_client *ac, uint32_t mode);

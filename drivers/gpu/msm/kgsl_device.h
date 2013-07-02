@@ -22,10 +22,12 @@
 #include "kgsl_pwrctrl.h"
 #include "kgsl_log.h"
 #include "kgsl_pwrscale.h"
+#include <linux/sync.h>
 
-#define KGSL_TIMEOUT_NONE       0
-#define KGSL_TIMEOUT_DEFAULT    0xFFFFFFFF
-#define KGSL_TIMEOUT_PART       2000 /* 2 sec */
+#define KGSL_TIMEOUT_NONE           0
+#define KGSL_TIMEOUT_DEFAULT        0xFFFFFFFF
+#define KGSL_TIMEOUT_PART           50 /* 50 msec */
+#define KGSL_TIMEOUT_LONG_IB_DETECTION  2000 /* 2 sec*/
 
 #define FIRST_TIMEOUT (HZ / 2)
 
@@ -45,7 +47,7 @@
 #define KGSL_STATE_SLEEP	0x00000008
 #define KGSL_STATE_SUSPEND	0x00000010
 #define KGSL_STATE_HUNG		0x00000020
-#define KGSL_STATE_DUMP_AND_RECOVER	0x00000040
+#define KGSL_STATE_DUMP_AND_FT	0x00000040
 #define KGSL_STATE_SLUMBER	0x00000080
 
 #define KGSL_GRAPHICS_MEMORY_LOW_WATERMARK  0x1000000
@@ -57,6 +59,7 @@ struct platform_device;
 struct kgsl_device_private;
 struct kgsl_context;
 struct kgsl_power_stats;
+struct kgsl_event;
 
 struct kgsl_functable {
 	/* Mandatory functions - these functions must be implemented
@@ -111,6 +114,8 @@ struct kgsl_functable {
 		enum kgsl_property_type type, void *value,
 		unsigned int sizebytes);
 	int (*postmortem_dump) (struct kgsl_device *device, int manual);
+	int (*next_event)(struct kgsl_device *device,
+		struct kgsl_event *event);
 };
 
 /* MH register values */
@@ -129,6 +134,7 @@ struct kgsl_event {
 	void *priv;
 	struct list_head list;
 	void *owner;
+	unsigned int created;
 };
 
 
@@ -165,7 +171,7 @@ struct kgsl_device {
 	wait_queue_head_t wait_queue;
 	struct workqueue_struct *work_queue;
 	struct device *parentdev;
-	struct completion recovery_gate;
+	struct completion ft_gate;
 	struct dentry *d_debugfs;
 	struct idr context_idr;
 	struct early_suspend display_off;
@@ -191,11 +197,14 @@ struct kgsl_device {
 	int drv_log;
 	int mem_log;
 	int pwr_log;
+	int ft_log;
+	int pm_dump_enable;
 	struct kgsl_pwrscale pwrscale;
 	struct kobject pwrscale_kobj;
 	struct pm_qos_request pm_qos_req_dma;
 	struct work_struct ts_expired_ws;
 	struct list_head events;
+	struct list_head events_pending_list;
 	s64 on_time;
 
 	/* Postmortem Control switches */
@@ -203,39 +212,53 @@ struct kgsl_device {
 	int pm_ib_enabled;
 };
 
-void kgsl_timestamp_expired(struct work_struct *work);
+void kgsl_process_events(struct work_struct *work);
+void kgsl_check_fences(struct work_struct *work);
 
 #define KGSL_DEVICE_COMMON_INIT(_dev) \
 	.hwaccess_gate = COMPLETION_INITIALIZER((_dev).hwaccess_gate),\
 	.suspend_gate = COMPLETION_INITIALIZER((_dev).suspend_gate),\
-	.recovery_gate = COMPLETION_INITIALIZER((_dev).recovery_gate),\
+	.ft_gate = COMPLETION_INITIALIZER((_dev).ft_gate),\
 	.ts_notifier_list = ATOMIC_NOTIFIER_INIT((_dev).ts_notifier_list),\
 	.idle_check_ws = __WORK_INITIALIZER((_dev).idle_check_ws,\
 			kgsl_idle_check),\
 	.ts_expired_ws  = __WORK_INITIALIZER((_dev).ts_expired_ws,\
-			kgsl_timestamp_expired),\
+			kgsl_process_events),\
 	.context_idr = IDR_INIT((_dev).context_idr),\
 	.events = LIST_HEAD_INIT((_dev).events),\
+	.events_pending_list = LIST_HEAD_INIT((_dev).events_pending_list), \
 	.wait_queue = __WAIT_QUEUE_HEAD_INITIALIZER((_dev).wait_queue),\
 	.mutex = __MUTEX_INITIALIZER((_dev).mutex),\
 	.state = KGSL_STATE_INIT,\
 	.ver_major = DRIVER_VERSION_MAJOR,\
 	.ver_minor = DRIVER_VERSION_MINOR
 
+
+/**
+ * struct kgsl_context - Master structure for a KGSL context object
+ * @refcount - kref object for reference counting the context
+ * @id - integer identifier for the context
+ * @dev_priv - pointer to the owning device instance
+ * @devctxt - pointer to the device specific context information
+ * @reset_status - status indication whether a gpu reset occured and whether
+ * this context was responsible for causing it
+ * @wait_on_invalid_ts - flag indicating if this context has tried to wait on a
+ * bad timestamp
+ * @timeline - sync timeline used to create fences that can be signaled when a
+ * sync_pt timestamp expires
+ * @events - list head of pending events for this context
+ * @events_list - list node for the list of all contexts that have pending events
+ */
 struct kgsl_context {
 	struct kref refcount;
 	uint32_t id;
-
-	/* Pointer to the owning device instance */
 	struct kgsl_device_private *dev_priv;
-
-	/* Pointer to the device specific context information */
 	void *devctxt;
-	/*
-	 * Status indicating whether a gpu reset occurred and whether this
-	 * context was responsible for causing it
-	 */
 	unsigned int reset_status;
+	bool wait_on_invalid_ts;
+	struct sync_timeline *timeline;
+	struct list_head events;
+	struct list_head events_list;
 };
 
 struct kgsl_process_private {
@@ -246,6 +269,7 @@ struct kgsl_process_private {
 	struct kgsl_pagetable *pagetable;
 	struct list_head list;
 	struct kobject kobj;
+	struct dentry *debug_root;
 
 	struct {
 		unsigned int cur;
@@ -418,6 +442,25 @@ static inline void
 kgsl_context_put(struct kgsl_context *context)
 {
 	kref_put(&context->refcount, kgsl_context_destroy);
+}
+
+/**
+ * kgsl_active_count_put - Decrease the device active count
+ * @device: Pointer to a KGSL device
+ *
+ * Decrease the active count for the KGSL device and trigger the suspend_gate
+ * completion if it hits zero
+ */
+static inline void
+kgsl_active_count_put(struct kgsl_device *device)
+{
+	if (device->active_cnt == 1)
+		INIT_COMPLETION(device->suspend_gate);
+
+	device->active_cnt--;
+
+	if (device->active_cnt == 0)
+		complete(&device->suspend_gate);
 }
 
 #endif  /* __KGSL_DEVICE_H */

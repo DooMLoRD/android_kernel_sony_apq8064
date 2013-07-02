@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2012 Sony Mobile Communications AB.
+ * Copyright (c) 2013 Sony Mobile Communications AB.
  *
  * Author: Nilsson, Stefan 2 <stefan2.nilsson@sonymobile.com>
  *
@@ -16,9 +17,12 @@
 #include <linux/uaccess.h>
 #include <linux/io.h>
 #include <linux/rdtags.h>
+#include <linux/crc16.h>
+#include <linux/kfifo.h>
+#include <linux/delay.h>
 
 #define RDTAGS_SIG 0x47415452
-#define RDTAGS_NAME_SIZE 32
+#define RDTAGS_NAME_SIZE 28
 #define RDTAGS_ALIGNMENT 32
 
 #define RDTAGS_PROC_NODE_NAME	"rdtag"
@@ -29,14 +33,39 @@ static struct proc_dir_entry *entry;
 static void *rdtags_base;
 static void *rdtags_end;
 static size_t rdtags_size;
-static struct mutex mutex;
+static spinlock_t rdlock;
+static uint8_t rdtags_initialized;
 
 struct rtag_head {
 	uint32_t sig;
 	uint32_t data_size;
 	uint8_t name[RDTAGS_NAME_SIZE];
+	uint8_t null_term; /* Shall be 0 to preserve compatibility */
+	uint8_t flags;
+	uint16_t crc;
 	uint8_t data[0];
 };
+
+enum procfs_cmd {
+	PROCFS_CMD_ADD,
+	PROCFS_CMD_DELETE,
+};
+
+struct procfs_fifo_item {
+	enum procfs_cmd cmd;
+	char name[RDTAGS_NAME_SIZE];
+};
+
+#define PROCFS_FIFO_SIZE 64
+static DEFINE_KFIFO(procfs_fifo, struct procfs_fifo_item, PROCFS_FIFO_SIZE);
+
+static void procfs_work_func(struct work_struct *work);
+static DECLARE_WORK(procfs_work, procfs_work_func);
+
+#define PROCFS_ASYNC_ADD(x) procfs_async_cmd((x), PROCFS_CMD_ADD)
+#define PROCFS_ASYNC_DELETE(x) procfs_async_cmd((x), PROCFS_CMD_DELETE)
+
+#define SLEEP_TIME_ASYNC_FINISH 10 /* ms */
 
 #define MAX(X, Y) ((X) >= (Y) ? (X) : (Y))
 #define MIN(X, Y) ((X) <= (Y) ? (X) : (Y))
@@ -46,9 +75,178 @@ struct rtag_head {
 				  sizeof(*x), RDTAGS_ALIGNMENT))
 
 #define RDTAGS_BLK_SIZE(x) ALIGN(x->data_size + sizeof(*x), RDTAGS_ALIGNMENT)
+#define RDTAGS_BASE_VALID(x) ((void *)x >= rdtags_base && \
+			      (void *)x < rdtags_end)
+
+#define CRC_SIZE 2 /* bytes */
+#define RDTAG_FLAGS_CRC_PRESENT 0x1
 
 static ssize_t tag_read(char *page, char **start, off_t off, int count,
 			int *eof, void *data);
+
+static int procfs_create_node(char *name)
+{
+	struct proc_dir_entry *subentry;
+
+	if (!entry)
+		return -ENXIO;
+
+	subentry = create_proc_read_entry(name, S_IFREG | S_IRUGO, entry,
+					  tag_read, NULL);
+	if (!subentry)
+		return -ENOMEM;
+
+	/* subentry->data will be passed to read_proc function */
+	subentry->data = (void *)subentry->name;
+
+	return 0;
+}
+
+static int procfs_delete_node(char *name)
+{
+	if (!entry)
+		return -ENXIO;
+
+	remove_proc_entry(name, entry);
+
+	return 0;
+}
+
+static void procfs_work_func(struct work_struct *work)
+{
+	struct procfs_fifo_item item;
+
+	while (kfifo_get(&procfs_fifo, &item)) {
+		int ret;
+		char *name = (char *)&item.name;
+		dev_dbg(dev, "wq: Processing request %s %s\n",
+			item.cmd == PROCFS_CMD_ADD ? "ADD" : "DELETE", name);
+
+		switch (item.cmd) {
+		case PROCFS_CMD_ADD:
+			ret = procfs_create_node(name);
+			if (ret < 0)
+				dev_err(dev, "wq: Failed to create proc subentry \"%s\": %d\n",
+					name, ret);
+			break;
+		case PROCFS_CMD_DELETE:
+			ret = procfs_delete_node(name);
+			if (ret < 0)
+				dev_err(dev, "wq: Failed to remove proc subentry \"%s\": %d\n",
+					name, ret);
+			break;
+		default:
+			dev_err(dev, "wq: Unknown request: %d for %s\n",
+				item.cmd, name);
+		}
+	}
+}
+
+static void procfs_async_cmd(char *name, enum procfs_cmd cmd)
+{
+	struct procfs_fifo_item item;
+	if (unlikely(kfifo_is_full(&procfs_fifo))) {
+		dev_err(dev, "procfs FIFO buffer overflow! procfs will be out of sync!\n");
+		return;
+	}
+	item.cmd = cmd;
+	strlcpy(item.name, name, RDTAGS_NAME_SIZE);
+	dev_dbg(dev, "procfs WQ request: %s %s\n",
+		cmd == PROCFS_CMD_ADD ? "ADD" : "DELETE", name);
+	kfifo_put(&procfs_fifo, &item);
+	schedule_work(&procfs_work);
+}
+
+/*
+ * Calculates the CRC for a RDTAG. Both headers and data is covered by the CRC.
+ *
+ * mt: Pointer to a valid (size checked) RDTAG
+ *
+ * Returns: The calculated CRC
+ */
+static uint16_t calc_crc(struct rtag_head *mt)
+{
+	uint16_t crc;
+
+	/* Calculate CRC of header (minus crc field) */
+	crc = crc16(0, (char *)mt, sizeof(struct rtag_head) - CRC_SIZE);
+
+	/* Update the crc with the data part */
+	crc = crc16(crc, mt->data, mt->data_size);
+
+	return crc;
+}
+
+/*
+ * Updates a RDTAG with a correct CRC
+ *
+ * mt: Pointer to a RDTAG
+ *
+ */
+static void update_crc(struct rtag_head *mt)
+{
+	/* First do some basic sanity checking */
+	void *tag_end = (void *)(((uint32_t)mt) + sizeof(*mt) + mt->data_size);
+	if (!RDTAGS_BASE_VALID(mt) ||
+	    !RDTAGS_BASE_VALID((tag_end)) ||
+	    (mt->data_size > rdtags_size)) {
+		/* Unable to calculate CRC */
+		return;
+	}
+
+	/* Update the rdtag with correct CRC value */
+	mt->null_term = 0;
+	mt->flags = RDTAG_FLAGS_CRC_PRESENT;
+
+	/* Calculate the crc */
+	mt->crc = calc_crc(mt);
+}
+
+/*
+ * Verifies the CRC of a tag
+ *
+ * mt: Pointer to a RDTAG
+ *
+ * Returns  1      on successful CRC verification
+ * Returns  0      if CRC field is missing (earlier version of RDTAGS)
+ * Returns -EILSEQ if CRC is present and verfication fails, or an unexpected
+ *            error is encountered.
+ */
+static int verify_crc(struct rtag_head *mt)
+{
+	uint16_t crc;
+	uint16_t rdtag_crc;
+
+	/* First do some basic sanity checking */
+	void *tag_end = (void *)(((uint32_t)mt) + sizeof(*mt) + mt->data_size);
+	if (!RDTAGS_BASE_VALID(mt) ||
+	    !RDTAGS_BASE_VALID((tag_end)) ||
+	    (mt->data_size > rdtags_size)) {
+		dev_err(dev, "Tag fails basic sanity check, " \
+			"clearing rest of rdtags area!\n");
+		goto error;
+	}
+
+	/* Get CRC from tag */
+	rdtag_crc = mt->flags & RDTAG_FLAGS_CRC_PRESENT ? mt->crc : 0;
+	if (rdtag_crc == 0) {
+		/* No CRC present, probably an older version of rdtags */
+		return 0;
+	}
+
+	/* Calculate expected CRC and compare */
+	crc = calc_crc(mt);
+	if (crc == rdtag_crc)
+		return 1;
+
+	dev_err(dev, "Tag fails CRC check, suspected memory corruption, " \
+		"clearing rest of rdtags area!\n");
+error:
+	if (RDTAGS_BASE_VALID(mt))
+		memset(mt, 0x0, rdtags_end - (void *)mt);
+
+	return -EILSEQ;
+}
 
 static char *get_valid_name(char *name)
 {
@@ -57,19 +255,16 @@ static char *get_valid_name(char *name)
 	if (!name)
 		return NULL;
 
-	if (name[0] == 0x0)
-		return NULL;
-
 	/* Make sure the name is not longer than RDTAGS_NAME_SIZE */
 	if (RDTAGS_NAME_SIZE == strnlen(name, RDTAGS_NAME_SIZE))
 		name[RDTAGS_NAME_SIZE - 1] = 0x0;
 
 	/* Check the name for disallowed characters */
-	temp = strpbrk(name, "\r\n ");
+	temp = strpbrk(name, "\r\n /");
 	if (temp)
 		*temp = 0x0;
 
-	/* Check that the name actually contains something */
+	/* Check that the name still actually contains something */
 	if (name[0] == 0x0)
 		return NULL;
 
@@ -81,11 +276,16 @@ static struct rtag_head *get_next_free(void)
 	struct rtag_head *mt = (struct rtag_head *)rdtags_base;
 
 	while (mt->sig == RDTAGS_SIG) {
+
+		/* Verify CRC of tag, if fail, it can be overwritten */
+		if (verify_crc(mt) < 0)
+			return mt;
+
 		/* Go to next tag */
 		mt = RDTAGS_NEXT_TAG(mt);
 
 		/* Check that we are not outside the buffer */
-		if ((void *)mt < rdtags_base || (void *)mt >= rdtags_end)
+		if (!RDTAGS_BASE_VALID(mt))
 			return NULL;
 	}
 
@@ -97,6 +297,11 @@ static struct rtag_head *get_tag(const char *name)
 	struct rtag_head *mt = (struct rtag_head *)rdtags_base;
 
 	while (mt->sig == RDTAGS_SIG) {
+
+		/* Verify CRC of tag */
+		if (verify_crc(mt) < 0)
+			return NULL;
+
 		if (strncmp(name, mt->name, RDTAGS_NAME_SIZE) == 0)
 			return mt;
 
@@ -104,7 +309,7 @@ static struct rtag_head *get_tag(const char *name)
 		mt = RDTAGS_NEXT_TAG(mt);
 
 		/* Check that we are not outside the buffer */
-		if ((void *)mt < rdtags_base || (void *)mt >= rdtags_end)
+		if (!RDTAGS_BASE_VALID(mt))
 			return NULL;
 	}
 
@@ -116,6 +321,8 @@ static void _remove_tag(struct rtag_head *mt)
 	struct rtag_head *mt_next, *mt_free;
 	uint32_t size_mv, size_clr;
 
+	if (!RDTAGS_BASE_VALID(mt))
+		return;
 	/*
 	 * we need to get some address & size for recompacting tags:
 	 *                            |- size_mv -|
@@ -125,22 +332,26 @@ static void _remove_tag(struct rtag_head *mt)
 	 *                 |-size_clr-|
 	 */
 	mt_next = RDTAGS_NEXT_TAG(mt);
+	if (!RDTAGS_BASE_VALID(mt_next))
+		mt_next = (struct rtag_head *)rdtags_end;
+
 	mt_free = get_next_free();
 	if (NULL == mt_free)
 		mt_free = (struct rtag_head *)rdtags_end;
 	size_mv = ((uint32_t)mt_free) - ((uint32_t)mt_next);
 	size_clr = RDTAGS_BLK_SIZE(mt);
 
-	/* Remove procfs interface */
-	remove_proc_entry(mt->name, entry);
+	/* Remove procfs interface asynchronously */
+	PROCFS_ASYNC_DELETE(mt->name);
 
 	/* move rear tags */
 	memmove((void *)mt, (void *)mt_next, size_mv);
 
 	/* clear vacated memory */
-	memset((void *)(((uint32_t)mt_free) - size_clr), 0, size_clr);
-
-	return;
+	if ((size_clr <= rdtags_size) &&
+	    ((void *)(uint32_t)mt_free - size_clr) >= rdtags_base) {
+		memset((void *)(((uint32_t)mt_free) - size_clr), 0, size_clr);
+	}
 }
 
 /*
@@ -153,30 +364,35 @@ static void _remove_tag(struct rtag_head *mt)
 int rdtags_remove_tag(const char *name)
 {
 	struct rtag_head *mt;
+	unsigned long flags;
 	int ret = 0;
 
 	if (!name)
 		return -EINVAL;
 
-	if (!rdtags_base)
+	if (!rdtags_initialized)
 		return -ENODEV;
 
-	mutex_lock(&mutex);
+	dev_dbg(dev, "Removing tag \"%s\"\n", name);
+
+	spin_lock_irqsave(&rdlock, flags);
 
 	/* Get the tag */
 	mt = get_tag(name);
 	if (!mt) {
-		dev_err(dev, "Could not find tag \"%s\"\n", name);
 		ret = -ENOENT;
 		goto exit;
 	}
 
-	dev_dbg(dev, "Removing tag \"%s\"\n", name);
-
 	_remove_tag(mt);
 
 exit:
-	mutex_unlock(&mutex);
+	spin_unlock_irqrestore(&rdlock, flags);
+
+	if (ret)
+		dev_err(dev, "Could not remove tag \"%s\"\n", name);
+	else
+		dev_dbg(dev, "Removed tag \"%s\"\n", name);
 
 	return ret;
 }
@@ -185,7 +401,6 @@ EXPORT_SYMBOL(rdtags_remove_tag);
 static int _add_tag(const char *name, const unsigned char* data, uint32_t size)
 {
 	struct rtag_head *mt = get_next_free();
-	struct proc_dir_entry *subentry;
 	void *tag_end = (void *)(((uint32_t)mt) + sizeof(*mt) + size);
 
 	if (!mt || (tag_end > rdtags_end)) {
@@ -197,22 +412,12 @@ static int _add_tag(const char *name, const unsigned char* data, uint32_t size)
 
 	mt->sig = RDTAGS_SIG;
 	strlcpy(mt->name, name, RDTAGS_NAME_SIZE);
-	mt->name[RDTAGS_NAME_SIZE - 1] = 0x0;	/* Null terminate */
 	memcpy(mt->data, data, size);
 	mt->data_size = size;
+	update_crc(mt);
 
-	/* Add procfs interface */
-	subentry = create_proc_read_entry(mt->name, S_IFREG | S_IRUGO, entry,
-					  tag_read, NULL);
-	if (!subentry) {
-		dev_err(dev, "Failed to create proc subentry \"%s\"\n",
-			mt->name);
-		memset((void *)mt, 0, size + sizeof(struct rtag_head));
-		return -ENOMEM;
-	}
-
-	/* subentry->data will be passed to read_proc function */
-	subentry->data = (void *)subentry->name;
+	/* Add procfs interface asynchronously */
+	PROCFS_ASYNC_ADD(mt->name);
 
 	return 0;
 }
@@ -233,7 +438,8 @@ static int _update_tag(struct rtag_head *mt, const unsigned char *data,
 	if (size == mt->data_size) {
 		dev_dbg(dev, "Updating tag \"%s\"\n", mt->name);
 		memcpy(mt->data, data, size);
-		return size;
+		update_crc(mt);
+		return 0;
 	}
 
 	/* compute available memory size if recompact tags */
@@ -273,15 +479,18 @@ int rdtags_add_tag(const char *name, const unsigned char *data,
 		   const uint32_t size)
 {
 	struct rtag_head *mt;
+	unsigned long flags;
 	int ret = 0;
 
 	if (!name || !data || size == 0)
 		return -EINVAL;
 
-	if (!rdtags_base)
+	if (!rdtags_initialized)
 		return -ENODEV;
 
-	mutex_lock(&mutex);
+	dev_dbg(dev, "Adding tag \"%s\"\n", name);
+
+	spin_lock_irqsave(&rdlock, flags);
 
 	/* First check if the tag exists */
 	mt = get_tag(name);
@@ -293,10 +502,16 @@ int rdtags_add_tag(const char *name, const unsigned char *data,
 	}
 
 	/* Add the tag */
-	dev_dbg(dev, "Adding tag \"%s\"\n", name);
 	ret = _add_tag(name, data, size);
 exit:
-	mutex_unlock(&mutex);
+	spin_unlock_irqrestore(&rdlock, flags);
+
+	if (ret)
+		dev_err(dev, "Could not add/update tag \"%s\" with %d bytes of data\n\n",
+			name, size);
+	else
+		dev_dbg(dev, "Added/updated tag \"%s\" with %d bytes of data\n\n",
+			name, size);
 
 	return ret;
 }
@@ -306,35 +521,58 @@ EXPORT_SYMBOL(rdtags_add_tag);
  * Gets the data from a tag
  *
  * name: Name of tag to get data from
- * *size: Will be updated with the size of the data
+ * data: Pointer to the buffer to receive the data
+ * size: Size of the buffer to receive the data. Will be updated with the
+ *       actual size of the data.
  *
- * Returns a pointer to the data or NULL on failure
+ * Returns a negative error code or 0 on success
  */
-unsigned char *rdtags_get_tag_data(const char *name, uint32_t *size)
+int rdtags_get_tag_data(const char *name, unsigned char *data, uint32_t *size)
 {
 	struct rtag_head *mt;
+	unsigned long flags;
+	int ret = 0;
 
-	mutex_lock(&mutex);
+	if (!name || !size)
+		return -EINVAL;
 
-	if (!name || !size || !rdtags_base)
-		goto error;
+	if (!rdtags_initialized)
+		return -ENODEV;
+
+	spin_lock_irqsave(&rdlock, flags);
 
 	/* First check if the tag exists */
 	mt = get_tag(name);
 
-	if (mt == NULL)
+	if (mt == NULL) {
+		ret = -ENOENT;
 		goto error;
+	}
 
-	/* Set the size and return a pointer to the data */
+	/* Check if the buffer is valid and that it is large enough */
+	if (!data || (*size < mt->data_size)) {
+		/* Update "size" with the required size */
+		*size = mt->data_size;
+		ret = -ENOBUFS;
+		goto error;
+	}
+
+	/* Copy the data and update the size */
+	memcpy(data, mt->data, mt->data_size);
 	*size = mt->data_size;
-	mutex_unlock(&mutex);
-	return mt->data;
 error:
-	if (size)
-		*size = 0;
-	mutex_unlock(&mutex);
+	spin_unlock_irqrestore(&rdlock, flags);
+	if (ret == -ENOBUFS)
+		dev_dbg(dev, "Returning size %d for tag \"%s\"!\n",
+			*size, name);
+	else if (ret)
+		dev_err(dev, "Could not get data for tag \"%s\": %d!\n",
+			name, ret);
+	else
+		dev_dbg(dev, "Read data of %d bytes for tag \"%s\"!\n",
+			*size, name);
 
-	return NULL;
+	return ret;
 }
 EXPORT_SYMBOL(rdtags_get_tag_data);
 
@@ -344,22 +582,32 @@ EXPORT_SYMBOL(rdtags_get_tag_data);
 void rdtags_clear_tags(void)
 {
 	struct rtag_head *mt = (struct rtag_head *)rdtags_base;
+	unsigned long flags;
 
-	if (!rdtags_base)
+	if (!rdtags_initialized) {
+		dev_err(dev, "Not yet initialized, cannot clear!\n");
 		return;
+	}
 
-	mutex_lock(&mutex);
 	dev_dbg(dev, "Clearing rdtags!\n");
 
-	/* Go through all tags and remove them */
+	spin_lock_irqsave(&rdlock, flags);
+
+	/* Go through all tags and remove their procfs nodes */
 	while (mt->sig == RDTAGS_SIG) {
-		/* Remove the tag */
-		_remove_tag(mt);
+		/* Verify tag integrity */
+		if (verify_crc(mt) < 0)
+			break;
+
+		/* Remove the procfs entry for the tag */
+		PROCFS_ASYNC_DELETE(mt->name);
+
+		mt = RDTAGS_NEXT_TAG(mt);
 	}
 
 	/* Finally reset the entire area to make it clean */
 	memset(rdtags_base, 0x0, rdtags_size);
-	mutex_unlock(&mutex);
+	spin_unlock_irqrestore(&rdlock, flags);
 }
 EXPORT_SYMBOL(rdtags_clear_tags);
 
@@ -371,41 +619,29 @@ static int rebuild_tag_tree(const unsigned char *buf, uint32_t size)
 	dev_dbg(dev, "Building tag tree\n");
 
 	while (mt && mt->sig == RDTAGS_SIG) {
-		struct proc_dir_entry *subentry;
-		void *tag_end =
-			(void *)(((uint32_t)mt) + sizeof(*mt) + mt->data_size);
-		/* Do some basic sanity checking */
-		if (!get_valid_name(mt->name) || (tag_end > rdtags_end)) {
-			dev_err(dev, "Found broken tag, clearing rest of "
-				"rdtags area!\n");
-			memset(mt, 0x0, rdtags_end - (void *)mt);
+		/* Verify tag integrity */
+		if (verify_crc(mt) < 0)
 			break;
-		}
 
-		dev_dbg(dev, "   Found tag: \"%s\" - with %d bytes of data\n",
-			mt->name, mt->data_size);
-
-		/* Add procfs interface */
-		subentry = create_proc_read_entry(mt->name, S_IFREG | S_IRUGO,
-						  entry, tag_read, NULL);
-		if (!subentry) {
-			dev_err(dev, "Failed to create proc subentry \"%s\"\n",
-				mt->name);
+		if (!get_valid_name(mt->name)) {
+			dev_warn(dev, "Found tag with invalid name! Skipping it!\n");
 			goto loop_next;
 		}
 
-		/* reassign subentry->data because of compact memory */
-		subentry->data = (void *)subentry->name;
-
 		count++;
+		dev_dbg(dev, "   Found tag: \"%s\" - with %d bytes of data\n",
+			mt->name, mt->data_size);
 
+		/* Add procfs interface synchronously */
+		if (procfs_create_node(mt->name) < 0)
+			dev_warn(dev, "Failed to create proc subentry \"%s\"\n",
+				 mt->name);
 loop_next:
-
 		/* Go to next tag */
 		mt = RDTAGS_NEXT_TAG(mt);
 
 		/* Check that we are not outside the buffer */
-		if ((void *)mt < rdtags_base || (void *)mt >= rdtags_end)
+		if (!RDTAGS_BASE_VALID(mt))
 			break;
 	}
 
@@ -415,19 +651,46 @@ loop_next:
 static ssize_t tag_read(char *page, char **start, off_t off, int count,
 			int *eof, void *data)
 {
-	struct rtag_head *mt = get_tag((char *)data);
 	ssize_t len;
+	int bufsize;
+	unsigned char *buf;
+	char *name = (char *)data;
+	int ret;
 
-	if (!mt || mt->sig != RDTAGS_SIG) {
-		dev_err(dev, "Not a valid RTAG!\n");
+	/* Get the size of the required data buffer */
+	if (rdtags_get_tag_data(name, NULL, &bufsize) != -ENOBUFS) {
+		dev_err(dev, "Could not find tag \"%s\"!\n",
+			name ? name : "NULL");
 		return 0;
 	}
 
-	len = MIN(count, mt->data_size - off);
-	memcpy(page, (void *)(mt->data + off), len);
+	buf = kmalloc(bufsize, GFP_KERNEL);
+	if (!buf) {
+		dev_err(dev, "Could not allocate %d bytes of memory!\n",
+			bufsize);
+		return 0;
+	}
+
+	/*
+	 * Fill the buffer with data.
+	 * This assumes that the tag size has not changed since the previous
+	 * call to rdtags_get_tag_data. If it has, this call will fail, and
+	 * the caller has to re-read the tag.
+	 */
+	ret = rdtags_get_tag_data(name, buf, &bufsize);
+	if (ret) {
+		dev_err(dev, "Could not get %d bytes of data for tag \"%s\": %d!\n",
+			bufsize, name, ret);
+		kfree(buf);
+		return 0;
+	}
+
+	len = MIN(count, bufsize - off);
+	memcpy(page, (void *)(buf + off), len);
+	kfree(buf);
 	*start = page;
 
-	if (off + len == mt->data_size)
+	if (off + len == bufsize)
 		*eof = 1;
 
 	return len;
@@ -486,7 +749,7 @@ static int tags_write(struct file *file, const char *buffer,
 	}
 
 	/* Find delimiter */
-	tag_data = strnchr(kbuf, ' ', RDTAGS_NAME_SIZE);
+	tag_data = strnchr(kbuf, RDTAGS_NAME_SIZE, ' ');
 
 	if (!tag_data) {
 		dev_err(dev, "Incorrect format, please supply a string of "
@@ -524,6 +787,12 @@ static int tags_write(struct file *file, const char *buffer,
 exit:
 	kfree(kbuf);
 
+	/* Make sure all asynchronous work is complete before returning */
+	while (!kfifo_is_empty(&procfs_fifo) && work_busy(&procfs_work)) {
+		dev_dbg(dev, "Sleeping while waiting for WQ to finish\n");
+		msleep(SLEEP_TIME_ASYNC_FINISH);
+	}
+
 	return count;
 }
 
@@ -537,8 +806,7 @@ static int rdtags_driver_probe(struct platform_device *pdev)
 	int ret = 0;
 
 	dev = &pdev->dev;
-	mutex_init(&mutex);
-	mutex_lock(&mutex);
+	spin_lock_init(&rdlock);
 
 	/* Get resources */
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
@@ -578,7 +846,7 @@ static int rdtags_driver_probe(struct platform_device *pdev)
 	/* Check if the buffer contains a valid start tag */
 	mt = (struct rtag_head *)rdtags_base;
 	if (mt->sig == RDTAGS_SIG) {
-		dev_dbg(dev, "Found existing valid tags in memory!\n");
+		dev_dbg(dev, "Found existing tags in memory!\n");
 		nbr_old_tags = rebuild_tag_tree(rdtags_base, rdtags_size);
 	} else {
 		dev_dbg(dev, "No existing tags found in memory!\n");
@@ -586,7 +854,7 @@ static int rdtags_driver_probe(struct platform_device *pdev)
 		memset(rdtags_base, 0x0, rdtags_size);
 	}
 
-	mutex_unlock(&mutex);
+	rdtags_initialized = 1;
 
 	/* Check if the platform has specified a platform specific callback */
 	platform_data = dev->platform_data;
@@ -594,8 +862,8 @@ static int rdtags_driver_probe(struct platform_device *pdev)
 		nbr_new_tags = platform_data->platform_init();
 
 	dev_info(dev, "Loaded with %d existing and " \
-		 "%d new tags. Size: %d\n",
-			nbr_old_tags, nbr_new_tags, rdtags_size);
+		 "%d new tags. Size: %d@0x%.8X\n",
+			nbr_old_tags, nbr_new_tags, rdtags_size, res->start);
 
 	return 0;
 
@@ -604,7 +872,6 @@ exit:
 		iounmap(rdtags_base);
 		rdtags_base = NULL;
 	}
-	mutex_unlock(&mutex);
 
 	return ret;
 }
@@ -625,6 +892,8 @@ static int __init rdtags_core_init(void)
 
 static void __exit rdtags_module_exit(void)
 {
+	rdtags_initialized = 0;
+
 	if (entry) {
 		remove_proc_entry(RDTAGS_PROC_NODE_NAME, NULL);
 		remove_proc_entry(RDTAGS_PROC_DIR_NAME, NULL);

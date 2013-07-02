@@ -63,27 +63,6 @@ static const char *client_names[OCMEM_CLIENT_MAX] = {
 	"other_os",
 };
 
-/* Must be in sync with enum ocmem_zstat_item */
-static const char *zstat_names[NR_OCMEM_ZSTAT_ITEMS] = {
-	"Allocation requests",
-	"Synchronous allocations",
-	"Ranged allocations",
-	"Asynchronous allocations",
-	"Allocation failures",
-	"Allocations grown",
-	"Allocations freed",
-	"Allocations shrunk",
-	"OCMEM maps",
-	"Map failures",
-	"OCMEM unmaps",
-	"Unmap failures",
-	"Transfers to OCMEM",
-	"Transfers to DDR",
-	"Transfer failures",
-	"Evictions",
-	"Restorations",
-};
-
 struct ocmem_quota_table {
 	const char *name;
 	int id;
@@ -154,23 +133,6 @@ inline int zone_active(int id)
 		return z->active == true ? 1 : 0;
 	else
 		return 0;
-}
-
-inline void inc_ocmem_stat(struct ocmem_zone *z,
-				enum ocmem_zstat_item item)
-{
-	if (!z)
-		return;
-	atomic_long_inc(&z->z_stat[item]);
-}
-
-inline unsigned long get_ocmem_stat(struct ocmem_zone *z,
-				enum ocmem_zstat_item item)
-{
-	if (!z)
-		return 0;
-	else
-		return atomic_long_read(&z->z_stat[item]);
 }
 
 static struct ocmem_plat_data *parse_static_config(struct platform_device *pdev)
@@ -372,27 +334,6 @@ void ocmem_disable_iface_clock(void)
 	pr_debug("ocmem: Disabled iface clock\n");
 }
 
-/* Block-Remapper Clock Operations */
-int ocmem_enable_br_clock(void)
-{
-	int ret;
-
-	ret = clk_prepare_enable(ocmem_pdata->br_clk);
-
-	if (ret) {
-		pr_err("ocmem: Failed to enable br clock\n");
-		return ret;
-	}
-	pr_debug("ocmem: Enabled br clock\n");
-	return 0;
-}
-
-void ocmem_disable_br_clock(void)
-{
-	clk_disable_unprepare(ocmem_pdata->br_clk);
-	pr_debug("ocmem: Disabled br clock\n");
-}
-
 static struct ocmem_plat_data *parse_dt_config(struct platform_device *pdev)
 {
 	struct device   *dev = &pdev->dev;
@@ -532,60 +473,6 @@ pdata_error:
 	return NULL;
 }
 
-static int ocmem_zones_show(struct seq_file *f, void *dummy)
-{
-	unsigned i = 0;
-	for (i = OCMEM_GRAPHICS; i < OCMEM_CLIENT_MAX; i++) {
-		struct ocmem_zone *z = get_zone(i);
-		if (z && z->active == true)
-			seq_printf(f, "zone %s\t:0x%08lx - 0x%08lx (%4ld KB)\n",
-				get_name(z->owner), z->z_start, z->z_end - 1,
-				(z->z_end - z->z_start)/SZ_1K);
-	}
-	return 0;
-}
-
-static int ocmem_zones_open(struct inode *inode, struct file *file)
-{
-	return single_open(file, ocmem_zones_show, inode->i_private);
-}
-
-static const struct file_operations zones_show_fops = {
-	.open = ocmem_zones_open,
-	.read = seq_read,
-	.llseek = seq_lseek,
-	.release = seq_release,
-};
-
-static int ocmem_stats_show(struct seq_file *f, void *dummy)
-{
-	unsigned i = 0;
-	unsigned j = 0;
-	for (i = OCMEM_GRAPHICS; i < OCMEM_CLIENT_MAX; i++) {
-		struct ocmem_zone *z = get_zone(i);
-		if (z && z->active == true) {
-			seq_printf(f, "zone %s:\n", get_name(z->owner));
-			for (j = 0 ; j < ARRAY_SIZE(zstat_names); j++) {
-				seq_printf(f, "\t %s: %lu\n", zstat_names[j],
-					get_ocmem_stat(z, j));
-			}
-		}
-	}
-	return 0;
-}
-
-static int ocmem_stats_open(struct inode *inode, struct file *file)
-{
-	return single_open(file, ocmem_stats_show, inode->i_private);
-}
-
-static const struct file_operations stats_show_fops = {
-	.open = ocmem_stats_open,
-	.read = seq_read,
-	.llseek = seq_lseek,
-	.release = seq_release,
-};
-
 static int ocmem_zone_init(struct platform_device *pdev)
 {
 
@@ -662,8 +549,6 @@ static int ocmem_zone_init(struct platform_device *pdev)
 			z_ops->allocate = allocate_head;
 			z_ops->free = free_head;
 		}
-		/* zap the counters */
-		memset(zone->z_stat, 0 , sizeof(zone->z_stat));
 		zone->active = true;
 		active_zones++;
 
@@ -672,19 +557,7 @@ static int ocmem_zone_init(struct platform_device *pdev)
 
 		pr_info(" zone %s\t: 0x%08lx - 0x%08lx (%4ld KB)\n",
 				client_names[part->id], zone->z_start,
-				zone->z_end - 1, part->p_size/SZ_1K);
-	}
-
-	if (!debugfs_create_file("zones", S_IRUGO, pdata->debug_node,
-					NULL, &zones_show_fops)) {
-		dev_err(dev, "Unable to create debugfs node for zones\n");
-		return -EBUSY;
-	}
-
-	if (!debugfs_create_file("stats", S_IRUGO, pdata->debug_node,
-					NULL, &stats_show_fops)) {
-		dev_err(dev, "Unable to create debugfs node for stats\n");
-		return -EBUSY;
+				zone->z_end, part->p_size/SZ_1K);
 	}
 
 	dev_dbg(dev, "Total active zones = %d\n", active_zones);
@@ -714,33 +587,11 @@ static int ocmem_init_gfx_mpu(struct platform_device *pdev)
 	return 0;
 }
 
-static int __devinit ocmem_debugfs_init(struct platform_device *pdev)
-{
-	struct dentry *debug_dir = NULL;
-	struct ocmem_plat_data *pdata = platform_get_drvdata(pdev);
-
-	debug_dir = debugfs_create_dir("ocmem", NULL);
-	if (!debug_dir || IS_ERR(debug_dir)) {
-		pr_err("ocmem: Unable to create debugfs root\n");
-		return PTR_ERR(debug_dir);
-	}
-
-	pdata->debug_node =  debug_dir;
-	return 0;
-}
-
-static void __devexit ocmem_debugfs_exit(struct platform_device *pdev)
-{
-	struct ocmem_plat_data *pdata = platform_get_drvdata(pdev);
-	debugfs_remove_recursive(pdata->debug_node);
-}
-
 static int __devinit msm_ocmem_probe(struct platform_device *pdev)
 {
 	struct device   *dev = &pdev->dev;
 	struct clk *ocmem_core_clk = NULL;
 	struct clk *ocmem_iface_clk = NULL;
-	struct clk *ocmem_br_clk = NULL;
 
 	if (!pdev->dev.of_node) {
 		dev_info(dev, "Missing Configuration in Device Tree\n");
@@ -779,21 +630,10 @@ static int __devinit msm_ocmem_probe(struct platform_device *pdev)
 		return PTR_ERR(ocmem_core_clk);
 	};
 
-	ocmem_br_clk = devm_clk_get(dev, "br_clk");
-
-	if (IS_ERR(ocmem_br_clk)) {
-		dev_err(dev, "Unable to get the BR clock\n");
-		return PTR_ERR(ocmem_br_clk);
-	}
-
 	ocmem_pdata->core_clk = ocmem_core_clk;
 	ocmem_pdata->iface_clk = ocmem_iface_clk;
-	ocmem_pdata->br_clk = ocmem_br_clk;
 
 	platform_set_drvdata(pdev, ocmem_pdata);
-
-	if (ocmem_debugfs_init(pdev))
-		return -EBUSY;
 
 	if (ocmem_core_init(pdev))
 		return -EBUSY;
@@ -804,7 +644,7 @@ static int __devinit msm_ocmem_probe(struct platform_device *pdev)
 	if (ocmem_notifier_init())
 		return -EBUSY;
 
-	if (ocmem_sched_init(pdev))
+	if (ocmem_sched_init())
 		return -EBUSY;
 
 	if (ocmem_rdm_init(pdev))
@@ -821,7 +661,6 @@ static int __devinit msm_ocmem_probe(struct platform_device *pdev)
 
 static int __devexit msm_ocmem_remove(struct platform_device *pdev)
 {
-	ocmem_debugfs_exit(pdev);
 	return 0;
 }
 

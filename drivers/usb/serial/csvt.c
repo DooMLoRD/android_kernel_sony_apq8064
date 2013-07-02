@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -28,10 +28,14 @@
 #define CSVT_CTRL_RTS		0x02
 
 /* input control lines*/
-#define CSVT_CTRL_CTS		0x01
+#define CSVT_CTRL_CD		0x01
 #define CSVT_CTRL_DSR		0x02
-#define CSVT_CTRL_RI		0x04
-#define CSVT_CTRL_CD		0x08
+#define CSVT_CTRL_BRK		0x04
+#define CSVT_CTRL_RI		0x08
+
+#define CSVT_CTRL_FRAMING	0x10
+#define CSVT_CTRL_PARITY	0x20
+#define CSVT_CTRL_OVERRUN	0x40
 
 static int debug;
 module_param(debug, int, S_IRUGO | S_IWUSR);
@@ -225,7 +229,7 @@ static int csvt_ctrl_tiocmget(struct tty_struct *tty)
 		(dev->cbits_tolocal & CSVT_CTRL_DSR ? TIOCM_DSR : 0) |
 		(dev->cbits_tolocal & CSVT_CTRL_RI ? TIOCM_RI : 0) |
 		(dev->cbits_tolocal & CSVT_CTRL_CD ? TIOCM_CD : 0) |
-		(dev->cbits_tolocal & CSVT_CTRL_CTS ? TIOCM_CTS : 0);
+		TIOCM_CTS; /* USB CDC spec did not define CTS control signal */
 	mutex_unlock(&dev->dev_lock);
 
 	dev_dbg(&port->dev, "%s -- %x", __func__, control_state);
@@ -245,15 +249,15 @@ static int csvt_ctrl_tiocmset(struct tty_struct *tty,
 	dev_dbg(&port->dev, "%s\n", __func__);
 
 	mutex_lock(&dev->dev_lock);
-	if (set & CSVT_CTRL_DTR)
-		dev->cbits_tomdm |= TIOCM_DTR;
-	if (set & CSVT_CTRL_RTS)
-		dev->cbits_tomdm |= TIOCM_RTS;
+	if (set & TIOCM_DTR)
+		dev->cbits_tomdm |= CSVT_CTRL_DTR;
+	if (set & TIOCM_RTS)
+		dev->cbits_tomdm |= CSVT_CTRL_RTS;
 
-	if (clear & CSVT_CTRL_DTR)
-		dev->cbits_tomdm &= ~TIOCM_DTR;
-	if (clear & CSVT_CTRL_RTS)
-		dev->cbits_tomdm &= ~TIOCM_RTS;
+	if (clear & TIOCM_DTR)
+		dev->cbits_tomdm &= ~CSVT_CTRL_DTR;
+	if (clear & TIOCM_RTS)
+		dev->cbits_tomdm &= ~CSVT_CTRL_RTS;
 	mutex_unlock(&dev->dev_lock);
 
 	return csvt_ctrl_write_cmd(dev, port);

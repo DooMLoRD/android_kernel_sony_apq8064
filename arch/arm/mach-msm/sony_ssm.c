@@ -1,6 +1,6 @@
-/* kernel/arch/arm/mach-ux500/sony_ssm.c
+/* kernel/arch/arm/mach-msm/sony_ssm.c
  *
- * Copyright (C) 2012 Sony Mobile Communications AB.
+ * Copyright (C) 2012-2013 Sony Mobile Communications AB.
  *
  * Author: Mattias Larsson <mattias7.larsson@sonymobile.com>
  *
@@ -211,14 +211,17 @@ static struct device_attribute ssm_attrs[] = {
 static int ssm_create_attrs(struct device *dev)
 {
 	unsigned int i;
-	for (i = 0; i < ARRAY_SIZE(ssm_attrs); i++)
-		if (device_create_file(dev, &ssm_attrs[i]))
+	int rc;
+	for (i = 0; i < ARRAY_SIZE(ssm_attrs); i++) {
+		rc = device_create_file(dev, &ssm_attrs[i]);
+		if (rc)
 			goto err;
+	}
 	return 0;
 err:
 	while (i--)
 		device_remove_file(dev, &ssm_attrs[i]);
-	return -EIO;
+	return rc;
 }
 
 static void ssm_remove_attrs(struct device *dev)
@@ -277,11 +280,13 @@ static int ssm_remove(struct platform_device *pdev)
 
 	dev_dbg(sd->dev, "%s\n", __func__);
 
+	ssm_remove_attrs(sd->dev);
+
 	if (sd->enabled) {
 		unregister_early_suspend(&sd->early_suspend);
 		unregister_pm_notifier(&sd->pm_notifier);
 	}
-	ssm_remove_attrs(sd->dev);
+
 	kfree(sd);
 
 	return 0;

@@ -31,17 +31,6 @@ enum discovery_result_enum {
 	MHL_DISCOVERY_RESULT_MHL,
 };
 
-struct msc_command_struct {
-	u8 command;
-	u8 offset;
-	u8 length;
-	union {
-		u8 data[16];
-		u8 *burst_data;
-	} payload;
-	u8 retval;
-};
-
 /* USB driver interface  */
 
 #ifdef CONFIG_FB_MSM_HDMI_MHL_8334
@@ -70,15 +59,6 @@ static inline int mhl_unregister_callback(const char *name)
 }
 #endif
 
-
-struct msc_cmd_envelope {
-	/*
-	 * this list head is for list APIs
-	 */
-	struct list_head msc_queue_envelope;
-	struct msc_command_struct msc_cmd_msg;
-};
-
 struct mhl_msm_state_t {
 	struct i2c_client *i2c_client;
 	struct i2c_driver *i2c_driver;
@@ -88,13 +68,6 @@ struct mhl_msm_state_t {
 	/* Device Discovery stuff */
 	int mhl_mode;
 	struct completion rgnd_done;
-	struct completion msc_cmd_done;
-	uint8_t devcap_state;
-	uint8_t path_en_state;
-	struct work_struct mhl_msc_send_work;
-	struct list_head list_cmd;
-	void (*msc_command_put_work) (struct msc_command_struct *);
-	struct msc_command_struct* (*msc_command_get_work) (void);
 };
 
 enum {

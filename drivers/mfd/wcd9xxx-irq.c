@@ -25,8 +25,6 @@
 #define BYTE_BIT_MASK(nr)		(1UL << ((nr) % BITS_PER_BYTE))
 #define BIT_BYTE(nr)			((nr) / BITS_PER_BYTE)
 
-#define WCD9XXX_SYSTEM_RESUME_TIMEOUT_MS 100
-
 struct wcd9xxx_irq {
 	bool level;
 };
@@ -108,17 +106,11 @@ bool wcd9xxx_lock_sleep(struct wcd9xxx *wcd9xxx)
 {
 	enum wcd9xxx_pm_state os;
 
-	/*
-	 * wcd9xxx_{lock/unlock}_sleep will be called by wcd9xxx_irq_thread
+	/* wcd9xxx_{lock/unlock}_sleep will be called by wcd9xxx_irq_thread
 	 * and its subroutines only motly.
 	 * but btn0_lpress_fn is not wcd9xxx_irq_thread's subroutine and
-	 * It can race with wcd9xxx_irq_thread.
-	 * So need to embrace wlock_holders with mutex.
-	 *
-	 * If system didn't resume, we can simply return false so codec driver's
-	 * IRQ handler can return without handling IRQ.
-	 * As interrupt line is still active, codec will have another IRQ to
-	 * retry shortly.
+	 * it can race with wcd9xxx_irq_thread.
+	 * so need to embrace wlock_holders with mutex.
 	 */
 	mutex_lock(&wcd9xxx->pm_lock);
 	if (wcd9xxx->wlock_holders++ == 0) {
@@ -132,11 +124,11 @@ bool wcd9xxx_lock_sleep(struct wcd9xxx *wcd9xxx)
 						WCD9XXX_PM_AWAKE)) ==
 						    WCD9XXX_PM_SLEEPABLE ||
 			 (os == WCD9XXX_PM_AWAKE)),
-			msecs_to_jiffies(WCD9XXX_SYSTEM_RESUME_TIMEOUT_MS))) {
-		pr_warn("%s: system didn't resume within %dms, s %d, w %d\n",
-			__func__,
-			WCD9XXX_SYSTEM_RESUME_TIMEOUT_MS, wcd9xxx->pm_state,
-			wcd9xxx->wlock_holders);
+			5 * HZ)) {
+		pr_err("%s: system didn't resume within 5000ms, state %d, "
+		       "wlock %d\n", __func__, wcd9xxx->pm_state,
+		       wcd9xxx->wlock_holders);
+		WARN_ON(1);
 		wcd9xxx_unlock_sleep(wcd9xxx);
 		return false;
 	}
@@ -149,14 +141,8 @@ void wcd9xxx_unlock_sleep(struct wcd9xxx *wcd9xxx)
 {
 	mutex_lock(&wcd9xxx->pm_lock);
 	if (--wcd9xxx->wlock_holders == 0) {
-		pr_debug("%s: releasing wake lock pm_state %d -> %d\n",
-			 __func__, wcd9xxx->pm_state, WCD9XXX_PM_SLEEPABLE);
-		/*
-		 * if wcd9xxx_lock_sleep failed, pm_state would be still
-		 * WCD9XXX_PM_ASLEEP, don't overwrite
-		 */
-		if (likely(wcd9xxx->pm_state == WCD9XXX_PM_AWAKE))
-			wcd9xxx->pm_state = WCD9XXX_PM_SLEEPABLE;
+		wcd9xxx->pm_state = WCD9XXX_PM_SLEEPABLE;
+		pr_debug("%s: releasing wake lock\n", __func__);
 		pm_qos_update_request(&wcd9xxx->pm_qos_req,
 				PM_QOS_DEFAULT_VALUE);
 	}
@@ -179,10 +165,9 @@ static void wcd9xxx_irq_dispatch(struct wcd9xxx *wcd9xxx, int irqbit)
 {
 	if ((irqbit <= TABLA_IRQ_MBHC_INSERTION) &&
 	    (irqbit >= TABLA_IRQ_MBHC_REMOVAL)) {
-		wcd9xxx_nested_irq_lock(wcd9xxx);
+                wcd9xxx_nested_irq_lock(wcd9xxx);
 		wcd9xxx_reg_write(wcd9xxx, TABLA_A_INTR_CLEAR0 +
-					   BIT_BYTE(irqbit),
-				  BYTE_BIT_MASK(irqbit));
+				  BIT_BYTE(irqbit), BYTE_BIT_MASK(irqbit));
 		if (wcd9xxx_get_intf_type() == WCD9XXX_INTERFACE_TYPE_I2C)
 			wcd9xxx_reg_write(wcd9xxx, TABLA_A_INTR_MODE, 0x02);
 		handle_nested_irq(wcd9xxx->irq_base + irqbit);
@@ -191,8 +176,7 @@ static void wcd9xxx_irq_dispatch(struct wcd9xxx *wcd9xxx, int irqbit)
 		wcd9xxx_nested_irq_lock(wcd9xxx);
 		handle_nested_irq(wcd9xxx->irq_base + irqbit);
 		wcd9xxx_reg_write(wcd9xxx, TABLA_A_INTR_CLEAR0 +
-					   BIT_BYTE(irqbit),
-				  BYTE_BIT_MASK(irqbit));
+				  BIT_BYTE(irqbit), BYTE_BIT_MASK(irqbit));
 		if (wcd9xxx_get_intf_type() == WCD9XXX_INTERFACE_TYPE_I2C)
 			wcd9xxx_reg_write(wcd9xxx, TABLA_A_INTR_MODE, 0x02);
 		wcd9xxx_nested_irq_unlock(wcd9xxx);
@@ -259,17 +243,16 @@ int wcd9xxx_irq_init(struct wcd9xxx *wcd9xxx)
 		dev_warn(wcd9xxx->dev,
 			 "No interrupt specified, no interrupts\n");
 		wcd9xxx->irq_base = 0;
-		mutex_destroy(&wcd9xxx->irq_lock);
-		mutex_destroy(&wcd9xxx->nested_irq_lock);
 		return 0;
 	}
 
 	if (!wcd9xxx->irq_base) {
 		dev_err(wcd9xxx->dev,
 			"No interrupt base specified, no interrupts\n");
+		return 0;
+		mutex_destroy(&wcd9xxx->nested_irq_lock);
 		mutex_destroy(&wcd9xxx->irq_lock);
 		mutex_destroy(&wcd9xxx->nested_irq_lock);
-		return 0;
 	}
 	/* Mask the individual interrupt sources */
 	for (i = 0, cur_irq = wcd9xxx->irq_base; i < TABLA_NUM_IRQS; i++,
@@ -329,10 +312,9 @@ int wcd9xxx_irq_init(struct wcd9xxx *wcd9xxx)
 			free_irq(wcd9xxx->irq, wcd9xxx);
 	}
 
-	if (ret) {
+	if (ret)
 		mutex_destroy(&wcd9xxx->irq_lock);
 		mutex_destroy(&wcd9xxx->nested_irq_lock);
-	}
 
 	return ret;
 }

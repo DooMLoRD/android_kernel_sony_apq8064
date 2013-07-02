@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -576,6 +576,9 @@ static struct msm_bus_scale_pdata mdp_bus_scale_pdata = {
 static struct msm_panel_common_pdata mdp_pdata = {
 	.gpio = MDP_VSYNC_GPIO,
 	.mdp_max_clk = 200000000,
+	.mdp_max_bw = 2000000000,
+	.mdp_bw_ab_factor = 115,
+	.mdp_bw_ib_factor = 125,
 #ifdef CONFIG_MSM_BUS_SCALING
 	.mdp_bus_scale_table = &mdp_bus_scale_pdata,
 #endif
@@ -720,6 +723,8 @@ static struct platform_device hdmi_msm_device = {
 	.resource = hdmi_msm_resources,
 	.dev.platform_data = &hdmi_msm_data,
 };
+#else
+static int hdmi_panel_power(int on) { return 0; }
 #endif /* CONFIG_FB_MSM_HDMI_MSM_PANEL */
 
 #ifdef CONFIG_FB_MSM_WRITEBACK_MSM_PANEL
@@ -774,19 +779,6 @@ static struct lcdc_platform_data dtv_pdata = {
 	.bus_scale_table = &dtv_bus_scale_pdata,
 	.lcdc_power_save = hdmi_panel_power,
 };
-
-static int hdmi_panel_power(int on)
-{
-	int rc;
-
-	pr_debug("%s: HDMI Core: %s\n", __func__, (on ? "ON" : "OFF"));
-	rc = hdmi_core_power(on, 1);
-	if (rc)
-		rc = hdmi_cec_power(on);
-
-	pr_debug("%s: HDMI Core: %s Success\n", __func__, (on ? "ON" : "OFF"));
-	return rc;
-}
 #endif
 
 #ifdef CONFIG_FB_MSM_HDMI_MSM_PANEL
@@ -984,10 +976,29 @@ static int hdmi_cec_power(int on)
 error:
 	return rc;
 }
+
+static int hdmi_panel_power(int on)
+{
+	int rc;
+
+	pr_debug("%s: HDMI Core: %s\n", __func__, (on ? "ON" : "OFF"));
+	rc = hdmi_core_power(on, 1);
+	if (rc)
+		rc = hdmi_cec_power(on);
+
+	pr_debug("%s: HDMI Core: %s Success\n", __func__, (on ? "ON" : "OFF"));
+	return rc;
+}
 #endif /* CONFIG_FB_MSM_HDMI_MSM_PANEL */
 
 void __init msm8960_init_fb(void)
 {
+	uint32_t soc_platform_version = socinfo_get_version();
+
+
+	if (SOCINFO_VERSION_MAJOR(soc_platform_version) >= 3)
+		mdp_pdata.mdp_rev = MDP_REV_43;
+
 	if (cpu_is_msm8960ab())
 		mdp_pdata.mdp_rev = MDP_REV_44;
 

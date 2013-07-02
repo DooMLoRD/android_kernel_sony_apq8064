@@ -379,7 +379,7 @@ static void usb_wwan_indat_callback(struct urb *urb)
 		list_add_tail(&urb->urb_list, &portdata->in_urb_list);
 		spin_unlock_irqrestore(&portdata->in_lock, flags);
 
-		schedule_work(&portdata->in_work);
+		queue_work(system_nrt_wq, &portdata->in_work);
 
 		return;
 	}
@@ -498,7 +498,7 @@ void usb_wwan_unthrottle(struct tty_struct *tty)
 	port->throttle_req = false;
 	port->throttled = false;
 
-	schedule_work(&portdata->in_work);
+	queue_work(system_nrt_wq, &portdata->in_work);
 }
 EXPORT_SYMBOL(usb_wwan_unthrottle);
 
@@ -516,7 +516,6 @@ int usb_wwan_open(struct tty_struct *tty, struct usb_serial_port *port)
 	/* explicitly set the driver mode to raw */
 	tty->raw = 1;
 	tty->real_raw = 1;
-	tty->update_room_in_ldisc = 1;
 
 	set_bit(TTY_NO_WRITE_SPLIT, &tty->flags);
 	dbg("%s", __func__);

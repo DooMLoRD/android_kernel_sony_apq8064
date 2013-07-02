@@ -114,6 +114,7 @@ struct kgsl_pagetable {
 	} stats;
 	const struct kgsl_mmu_pt_ops *pt_ops;
 	unsigned int tlb_flags;
+	unsigned int fault_addr;
 	void *priv;
 };
 
@@ -148,6 +149,12 @@ struct kgsl_mmu_ops {
 	unsigned int (*mmu_get_pt_base_addr)
 			(struct kgsl_mmu *mmu,
 			struct kgsl_pagetable *pt);
+	unsigned int (*mmu_sync_lock)
+			(struct kgsl_mmu *mmu,
+			unsigned int *cmds);
+	unsigned int (*mmu_sync_unlock)
+			(struct kgsl_mmu *mmu,
+			unsigned int *cmds);
 };
 
 struct kgsl_mmu_pt_ops {
@@ -162,6 +169,8 @@ struct kgsl_mmu_pt_ops {
 	void (*mmu_destroy_pagetable) (void *pt);
 };
 
+#define KGSL_MMU_FLAGS_IOMMU_SYNC BIT(31)
+
 struct kgsl_mmu {
 	unsigned int     refcnt;
 	uint32_t      flags;
@@ -175,6 +184,7 @@ struct kgsl_mmu {
 	struct kgsl_pagetable  *hwpagetable;
 	const struct kgsl_mmu_ops *mmu_ops;
 	void *priv;
+	int fault;
 };
 
 #include "kgsl_gpummu.h"
@@ -201,6 +211,8 @@ void kgsl_setstate(struct kgsl_mmu *mmu, unsigned int context_id,
 			uint32_t flags);
 int kgsl_mmu_get_ptname_from_ptbase(struct kgsl_mmu *mmu,
 					unsigned int pt_base);
+unsigned int kgsl_mmu_log_fault_addr(struct kgsl_mmu *mmu,
+			unsigned int pt_base, unsigned int addr);
 int kgsl_mmu_pt_get_flags(struct kgsl_pagetable *pt,
 			enum kgsl_deviceid id);
 void kgsl_mmu_ptpool_destroy(void *ptpool);
@@ -316,6 +328,26 @@ static inline int kgsl_mmu_get_num_iommu_units(struct kgsl_mmu *mmu)
 {
 	if (mmu->mmu_ops && mmu->mmu_ops->mmu_get_num_iommu_units)
 		return mmu->mmu_ops->mmu_get_num_iommu_units(mmu);
+	else
+		return 0;
+}
+
+static inline int kgsl_mmu_sync_lock(struct kgsl_mmu *mmu,
+				unsigned int *cmds)
+{
+	if ((mmu->flags & KGSL_MMU_FLAGS_IOMMU_SYNC) &&
+		mmu->mmu_ops && mmu->mmu_ops->mmu_sync_lock)
+		return mmu->mmu_ops->mmu_sync_lock(mmu, cmds);
+	else
+		return 0;
+}
+
+static inline int kgsl_mmu_sync_unlock(struct kgsl_mmu *mmu,
+				unsigned int *cmds)
+{
+	if ((mmu->flags & KGSL_MMU_FLAGS_IOMMU_SYNC) &&
+		mmu->mmu_ops && mmu->mmu_ops->mmu_sync_unlock)
+		return mmu->mmu_ops->mmu_sync_unlock(mmu, cmds);
 	else
 		return 0;
 }

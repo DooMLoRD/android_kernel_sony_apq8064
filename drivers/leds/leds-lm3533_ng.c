@@ -716,6 +716,7 @@ static void lm3533_led_brightness(struct led_classdev *led_cdev,
 			return;
 		}
 	}
+	mutex_lock(&lm->lock);
 	bena = SHADOW(lm, REG_BANK_ENA);
 	bena = value ? bena | intf->banks : bena & (~intf->banks);
 	for (b = LM3533_CBNKA; b < LM3533_BANK_NUM; b++) {
@@ -726,6 +727,7 @@ static void lm3533_led_brightness(struct led_classdev *led_cdev,
 	}
 	if (bena != SHADOW(lm, REG_BANK_ENA))
 		(void)lm3533_write(lm, bena, REG_BANK_ENA);
+	mutex_unlock(&lm->lock);
 	if (intf->als) {
 		if (!value && intf->brightness)
 			lm3533_als_enable(led_cdev, false);

@@ -30,7 +30,6 @@ enum sony_hw {
 	HW_UNKNOWN,
 	HW_ODIN,
 	HW_YUGA,
-	HW_POLLUX,
 	HW_DOGO,
 };
 
@@ -77,16 +76,6 @@ enum yuga_hw_rev {
 	HW_REV_YUGA_RITA_PQ2,
 	HW_REV_YUGA_RITA_PQ2_HVM,
 	HW_REV_YUGA_FUTURE = HW_REV_FUTURE,
-};
-
-enum pollux_hw_rev {
-	HW_REV_POLLUX_GINA_DP11,
-	HW_REV_POLLUX_GINA_DP2,
-	HW_REV_POLLUX_GINA_SP1,
-	HW_REV_POLLUX_GINA_AP1,
-	HW_REV_POLLUX_REX_DP1,
-	HW_REV_POLLUX_REX_SP1,
-	HW_REV_POLLUX_FUTURE = HW_REV_FUTURE,
 };
 
 void __init sony_set_hw_revision(void);

@@ -21,7 +21,6 @@
 #include <linux/platform_device.h>
 #include <linux/wcnss_wlan.h>
 #include <linux/err.h>
-#include <linux/mfd/pm8xxx/misc.h>
 #include <mach/irqs.h>
 #include <mach/scm.h>
 #include <mach/subsystem_restart.h>
@@ -36,28 +35,12 @@
 #define MODULE_NAME			"wcnss_8960"
 #define MAX_BUF_SIZE			0x51
 
-
-
 static struct delayed_work cancel_vote_work;
 static void *riva_ramdump_dev;
 static int riva_crash;
 static int ss_restart_inprogress;
 static int enable_riva_ssr;
 static struct subsys_device *riva_8960_dev;
-
-struct wcnss_pmic_dump {
-	char reg_name[10];
-	u16 reg_addr;
-};
-
-static struct wcnss_pmic_dump pmic_reg_dump[] = {
-	{"S2", 0x1D8}, /* S2 */
-	{"L4", 0xB4},  /* L4 */
-	{"L10", 0xC0},  /* L10 */
-	{"LVS2", 0x62},   /* LVS2 */
-	{"S4", 0x1E8}, /*S4*/
-	{"LVS7", 0x06C}, /*LVS7*/
-};
 
 static void smsm_state_cb_hdlr(void *data, uint32_t old_state,
 					uint32_t new_state)
@@ -66,23 +49,10 @@ static void smsm_state_cb_hdlr(void *data, uint32_t old_state,
 	char buffer[MAX_BUF_SIZE];
 	unsigned smem_reset_size;
 	unsigned size;
-	int i, rc;
-	u8 val;
 
 	riva_crash = true;
 
 	pr_err("%s: smsm state changed\n", MODULE_NAME);
-
-	for (i = 0; i < ARRAY_SIZE(pmic_reg_dump); i++) {
-		val = 0;
-		rc = pm8xxx_read_register(pmic_reg_dump[i].reg_addr, &val);
-		if (rc)
-			pr_err("PMIC READ: Failed to read addr = %d\n",
-						pmic_reg_dump[i].reg_addr);
-		else
-			pr_err("PMIC READ: addr = %x, value = %x\n",
-					pmic_reg_dump[i].reg_addr, val);
-	}
 
 	if (!(new_state & SMSM_RESET))
 		return;
@@ -96,6 +66,7 @@ static void smsm_state_cb_hdlr(void *data, uint32_t old_state,
 	if (!enable_riva_ssr)
 		panic(MODULE_NAME ": SMSM reset request received from Riva");
 
+	wcnss_riva_dump_pmic_regs();
 	smem_reset_reason = smem_get_entry(SMEM_SSR_REASON_WCNSS0,
 			&smem_reset_size);
 
@@ -178,6 +149,8 @@ static int riva_powerup(const struct subsys_desc *subsys)
 	struct platform_device *pdev = wcnss_get_platform_device();
 	struct wcnss_wlan_config *pwlanconfig = wcnss_get_wlan_config();
 	int    ret = -1;
+
+	wcnss_ssr_boot_notify();
 
 	if (pdev && pwlanconfig)
 		ret = wcnss_wlan_power(&pdev->dev, pwlanconfig,
@@ -267,7 +240,7 @@ static int __init riva_ssr_module_init(void)
 		goto out;
 	}
 	ret = request_irq(RIVA_APSS_WDOG_BITE_RESET_RDY_IRQ,
-			riva_wdog_bite_irq_hdlr, IRQF_TRIGGER_HIGH,
+			riva_wdog_bite_irq_hdlr, IRQF_TRIGGER_RISING,
 				"riva_wdog", NULL);
 
 	if (ret < 0) {

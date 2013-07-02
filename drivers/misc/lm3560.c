@@ -253,7 +253,7 @@ struct lm3560_drv_data {
 	int torch_current_shift;
 	int flash_current_shift;
 	int strobe_trigger_shift;
-	bool on_duty;
+	enum duty_reason on_duty;
 	struct mutex lock;
 	struct lm3560_reg_shadow shadow[LM3560_REG_NUM];
 };

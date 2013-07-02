@@ -1,6 +1,6 @@
 /*
  * Copyright(C) 2012 NTT DATA MSE CORPORATION. All right reserved.
- * Copyright (C) 2012 Sony Mobile Communications AB.
+ * Copyright (C) 2012-2013 Sony Mobile Communications AB.
  *
  * Gadget Driver for DTF
  *
@@ -38,7 +38,6 @@
 #include <linux/usb_usual.h>
 #include <linux/usb/ch9.h>
 #include <linux/usb/cdc.h>
-#include <linux/usb/android_composite.h>
 #include <linux/usb/f_dtf.h>
 #include <linux/usb/f_dtf_if.h>
 

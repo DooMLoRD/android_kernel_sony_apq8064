@@ -86,13 +86,6 @@
 
 			gpio@ce00 {
 				status = "ok";
-				qcom,mode = <1>;
-				qcom,output-type = <0>;
-				qcom,pull = <5>;
-				qcom,vin-sel = <2>;
-				qcom,out-strength = <3>;
-				qcom,src-select = <2>;
-				qcom,master-en = <1>;
 			};
 
 			gpio@cf00 {
@@ -152,9 +145,7 @@
 			};
 
 			gpio@dc00 {
-				qcom,pull = <0>; /* set to default pull */
-				qcom,master-en = <1>;
-				qcom,vin-sel = <2>; /* select 1.8 V source */
+				qcom,out-strength = <1>;
 				status = "ok";
 			};
 
@@ -214,22 +205,10 @@
 
 			mpp@a400 {
 				status = "ok";
-				/* SPI_ETH config */
-				qcom,mode = <1>; /* DIG_OUT */
-				qcom,output-type = <0>; /* CMOS */
-				qcom,vin-sel = <2>; /* PM8941_S3 1.8V > 1.6V */
-				qcom,src-select = <0>; /* CONSTANT */
-				qcom,master-en = <1>; /* ENABLE MPP */
 			};
 
 			mpp@a500 {
 				status = "ok";
-				/* SPI_ETH_RST config */
-				qcom,mode = <1>; /* DIG_OUT */
-				qcom,output-type = <0>; /* CMOS */
-				qcom,vin-sel = <2>; /* PM8941_S3 1.8V > 1.6V */
-				qcom,src-select = <0>; /* CONSTANT */
-				qcom,master-en = <1>; /* ENABLE MPP */
 			};
 
 			mpp@a600 {

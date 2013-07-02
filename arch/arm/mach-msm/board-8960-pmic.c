@@ -1,4 +1,5 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2013 Sony Mobile Communications AB.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -433,6 +434,11 @@ static struct pm8921_bms_platform_data pm8921_bms_pdata __devinitdata = {
 	.chg_term_ua			= CHG_TERM_MA * 1000,
 	.normal_voltage_calc_ms		= 20000,
 	.low_voltage_calc_ms		= 1000,
+	.alarm_low_mv			= 3400,
+	.alarm_high_mv			= 4000,
+	.high_ocv_correction_limit_uv	= 50,
+	.low_ocv_correction_limit_uv	= 100,
+	.hold_soc_est			= 3,
 };
 
 #define	PM8921_LC_LED_MAX_CURRENT	4	/* I = 4mA */

@@ -40,27 +40,9 @@
 #define MSM8974_MPM2_PSHOLD_PHYS	0xFC4AB000
 #define MSM8974_MPM2_PSHOLD_SIZE	SZ_4K
 
-/*
- * TODO: Revert IMEM_PHYS back to actual
- * address 0xfe805000
- * after IMEM issues resolved.
- *
- */
-#define MSM8974_IMEM_PHYS	0xFC42B000
-#define MSM8974_IMEM_SIZE	SZ_4K
-
 #ifdef CONFIG_DEBUG_MSM8974_UART
 #define MSM_DEBUG_UART_BASE	IOMEM(0xFA71E000)
 #define MSM_DEBUG_UART_PHYS	0xF991E000
 #endif
-
-/*
- * IMEM is retained for secure watchdog reset
- * Debug Image looks at actual IMEM to
- * do memory dumping.
- */
-
-#define MSM8974_DBG_IMEM_PHYS	0xFE805000
-#define MSM8974_DBG_IMEM_SIZE	SZ_4K
 
 #endif

@@ -144,9 +144,9 @@ static ssize_t mdss_fb_get_type(struct device *dev,
 	return ret;
 }
 
-static DEVICE_ATTR(msm_fb_type, S_IRUGO, mdss_fb_get_type, NULL);
+static DEVICE_ATTR(mdss_fb_type, S_IRUGO, mdss_fb_get_type, NULL);
 static struct attribute *mdss_fb_attrs[] = {
-	&dev_attr_msm_fb_type.attr,
+	&dev_attr_mdss_fb_type.attr,
 	NULL,
 };
 
@@ -186,7 +186,7 @@ static int mdss_fb_probe(struct platform_device *pdev)
 	/*
 	 * alloc framebuffer info + par data
 	 */
-	fbi = framebuffer_alloc(sizeof(struct msm_fb_data_type), NULL);
+	fbi = framebuffer_alloc(sizeof(struct msm_fb_data_type), &pdev->dev);
 	if (fbi == NULL) {
 		pr_err("can't allocate framebuffer info data!\n");
 		return -ENOMEM;
@@ -204,6 +204,9 @@ static int mdss_fb_probe(struct platform_device *pdev)
 	mfd->panel_info.frame_count = 0;
 	mfd->bl_level = 0;
 	mfd->fb_imgType = MDP_RGBA_8888;
+	mfd->iclient = msm_ion_client_create(-1, pdev->name);
+	if (IS_ERR(mfd->iclient))
+		mfd->iclient = NULL;
 
 	mfd->pdev = pdev;
 
@@ -216,14 +219,6 @@ static int mdss_fb_probe(struct platform_device *pdev)
 	rc = mdss_fb_register(mfd);
 	if (rc)
 		return rc;
-
-	/*
-	 * todo: Currently mfd keeps a full copy of panel data rather than
-	 *       pointer to it.
-	 *       Following line shares the fbi with panel drivers for their
-	 *       sysfs or any external communications with the panel driver.
-	 */
-	pdata->panel_info.fbi = fbi;
 
 	rc = pm_runtime_set_active(mfd->fbi->dev);
 	if (rc < 0)
@@ -431,7 +426,7 @@ void mdss_fb_set_backlight(struct msm_fb_data_type *mfd, u32 bkl_lvl)
 			return;
 		}
 		mfd->bl_level = bkl_lvl;
-		pdata->set_backlight(pdata, mfd->bl_level);
+		pdata->set_backlight(mfd->bl_level);
 		bl_level_old = mfd->bl_level;
 		mutex_unlock(&mfd->lock);
 	}
@@ -446,7 +441,7 @@ void mdss_fb_update_backlight(struct msm_fb_data_type *mfd)
 		if ((pdata) && (pdata->set_backlight)) {
 			mutex_lock(&mfd->lock);
 			mfd->bl_level = unset_bl_level;
-			pdata->set_backlight(pdata, mfd->bl_level);
+			pdata->set_backlight(mfd->bl_level);
 			bl_level_old = unset_bl_level;
 			mutex_unlock(&mfd->lock);
 			bl_updated = 1;
@@ -597,28 +592,20 @@ static int mdss_fb_alloc_fbmem(struct msm_fb_data_type *mfd)
 	size *= mfd->fb_page;
 
 	if (mfd->index == 0) {
-		struct ion_client *iclient = mdss_get_ionclient();
+		struct ion_client *iclient = mfd->iclient;
 
 		if (iclient) {
 			mfd->ihdl = ion_alloc(iclient, size, SZ_4K,
 					 ION_HEAP(ION_CP_MM_HEAP_ID) |
-					 ION_HEAP(ION_SF_HEAP_ID));
+					 ION_HEAP(ION_SF_HEAP_ID), 0);
 			if (IS_ERR_OR_NULL(mfd->ihdl)) {
 				pr_err("unable to alloc fbmem from ion (%p)\n",
 					mfd->ihdl);
 				return -ENOMEM;
 			}
 
-			virt = ion_map_kernel(iclient, mfd->ihdl, 0);
+			virt = ion_map_kernel(iclient, mfd->ihdl);
 			ion_phys(iclient, mfd->ihdl, &phys, &size);
-
-			if (is_mdss_iommu_attached()) {
-				ion_map_iommu(iclient, mfd->ihdl,
-					      mdss_get_iommu_domain(),
-					      0, SZ_4K, 0, &mfd->iova,
-					      (unsigned long *) &size,
-					      0, 0);
-			}
 		} else {
 			virt = dma_alloc_coherent(NULL, size,
 					(dma_addr_t *) &phys, GFP_KERNEL);
@@ -802,20 +789,6 @@ static int mdss_fb_register(struct msm_fb_data_type *mfd)
 	mfd->var_yres = var->yres;
 	mfd->var_pixclock = var->pixclock;
 
-	if (panel_info->type == MIPI_VIDEO_PANEL) {
-		var->reserved[4] = panel_info->mipi.frame_rate;
-	} else {
-		var->reserved[4] = panel_info->clk_rate /
-			((panel_info->lcdc.h_back_porch +
-			  panel_info->lcdc.h_front_porch +
-			  panel_info->lcdc.h_pulse_width +
-			  panel_info->xres) *
-			 (panel_info->lcdc.v_back_porch +
-			  panel_info->lcdc.v_front_porch +
-			  panel_info->lcdc.v_pulse_width +
-			  panel_info->yres));
-	}
-
 	/* id field for fb app  */
 
 	id = (int *)&mfd->panel;
@@ -837,6 +810,15 @@ static int mdss_fb_register(struct msm_fb_data_type *mfd)
 
 	mfd->op_enable = true;
 
+	/* cursor memory allocation */
+	if (mfd->cursor_update) {
+		mfd->cursor_buf = dma_alloc_coherent(NULL, MDSS_MDP_CURSOR_SIZE,
+					(dma_addr_t *) &mfd->cursor_buf_phys,
+					GFP_KERNEL);
+		if (!mfd->cursor_buf)
+			mfd->cursor_update = 0;
+	}
+
 	if (mfd->lut_update) {
 		ret = fb_alloc_cmap(&fbi->cmap, 256, 0);
 		if (ret)
@@ -846,6 +828,11 @@ static int mdss_fb_register(struct msm_fb_data_type *mfd)
 	if (register_framebuffer(fbi) < 0) {
 		if (mfd->lut_update)
 			fb_dealloc_cmap(&fbi->cmap);
+
+		if (mfd->cursor_buf)
+			dma_free_coherent(NULL, MDSS_MDP_CURSOR_SIZE,
+					  mfd->cursor_buf,
+					  (dma_addr_t) mfd->cursor_buf_phys);
 
 		mfd->op_enable = false;
 		return -EPERM;
@@ -1117,7 +1104,7 @@ static int mdss_fb_cursor(struct fb_info *info, void __user *p)
 	if (ret)
 		return ret;
 
-	return mfd->cursor_update(mfd, &cursor);
+	return mfd->cursor_update(info, &cursor);
 }
 
 static int mdss_fb_set_lut(struct fb_info *info, void __user *p)
@@ -1133,7 +1120,7 @@ static int mdss_fb_set_lut(struct fb_info *info, void __user *p)
 	if (ret)
 		return ret;
 
-	mfd->lut_update(mfd, &cmap);
+	mfd->lut_update(info, &cmap);
 	return 0;
 }
 
@@ -1235,7 +1222,6 @@ EXPORT_SYMBOL(mdss_register_panel);
 int mdss_fb_get_phys_info(unsigned long *start, unsigned long *len, int fb_num)
 {
 	struct fb_info *info;
-	struct msm_fb_data_type *mfd;
 
 	if (fb_num > MAX_FBI_LIST)
 		return -EINVAL;
@@ -1244,16 +1230,8 @@ int mdss_fb_get_phys_info(unsigned long *start, unsigned long *len, int fb_num)
 	if (!info)
 		return -ENOENT;
 
-	mfd = (struct msm_fb_data_type *)info->par;
-	if (!mfd)
-		return -ENODEV;
-
-	if (mfd->iova)
-		*start = mfd->iova;
-	else
-		*start = info->fix.smem_start;
+	*start = info->fix.smem_start;
 	*len = info->fix.smem_len;
-
 	return 0;
 }
 EXPORT_SYMBOL(mdss_fb_get_phys_info);

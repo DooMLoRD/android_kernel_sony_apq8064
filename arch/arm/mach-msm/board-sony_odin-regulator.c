@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
- * Copyright (C) 2012 Sony Mobile Communications AB.
+ * Copyright (C) 2012-2013 Sony Mobile Communications AB.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -54,6 +54,7 @@ VREG_CONSUMERS(L5) = {
 };
 VREG_CONSUMERS(L6) = {
 	REGULATOR_SUPPLY("8921_l6",		NULL),
+	REGULATOR_SUPPLY("sdc_vdd",		"msm_sdcc.3"),
 };
 VREG_CONSUMERS(L7) = {
 	REGULATOR_SUPPLY("8921_l7",		NULL),
@@ -109,8 +110,8 @@ VREG_CONSUMERS(L13) = {
 };
 VREG_CONSUMERS(L14) = {
 	REGULATOR_SUPPLY("8921_l14",		NULL),
-	REGULATOR_SUPPLY("pa_therm",		"pm8xxx-adc"),
 	REGULATOR_SUPPLY("vreg_xoadc",		"pm8921-charger"),
+	REGULATOR_SUPPLY("pa_therm",		"pm8xxx-adc"),
 };
 VREG_CONSUMERS(L15) = {
 	REGULATOR_SUPPLY("8921_l15",		NULL),
@@ -125,7 +126,7 @@ VREG_CONSUMERS(L16) = {
 	REGULATOR_SUPPLY("cam_vaf",		"4-0034"),
 	REGULATOR_SUPPLY("cam_vaf",		"4-0020"),
 #else
-	REGULATOR_SUPPLY("cam_vaf",             "4-0010"),
+	REGULATOR_SUPPLY("cam_vaf",		"4-0010"),
 #endif
 };
 VREG_CONSUMERS(L17) = {
@@ -298,10 +299,6 @@ VREG_CONSUMERS(EXT_5V) = {
 VREG_CONSUMERS(EXT_OTG_SW) = {
 	REGULATOR_SUPPLY("ext_otg_sw",		NULL),
 };
-VREG_CONSUMERS(EXT_SD_PWR) = {
-	REGULATOR_SUPPLY("ext_sd_pwr",		NULL),
-	REGULATOR_SUPPLY("sdc_vdd",		"msm_sdcc.3"),
-};
 
 /* Regulators that are only present when using PM8917 */
 VREG_CONSUMERS(8917_S1) = {
@@ -331,7 +328,6 @@ VREG_CONSUMERS(L36) = {
 };
 VREG_CONSUMERS(BOOST) = {
 	REGULATOR_SUPPLY("8917_boost",		NULL),
-	REGULATOR_SUPPLY("ext_ddr3",		NULL),
 	REGULATOR_SUPPLY("vbus",		"msm_ehci_host.0"),
 	REGULATOR_SUPPLY("hdmi_mvs",		"hdmi_msm.0"),
 };
@@ -571,8 +567,6 @@ apq8064_gpio_regulator_pdata[] __devinitdata = {
 	/*        ID      vreg_name gpio_label   gpio  supply active_low*/
 	GPIO_VREG(EXT_5V, "ext_5v", "ext_5v_en", PM8921_MPP_PM_TO_SYS(7),
 		NULL, 0),
-	GPIO_VREG(EXT_SD_PWR, "ext_sd_pwr", "ext_sd_pwr_en",
-		PM8921_MPP_PM_TO_SYS(4), "8921_l6", 0),
 	GPIO_VREG(EXT_OTG_SW, "ext_otg_sw", "ext_otg_sw_en",
 		PM8921_GPIO_PM_TO_SYS(42), NULL, 1),
 };
@@ -778,4 +772,10 @@ void __init configure_apq8064_pm8917_power_grid(void)
 				= ARRAY_SIZE(vreg_consumers_8917_S1);
 		}
 	}
+
+	/*
+	 * Switch to 8960_PM8917 rpm-regulator version so that TCXO workaround
+	 * is applied to PM8917 regulators L25, L26, L27, and L28.
+	 */
+	apq8064_rpm_regulator_pdata.version = RPM_VREG_VERSION_8960_PM8917;
 }

@@ -47,32 +47,6 @@
 #define SESSION_MSG_INDEX(__msg) (__msg - SESSION_MSG_START)
 
 #define MAX_NAME_LENGTH 64
-
-#define NV12_IL_CALC_Y_STRIDE(stride, frame_width, stride_multiple) \
-	{ stride = (frame_width + stride_multiple - 1) & \
-	(0xffffffff - (stride_multiple - 1)); }
-
-#define NV12_IL_CALC_Y_BUFHEIGHT(buf_height, frame_height,\
-	min_buf_height_multiple) \
-	{ buf_height = (frame_height + min_buf_height_multiple - 1) & \
-	(0xffffffff - (min_buf_height_multiple - 1)); }
-
-#define NV12_IL_CALC_UV_STRIDE(stride, frame_width, stride_multiple) \
-	{ stride = ((((frame_width + 1) >> 1) + stride_multiple - 1) & \
-	(0xffffffff - (stride_multiple - 1))) << 1; }
-
-#define NV12_IL_CALC_UV_BUFHEIGHT(buf_height, frame_height,\
-	min_buf_height_multiple) \
-	{ buf_height = ((((frame_height + 1) >> 1) + \
-	min_buf_height_multiple - 1) & (0xffffffff - \
-	(min_buf_height_multiple - 1))); }
-
-#define NV12_IL_CALC_BUF_SIZE(buf_size, y_buf_size, y_stride, \
-	y_buf_height, uv_buf_size, uv_stride, uv_buf_height, uv_alignment) \
-	{ y_buf_size = (y_stride * y_buf_height); \
-	uv_buf_size = (uv_stride * uv_buf_height) + uv_alignment; \
-	buf_size = y_buf_size + uv_buf_size; }
-
 enum vidc_ports {
 	OUTPUT_PORT,
 	CAPTURE_PORT,
@@ -176,8 +150,8 @@ struct core_clock {
 };
 
 struct vidc_bus_info {
-	u32 ddr_handle[MSM_VIDC_MAX_DEVICES];
-	u32 ocmem_handle[MSM_VIDC_MAX_DEVICES];
+	u32 vcodec_handle;
+	u32 ocmem_handle;
 };
 
 struct on_chip_mem {
@@ -243,10 +217,6 @@ struct msm_vidc_inst {
 	bool in_reconfig;
 	u32 reconfig_width;
 	u32 reconfig_height;
-	struct dentry *debugfs_root;
-	u32 ftb_count;
-	u32 fbd_count;
-	struct vb2_buffer *vb2_seq_hdr;
 };
 
 extern struct msm_vidc_drv *vidc_driver;

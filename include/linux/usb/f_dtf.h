@@ -1,5 +1,4 @@
 #include <linux/usb.h>
-#include <linux/usb/android_composite.h>
 #include <linux/usb/f_dtf_if.h>
 
 #ifndef __F_DTF_H__

@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,6 +16,7 @@
 #include <linux/jiffies.h>
 #include <linux/uaccess.h>
 #include <linux/atomic.h>
+#include <linux/err.h>
 
 #include <mach/qdsp6v2/audio_dev_ctl.h>
 #include <mach/qdsp6v2/audio_acdb.h>
@@ -54,6 +55,14 @@ int srs_trumedia_open(int port_id, int srs_tech_id, void *srs_params)
 	int index;
 
 	pr_debug("SRS - %s", __func__);
+
+	index = afe_get_port_index(port_id);
+
+	if (IS_ERR_VALUE(index)) {
+		pr_err("%s: invald port id\n", __func__);
+		return index;
+	}
+
 	switch (srs_tech_id) {
 	case SRS_ID_GLOBAL: {
 		struct srs_trumedia_params_GLOBAL *glb_params = NULL;
@@ -199,7 +208,6 @@ int srs_trumedia_open(int port_id, int srs_tech_id, void *srs_params)
 	open->hdr.src_port = port_id;
 	open->hdr.dest_svc = APR_SVC_ADM;
 	open->hdr.dest_domain = APR_DOMAIN_ADSP;
-	index = afe_get_port_index(port_id);
 	open->hdr.dest_port = atomic_read(&this_adm.copp_id[index]);
 	open->hdr.token = port_id;
 	open->hdr.opcode = ADM_CMD_SET_PARAMS;
@@ -679,8 +687,8 @@ int adm_open(int port_id, int path, int rate, int channel_mode, int topology)
 				rate = 16000;
 		}
 
-		if (open.topology_id  == 0)
-			open.topology_id = topology;
+        if ((open.topology_id  == 0) || (port_id == VOICE_RECORD_RX) || (port_id == VOICE_RECORD_TX))
+          open.topology_id = topology;
 
 		open.channel_config = channel_mode & 0x00FF;
 		open.rate  = rate;
@@ -834,8 +842,8 @@ int adm_multi_ch_copp_open(int port_id, int path, int rate, int channel_mode,
 				rate = 16000;
 		}
 
-		if (open.topology_id  == 0)
-			open.topology_id = topology;
+        if ((open.topology_id  == 0) || (port_id == VOICE_RECORD_RX) || (port_id == VOICE_RECORD_TX))
+          open.topology_id = topology;
 
 		open.channel_config = channel_mode & 0x00FF;
 		open.rate  = rate;
@@ -880,6 +888,8 @@ int adm_matrix_map(int session_id, int path, int num_copps,
 	int ret = 0, i = 0;
 	/* Assumes port_ids have already been validated during adm_open */
 	int index = afe_get_port_index(copp_id);
+	int copp_cnt;
+
 	if (index < 0 || index >= AFE_MAX_PORTS) {
 		pr_err("%s: invalid port idx %d token %d\n",
 					__func__, index, copp_id);
@@ -902,9 +912,19 @@ int adm_matrix_map(int session_id, int path, int num_copps,
 	route.hdr.opcode = ADM_CMD_MATRIX_MAP_ROUTINGS;
 	route.num_sessions = 1;
 	route.session[0].id = session_id;
-	route.session[0].num_copps = num_copps;
 
-	for (i = 0; i < num_copps; i++) {
+	if (num_copps < ADM_MAX_COPPS) {
+		copp_cnt = num_copps;
+	} else {
+		copp_cnt = ADM_MAX_COPPS;
+		/* print out warning for now as playback/capture to/from
+		 * COPPs more than maximum allowed is extremely unlikely
+		 */
+		pr_warn("%s: max out routable COPPs\n", __func__);
+	}
+
+	route.session[0].num_copps = copp_cnt;
+	for (i = 0; i < copp_cnt; i++) {
 		int tmp;
 		port_id[i] = afe_convert_virtual_to_portid(port_id[i]);
 
@@ -917,7 +937,8 @@ int adm_matrix_map(int session_id, int path, int num_copps,
 			route.session[0].copp_id[i] =
 					atomic_read(&this_adm.copp_id[tmp]);
 	}
-	if (num_copps % 2)
+
+	if (copp_cnt % 2)
 		route.session[0].copp_id[i] = 0;
 
 	switch (path) {
@@ -954,10 +975,17 @@ int adm_matrix_map(int session_id, int path, int num_copps,
 	for (i = 0; i < num_copps; i++)
 		send_adm_cal(port_id[i], path);
 
-	for (i = 0; i < num_copps; i++)
-		rtac_add_adm_device(port_id[i],	atomic_read(&this_adm.copp_id
-			[afe_get_port_index(port_id[i])]),
-			path, session_id);
+	for (i = 0; i < num_copps; i++) {
+		int tmp;
+		tmp = afe_get_port_index(port_id[i]);
+		if (tmp >= 0 && tmp < AFE_MAX_PORTS)
+			rtac_add_adm_device(port_id[i],
+				atomic_read(&this_adm.copp_id[tmp]),
+				path, session_id);
+		else
+			pr_debug("%s: Invalid port index %d",
+				__func__, tmp);
+	}
 	return 0;
 
 fail_cmd:

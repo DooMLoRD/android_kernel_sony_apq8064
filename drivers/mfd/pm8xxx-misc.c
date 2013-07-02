@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  * Copyright (C) 2012 Sony Mobile Communications AB.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -146,6 +146,9 @@
 #define CHG_CNTRL_DCIN_CHG_PWR_ON_TRIG_DIS	0x20
 #define CHG_CNTRL_USBIN_CHG_PWR_ON_TRIG_DIS	0x40
 
+/* Shutdown delay for PM8921 */
+#define PM8921_DELAY_BEFORE_SHUTDOWN_MS		1
+
 /* Shutdown/restart delays to allow for LDO 7/dVdd regulator load settling. */
 #define PM8901_DELAY_AFTER_REG_DISABLE_MS	4
 #define PM8901_DELAY_BEFORE_SHUTDOWN_MS		8
@@ -226,6 +229,7 @@ int pm8xxx_read_register(u16 addr, u8 *value)
 	return rc;
 }
 EXPORT_SYMBOL_GPL(pm8xxx_read_register);
+
 
 /*
  * Set an SMPS regulator to be disabled in its CTRL register, but enabled
@@ -535,6 +539,7 @@ static int __pm8921_reset_pwr_off(struct pm8xxx_misc_chip *chip, int reset)
 	}
 
 read_write_err:
+	mdelay(PM8921_DELAY_BEFORE_SHUTDOWN_MS);
 	return rc;
 }
 

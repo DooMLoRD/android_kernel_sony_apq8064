@@ -48,7 +48,7 @@ extern struct regulator_init_data msm_saw_regulator_pdata_s6;
 
 extern struct rpm_regulator_platform_data msm_rpm_regulator_pdata __devinitdata;
 
-#if defined(CONFIG_GPIO_SX150X) || defined(CONFIG_GPIO_SX150X_MODULE)
+/* GPIO SX150X */
 enum {
 	GPIO_EXPANDER_IRQ_BASE = (PM8921_IRQ_BASE + PM8921_NR_IRQS),
 	GPIO_EXPANDER_GPIO_BASE = (PM8921_MPP_BASE + PM8921_NR_MPPS),
@@ -64,14 +64,13 @@ enum {
 	GPIO_CAM_GP_LED_EN2,
 	GPIO_LIQUID_EXPANDER_BASE = GPIO_CAM_EXPANDER_BASE + 8,
 };
-#endif
 
 enum {
 	SX150X_CAM,
 	SX150X_LIQUID,
 };
 
-#endif
+
 
 extern struct sx150x_platform_data msm8960_sx150x_data[];
 extern struct msm_camera_board_info msm8960_camera_board_info;
@@ -94,3 +93,4 @@ void msm8960_mdp_writeback(struct memtype_reserve *reserve_table);
 extern struct msm_rtb_platform_data msm8960_rtb_pdata;
 extern struct msm_cache_dump_platform_data msm8960_cache_dump_pdata;
 extern void msm8960_add_vidc_device(void);
+#endif

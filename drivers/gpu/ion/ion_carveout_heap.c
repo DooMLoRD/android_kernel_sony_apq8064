@@ -23,7 +23,6 @@
 #include <linux/mm.h>
 #include <linux/scatterlist.h>
 #include <linux/slab.h>
-#include <linux/vmalloc.h>
 #include <linux/iommu.h>
 #include <linux/seq_file.h>
 #include "ion_priv.h"
@@ -31,6 +30,7 @@
 #include <mach/iommu_domains.h>
 #include <asm/mach/map.h>
 #include <asm/cacheflush.h>
+#include <linux/msm_ion.h>
 
 struct ion_carveout_heap {
 	struct ion_heap heap;
@@ -357,7 +357,7 @@ int ion_carveout_heap_map_iommu(struct ion_buffer *buffer,
 		goto out1;
 	}
 
-	sglist = vmalloc(sizeof(*sglist));
+	sglist = kmalloc(sizeof(*sglist), GFP_KERNEL);
 	if (!sglist)
 		goto out1;
 
@@ -381,13 +381,13 @@ int ion_carveout_heap_map_iommu(struct ion_buffer *buffer,
 		if (ret)
 			goto out2;
 	}
-	vfree(sglist);
+	kfree(sglist);
 	return ret;
 
 out2:
 	iommu_unmap_range(domain, data->iova_addr, buffer->size);
 out1:
-	vfree(sglist);
+	kfree(sglist);
 	msm_free_iova_address(data->iova_addr, domain_num, partition_num,
 				data->mapped_size);
 

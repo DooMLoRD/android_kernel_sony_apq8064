@@ -272,6 +272,35 @@ int mdss_mdp_pipe_destroy(struct mdss_mdp_pipe *pipe)
 	return 0;
 }
 
+int mdss_mdp_pipe_release_all(struct msm_fb_data_type *mfd)
+{
+	struct mdss_mdp_pipe *pipe;
+	int i;
+
+	if (!mfd)
+		return -ENODEV;
+
+	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
+	mutex_lock(&mdss_mdp_sspp_lock);
+	for (i = 0; i < MDSS_MDP_MAX_SSPP; i++) {
+		pipe = &mdss_mdp_pipe_list[i];
+		if (atomic_read(&pipe->ref_cnt) && pipe->mfd == mfd) {
+			pr_debug("release pnum=%d\n", pipe->num);
+			if (mdss_mdp_pipe_lock(pipe) == 0) {
+				mdss_mdp_mixer_pipe_unstage(pipe);
+				mdss_mdp_pipe_free(pipe);
+			} else {
+				pr_err("unable to lock pipe=%d for release",
+				       pipe->num);
+			}
+		}
+	}
+	mutex_unlock(&mdss_mdp_sspp_lock);
+	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
+
+	return 0;
+}
+
 static inline void mdss_mdp_pipe_write(struct mdss_mdp_pipe *pipe,
 				       u32 reg, u32 val)
 {
@@ -334,12 +363,6 @@ static int mdss_mdp_scale_setup(struct mdss_mdp_pipe *pipe)
 	}
 
 	chroma_sample = pipe->src_fmt->chroma_sample;
-	if (pipe->flags & MDP_SOURCE_ROTATED_90) {
-		if (chroma_sample == MDSS_MDP_CHROMA_H1V2)
-			chroma_sample = MDSS_MDP_CHROMA_H2V1;
-		else if (chroma_sample == MDSS_MDP_CHROMA_H2V1)
-			chroma_sample = MDSS_MDP_CHROMA_H1V2;
-	}
 
 	if ((pipe->src.h != pipe->dst.h) ||
 	    (chroma_sample == MDSS_MDP_CHROMA_420) ||
@@ -368,7 +391,7 @@ static int mdss_mdp_scale_setup(struct mdss_mdp_pipe *pipe)
 			else
 				scale_config |= /* G/Y, A */
 					(MDSS_MDP_SCALE_FILTER_PCMN << 10) |
-					(MDSS_MDP_SCALE_FILTER_PCMN << 18);
+					(MDSS_MDP_SCALE_FILTER_NEAREST << 18);
 
 			if (pipe->src.h <= chr_dst_h)
 				scale_config |= /* CrCb */
@@ -426,7 +449,7 @@ static int mdss_mdp_scale_setup(struct mdss_mdp_pipe *pipe)
 			else
 				scale_config |= /* G/Y, A */
 					(MDSS_MDP_SCALE_FILTER_PCMN << 8) |
-					(MDSS_MDP_SCALE_FILTER_PCMN << 16);
+					(MDSS_MDP_SCALE_FILTER_NEAREST << 16);
 
 			if (pipe->src.w <= chr_dst_w)
 				scale_config |= /* CrCb */
@@ -500,7 +523,7 @@ static int mdss_mdp_image_setup(struct mdss_mdp_pipe *pipe)
 static int mdss_mdp_format_setup(struct mdss_mdp_pipe *pipe)
 {
 	struct mdss_mdp_format_params *fmt;
-	u32 opmode, chroma_samp, unpack, src_format;
+	u32 rot90, opmode, chroma_samp;
 
 	fmt = pipe->src_fmt;
 
@@ -513,6 +536,8 @@ static int mdss_mdp_format_setup(struct mdss_mdp_pipe *pipe)
 	pr_debug("pnum=%d format=%d opmode=%x\n", pipe->num, fmt->format,
 			opmode);
 
+	rot90 = !!(pipe->flags & MDP_ROT_90);
+
 	chroma_samp = fmt->chroma_sample;
 	if (pipe->flags & MDP_SOURCE_ROTATED_90) {
 		if (chroma_samp == MDSS_MDP_CHROMA_H2V1)
@@ -521,34 +546,26 @@ static int mdss_mdp_format_setup(struct mdss_mdp_pipe *pipe)
 			chroma_samp = MDSS_MDP_CHROMA_H2V1;
 	}
 
-	src_format = (chroma_samp << 23) |
-		     (fmt->fetch_planes << 19) |
-		     (fmt->bits[C3_ALPHA] << 6) |
-		     (fmt->bits[C2_R_Cr] << 4) |
-		     (fmt->bits[C1_B_Cb] << 2) |
-		     (fmt->bits[C0_G_Y] << 0);
+	mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_SRC_FORMAT,
+			    (chroma_samp << 23) |
+			    (fmt->fetch_planes << 19) |
+			    (fmt->unpack_align_msb << 18) |
+			    (fmt->unpack_tight << 17) |
+			    (fmt->unpack_count << 12) |
+			    (rot90 << 11) |
+			    (fmt->bpp << 9) |
+			    (fmt->alpha_enable << 8) |
+			    (fmt->a_bit << 6) |
+			    (fmt->r_bit << 4) |
+			    (fmt->b_bit << 2) |
+			    (fmt->g_bit << 0));
 
-	if (pipe->flags & MDP_ROT_90)
-		src_format |= BIT(11); /* ROT90 */
+	mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_SRC_UNPACK_PATTERN,
+			    (fmt->element3 << 24) |
+			    (fmt->element2 << 16) |
+			    (fmt->element1 << 8) |
+			    (fmt->element0 << 0));
 
-	if (fmt->alpha_enable &&
-			fmt->fetch_planes != MDSS_MDP_PLANE_INTERLEAVED)
-		src_format |= BIT(8); /* SRCC3_EN */
-
-	if (fmt->fetch_planes != MDSS_MDP_PLANE_PLANAR) {
-		unpack = (fmt->element[3] << 24) | (fmt->element[2] << 16) |
-			(fmt->element[1] << 8) | (fmt->element[0] << 0);
-
-		src_format |= ((fmt->unpack_count - 1) << 12) |
-			  (fmt->unpack_tight << 17) |
-			  (fmt->unpack_align_msb << 18) |
-			  ((fmt->bpp - 1) << 9);
-	} else {
-		unpack = 0;
-	}
-
-	mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_SRC_FORMAT, src_format);
-	mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_SRC_UNPACK_PATTERN, unpack);
 	mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_SRC_OP_MODE, opmode);
 
 	return 0;
@@ -578,22 +595,16 @@ static int mdss_mdp_vig_setup(struct mdss_mdp_pipe *pipe)
 static int mdss_mdp_src_addr_setup(struct mdss_mdp_pipe *pipe,
 				   struct mdss_mdp_data *data)
 {
-	int is_rot = pipe->mixer->rotator_mode;
-	int ret = 0;
+	int ret;
 
 	pr_debug("pnum=%d\n", pipe->num);
 
-	if (!is_rot)
+	if (pipe->type != MDSS_MDP_PIPE_TYPE_DMA)
 		data->bwc_enabled = pipe->bwc_mode;
 
 	ret = mdss_mdp_data_check(data, &pipe->src_planes);
 	if (ret)
 		return ret;
-
-	/* planar format expects YCbCr, swap chroma planes if YCrCb */
-	if (!is_rot && (pipe->src_fmt->fetch_planes == MDSS_MDP_PLANE_PLANAR) &&
-	    (pipe->src_fmt->element[0] == C2_R_Cr))
-		swap(data->p[1].addr, data->p[2].addr);
 
 	mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_SRC0_ADDR, data->p[0].addr);
 	mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_SRC1_ADDR, data->p[1].addr);

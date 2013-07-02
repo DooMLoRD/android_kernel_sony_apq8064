@@ -272,6 +272,13 @@ int msm_dmov_exec_cmd(unsigned id, unsigned int cmdptr);
 #define DMOV8064_TSIF_CHAN         2
 #define DMOV8064_TSIF_CRCI         1
 
+/* channels for APQ8064 SGLTE*/
+#define DMOV_APQ8064_HSUART_GSBI4_TX_CHAN	11
+#define DMOV_APQ8064_HSUART_GSBI4_TX_CRCI	8
+
+#define DMOV_APQ8064_HSUART_GSBI4_RX_CHAN	10
+#define DMOV_APQ8064_HSUART_GSBI4_RX_CRCI	7
+
 /* channels for MPQ8064 */
 #define DMOV_MPQ8064_HSUART_GSBI6_TX_CHAN	7
 #define DMOV_MPQ8064_HSUART_GSBI6_TX_CRCI	6

@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2013, Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -92,7 +92,7 @@ static int vcd_pmem_alloc(size_t sz, u8 **kernel_vaddr, u8 **phy_addr,
 	} else {
 		map_buffer->alloc_handle = ion_alloc(
 			    cctxt->vcd_ion_client, sz, SZ_4K,
-			    memtype);
+			    memtype, res_trk_get_ion_flags());
 		if (!map_buffer->alloc_handle) {
 			pr_err("%s() ION alloc failed", __func__);
 			goto bailout;
@@ -105,8 +105,7 @@ static int vcd_pmem_alloc(size_t sz, u8 **kernel_vaddr, u8 **phy_addr,
 		}
 		*kernel_vaddr = (u8 *) ion_map_kernel(
 				cctxt->vcd_ion_client,
-				map_buffer->alloc_handle,
-				ionflag);
+				map_buffer->alloc_handle);
 		if (!(*kernel_vaddr)) {
 			pr_err("%s() ION map failed", __func__);
 			goto ion_free_bailout;
@@ -120,7 +119,7 @@ static int vcd_pmem_alloc(size_t sz, u8 **kernel_vaddr, u8 **phy_addr,
 				0,
 				(unsigned long *)&iova,
 				(unsigned long *)&buffer_size,
-				UNCACHED, 0);
+				0, 0);
 			if (ret || !iova) {
 				pr_err(
 				"%s() ION iommu map failed, ret = %d, iova = 0x%lx",
@@ -785,7 +784,11 @@ u32 vcd_free_one_buffer_internal(
 		buf_pool->allocated--;
 	}
 
-	memset(buf_entry, 0, sizeof(struct vcd_buffer_entry));
+	buf_entry->valid = buf_entry->allocated = buf_entry->in_use = 0;
+	buf_entry->alloc = buf_entry->virtual = buf_entry->physical = NULL;
+	buf_entry->sz = 0;
+	memset(&buf_entry->frame, 0, sizeof(struct vcd_frame_data));
+
 	buf_pool->validated--;
 	if (buf_pool->validated == 0)
 		vcd_free_buffer_pool_entries(buf_pool);
@@ -921,7 +924,7 @@ struct vcd_buffer_entry *vcd_find_buffer_pool_entry
 	u32 i;
 	u32 found = false;
 
-	for (i = 0; i <= pool->count && !found; i++) {
+	for (i = 1; i <= pool->count && !found; i++) {
 		if (pool->entries[i].virtual == addr)
 			found = true;
 
@@ -1723,6 +1726,7 @@ void vcd_send_frame_done_in_eos_for_dec(
 	u32 rc;
 	struct ddl_frame_data_tag ddl_frm;
 
+	VCD_MSG_LOW("%s: ", __func__);
 	prop_hdr.prop_id = DDL_I_DPB_RETRIEVE;
 	prop_hdr.sz = sizeof(struct ddl_frame_data_tag);
 	memset(&ddl_frm, 0, sizeof(ddl_frm));
@@ -1812,19 +1816,25 @@ u32 vcd_handle_recvd_eos(
 	*pb_eos_handled = false;
 
 	if (input_frame->virtual &&
-			input_frame->data_len)
+			input_frame->data_len) {
+		VCD_MSG_LOW("%s: data available with EOS buffer", __func__);
 		return VCD_S_SUCCESS;
+	}
 
 	input_frame->data_len = 0;
 	rc = vcd_sched_mark_client_eof(cctxt->sched_clnt_hdl);
-	if (VCD_FAILED(rc) && rc != VCD_ERR_QEMPTY)
+	if (VCD_FAILED(rc) && rc != VCD_ERR_QEMPTY) {
+		VCD_MSG_LOW("%s: rc = %u", __func__, rc);
 		return rc;
+	}
 
-	if (rc == VCD_S_SUCCESS)
+	if (rc == VCD_S_SUCCESS) {
 		*pb_eos_handled = true;
-	else if (cctxt->decoding && !input_frame->virtual)
+		VCD_MSG_LOW("%s: EOS handled", __func__);
+	} else if (cctxt->decoding && !input_frame->virtual) {
 		cctxt->sched_clnt_hdl->tkns++;
-	else if (!cctxt->decoding) {
+		VCD_MSG_LOW("%s: decoding & virtual addr is NULL", __func__);
+	} else if (!cctxt->decoding) {
 		vcd_send_frame_done_in_eos(cctxt, input_frame, false);
 		if (cctxt->status.mask & VCD_EOS_WAIT_OP_BUF) {
 			vcd_do_client_state_transition(cctxt,
@@ -1838,6 +1848,8 @@ u32 vcd_handle_recvd_eos(
 	if (*pb_eos_handled &&
 		input_frame->virtual &&
 		!input_frame->data_len) {
+		VCD_MSG_LOW("%s: sending INPUT_DONE as eos was handled",
+			__func__);
 		cctxt->callback(VCD_EVT_RESP_INPUT_DONE,
 				  VCD_S_SUCCESS,
 				  input_frame,
@@ -1982,6 +1994,11 @@ u32 vcd_handle_input_done(
 	orig_frame = vcd_find_buffer_pool_entry(&cctxt->in_buf_pool,
 					 transc->ip_buf_entry->virtual);
 
+	if (!orig_frame) {
+		rc = VCD_ERR_ILLEGAL_PARM;
+		VCD_FAILED_RETURN(rc, "Couldn't find buffer");
+	}
+
 	if ((transc->ip_buf_entry->frame.virtual !=
 		 frame->vcd_frm.virtual)
 		|| !transc->ip_buf_entry->in_use) {
@@ -2008,8 +2025,11 @@ u32 vcd_handle_input_done(
 		return VCD_ERR_FAIL;
 	}
 
-	if (orig_frame != transc->ip_buf_entry)
+	if (orig_frame != transc->ip_buf_entry) {
+		VCD_MSG_HIGH("%s: free duplicate buffer", __func__);
 		kfree(transc->ip_buf_entry);
+		transc->ip_buf_entry = NULL;
+	}
 	transc->ip_buf_entry = NULL;
 	transc->input_done = true;
 
@@ -2020,7 +2040,7 @@ u32 vcd_handle_input_done(
 	}
 
 	if (VCD_FAILED(status)) {
-		VCD_MSG_ERROR("INPUT_DONE returned err = 0x%x", status);
+		VCD_MSG_HIGH("INPUT_DONE returned err = 0x%x", status);
 		vcd_handle_input_done_failed(cctxt, transc);
 	} else
 		cctxt->status.mask |= VCD_FIRST_IP_DONE;
@@ -2302,10 +2322,12 @@ u32 vcd_handle_frame_done(
 	op_frm->vcd_frm.time_stamp = transc->time_stamp;
 	op_frm->vcd_frm.ip_frm_tag = transc->ip_frm_tag;
 
-	if (transc->flags & VCD_FRAME_FLAG_EOSEQ)
-		op_frm->vcd_frm.flags |= VCD_FRAME_FLAG_EOSEQ;
-	else
-		op_frm->vcd_frm.flags &= ~VCD_FRAME_FLAG_EOSEQ;
+	if (!(op_frm->vcd_frm.flags & VCD_FRAME_FLAG_EOSEQ)) {
+		if (transc->flags & VCD_FRAME_FLAG_EOSEQ)
+			op_frm->vcd_frm.flags |= VCD_FRAME_FLAG_EOSEQ;
+		else
+			op_frm->vcd_frm.flags &= ~VCD_FRAME_FLAG_EOSEQ;
+	}
 
 	if (cctxt->decoding)
 		op_frm->vcd_frm.frame = transc->frame;
@@ -2778,6 +2800,7 @@ u32 vcd_handle_input_frame(
 	struct vcd_frame_data *frm_entry;
 	u32 rc = VCD_S_SUCCESS;
 	u32 eos_handled = false;
+	u32 duplicate_buffer = false;
 
 	VCD_MSG_LOW("vcd_handle_input_frame:");
 
@@ -2861,6 +2884,8 @@ u32 vcd_handle_input_frame(
 		buf_entry->allocated = orig_frame->allocated;
 		buf_entry->in_use = 1; /* meaningless for the dupe buffers */
 		buf_entry->frame = orig_frame->frame;
+		duplicate_buffer = true;
+		VCD_MSG_HIGH("%s: duplicate buffer", __func__);
 	} else
 		buf_entry = orig_frame;
 
@@ -2884,6 +2909,10 @@ u32 vcd_handle_input_frame(
 	if (VCD_FAILED(rc) || eos_handled) {
 		VCD_MSG_HIGH("rc = 0x%x, eos_handled = %d", rc,
 				 eos_handled);
+		if ((duplicate_buffer) && (buf_entry)) {
+			kfree(buf_entry);
+			buf_entry = NULL;
+		}
 
 		return rc;
 	}

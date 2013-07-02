@@ -3,7 +3,7 @@
  *
  * Copyright (C) 2003-2008 Alan Stern
  * Copyeight (C) 2009 Samsung Electronics
- * Copyright (C) 2012 Sony Mobile Communications AB.
+ * Copyright (C) 2012-2013 Sony Mobile Communications AB.
  * Author: Michal Nazarewicz (mina86@mina86.com)
  *
  * This program is free software; you can redistribute it and/or modify
@@ -946,7 +946,7 @@ static ssize_t fsg_store_file(struct device *dev, struct device_attribute *attr,
 	int		rc = 0;
 
 
-#ifndef CONFIG_USB_ANDROID_MASS_STORAGE
+#ifndef CONFIG_USB_G_ANDROID
 	/* disabled in android because we need to allow closing the backing file
 	 * if the media was removed
 	 */

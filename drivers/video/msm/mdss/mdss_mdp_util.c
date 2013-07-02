@@ -16,13 +16,10 @@
 #include <linux/dma-mapping.h>
 #include <linux/errno.h>
 #include <linux/file.h>
-#include <linux/ion.h>
-#include <linux/iommu.h>
+#include <linux/msm_ion.h>
 #include <linux/msm_kgsl.h>
 #include <linux/spinlock.h>
 #include <linux/types.h>
-
-#include <mach/iommu_domains.h>
 
 #include "mdss_fb.h"
 #include "mdss_mdp.h"
@@ -105,6 +102,8 @@ static inline void mdss_mdp_intr_done(int index)
 	spin_lock(&mdss_mdp_intr_lock);
 	fnc = mdp_intr_cb[index].func;
 	arg = mdp_intr_cb[index].arg;
+	if (fnc != NULL)
+		mdp_intr_cb[index].func = NULL;
 	spin_unlock(&mdss_mdp_intr_lock);
 	if (fnc)
 		fnc(arg);
@@ -165,16 +164,14 @@ done:
 
 struct mdss_mdp_format_params *mdss_mdp_get_format_params(u32 format)
 {
+	struct mdss_mdp_format_params *fmt = NULL;
 	if (format < MDP_IMGTYPE_LIMIT) {
-		struct mdss_mdp_format_params *fmt = NULL;
-		int i;
-		for (i = 0; i < ARRAY_SIZE(mdss_mdp_format_map); i++) {
-			fmt = &mdss_mdp_format_map[i];
-			if (format == fmt->format)
-				return fmt;
-		}
+		fmt = &mdss_mdp_format_map[format];
+		if (fmt->format != format)
+			fmt = NULL;
 	}
-	return NULL;
+
+	return fmt;
 }
 
 int mdss_mdp_get_plane_sizes(u32 format, u32 w, u32 h,
@@ -196,34 +193,29 @@ int mdss_mdp_get_plane_sizes(u32 format, u32 w, u32 h,
 	memset(ps, 0, sizeof(struct mdss_mdp_plane_sizes));
 
 	if (fmt->fetch_planes == MDSS_MDP_PLANE_INTERLEAVED) {
-		u32 bpp = fmt->bpp;
+		u32 bpp = fmt->bpp + 1;
 		ps->num_planes = 1;
 		ps->plane_size[0] = w * h * bpp;
 		ps->ystride[0] = w * bpp;
 	} else {
 		u8 hmap[] = { 1, 2, 1, 2 };
 		u8 vmap[] = { 1, 1, 2, 2 };
-		u8 horiz, vert, stride_align;
+		u8 horiz, vert;
 
 		horiz = hmap[fmt->chroma_sample];
 		vert = vmap[fmt->chroma_sample];
 
-		switch (format) {
-		case MDP_Y_CR_CB_GH2V2:
-			stride_align = 16;
-			break;
-		case MDP_Y_CBCR_H2V2_VENUS:
-			stride_align = 32;
-			break;
-		default:
-			stride_align = 1;
-			break;
+		if (format == MDP_Y_CR_CB_GH2V2) {
+			ps->plane_size[0] = ALIGN(w, 16) * h;
+			ps->plane_size[1] = ALIGN(w / horiz, 16) * (h / vert);
+			ps->ystride[0] = ALIGN(w, 16);
+			ps->ystride[1] = ALIGN(w / horiz, 16);
+		} else {
+			ps->plane_size[0] = w * h;
+			ps->plane_size[1] = (w / horiz) * (h / vert);
+			ps->ystride[0] = w;
+			ps->ystride[1] = (w / horiz);
 		}
-
-		ps->ystride[0] = ALIGN(w, stride_align);
-		ps->ystride[1] = ALIGN(w / horiz, stride_align);
-		ps->plane_size[0] = ps->ystride[0] * h;
-		ps->plane_size[1] = ps->ystride[1] * (h / vert);
 
 		if (fmt->fetch_planes == MDSS_MDP_PLANE_PSEUDO_PLANAR) {
 			ps->num_planes = 2;
@@ -287,38 +279,33 @@ int mdss_mdp_data_check(struct mdss_mdp_data *data,
 
 int mdss_mdp_put_img(struct mdss_mdp_img_data *data)
 {
-	struct ion_client *iclient = mdss_get_ionclient();
+	/* only source may use frame buffer */
 	if (data->flags & MDP_MEMORY_ID_TYPE_FB) {
-		pr_debug("fb mem buf=0x%x\n", data->addr);
 		fput_light(data->srcp_file, data->p_need);
-		data->srcp_file = NULL;
-	} else if (data->srcp_file) {
-		pr_debug("pmem buf=0x%x\n", data->addr);
+		return 0;
+	}
+	if (data->srcp_file) {
 		put_pmem_file(data->srcp_file);
 		data->srcp_file = NULL;
-	} else if (!IS_ERR_OR_NULL(data->srcp_ihdl)) {
-		pr_debug("ion hdl=%p buf=0x%x\n", data->srcp_ihdl, data->addr);
-
-		if (is_mdss_iommu_attached())
-			ion_unmap_iommu(iclient, data->srcp_ihdl,
-					mdss_get_iommu_domain(), 0);
-
-		ion_free(iclient, data->srcp_ihdl);
+		return 0;
+	}
+	if (!IS_ERR_OR_NULL(data->srcp_ihdl)) {
+		ion_free(data->iclient, data->srcp_ihdl);
+		data->iclient = NULL;
 		data->srcp_ihdl = NULL;
-	} else {
-		return -ENOMEM;
+		return 0;
 	}
 
-	return 0;
+	return -ENOMEM;
 }
 
-int mdss_mdp_get_img(struct msmfb_data *img, struct mdss_mdp_img_data *data)
+int mdss_mdp_get_img(struct ion_client *iclient, struct msmfb_data *img,
+		     struct mdss_mdp_img_data *data)
 {
 	struct file *file;
 	int ret = -EINVAL;
 	int fb_num;
 	unsigned long *start, *len;
-	struct ion_client *iclient = mdss_get_ionclient();
 
 	start = (unsigned long *) &data->addr;
 	len = (unsigned long *) &data->len;
@@ -331,46 +318,19 @@ int mdss_mdp_get_img(struct msmfb_data *img, struct mdss_mdp_img_data *data)
 					start, len);
 	} else if (img->flags & MDP_MEMORY_ID_TYPE_FB) {
 		file = fget_light(img->memory_id, &data->p_need);
-		if (file == NULL) {
-			pr_err("invalid framebuffer file (%d)\n",
-					img->memory_id);
-			return -EINVAL;
-		}
-		data->srcp_file = file;
-
-		if (MAJOR(file->f_dentry->d_inode->i_rdev) == FB_MAJOR) {
+		if (file && FB_MAJOR ==
+				MAJOR(file->f_dentry->d_inode->i_rdev)) {
+			data->srcp_file = file;
 			fb_num = MINOR(file->f_dentry->d_inode->i_rdev);
 			ret = mdss_fb_get_phys_info(start, len, fb_num);
-			if (ret)
-				pr_err("mdss_fb_get_phys_info() failed\n");
-		} else {
-			pr_err("invalid FB_MAJOR\n");
-			ret = -1;
 		}
 	} else if (iclient) {
+		data->iclient = iclient;
 		data->srcp_ihdl = ion_import_dma_buf(iclient, img->memory_id);
-		if (IS_ERR_OR_NULL(data->srcp_ihdl)) {
-			pr_err("error on ion_import_fd\n");
-			ret = PTR_ERR(data->srcp_ihdl);
-			data->srcp_ihdl = NULL;
-			return ret;
-		}
-
-		if (is_mdss_iommu_attached()) {
-			ret = ion_map_iommu(iclient, data->srcp_ihdl,
-					    mdss_get_iommu_domain(),
-					    0, SZ_4K, 0, start, len, 0,
-					    ION_IOMMU_UNMAP_DELAYED);
-		} else {
-			ret = ion_phys(iclient, data->srcp_ihdl, start,
-				       (size_t *) len);
-		}
-
-		if (IS_ERR_VALUE(ret)) {
-			ion_free(iclient, data->srcp_ihdl);
-			pr_err("failed to map ion handle (%d)\n", ret);
-			return ret;
-		}
+		if (IS_ERR_OR_NULL(data->srcp_ihdl))
+			return PTR_ERR(data->srcp_ihdl);
+		ret = ion_phys(iclient, data->srcp_ihdl,
+			       start, (size_t *) len);
 	} else {
 		unsigned long vstart;
 		ret = get_pmem_file(img->memory_id, start, &vstart, len,
@@ -380,11 +340,9 @@ int mdss_mdp_get_img(struct msmfb_data *img, struct mdss_mdp_img_data *data)
 	if (!ret && (img->offset < data->len)) {
 		data->addr += img->offset;
 		data->len -= img->offset;
-
-		pr_debug("mem=%d ihdl=%p buf=0x%x len=0x%x\n", img->memory_id,
-			 data->srcp_ihdl, data->addr, data->len);
 	} else {
-		return -EINVAL;
+		mdss_mdp_put_img(data);
+		ret = -EINVAL;
 	}
 
 	return ret;

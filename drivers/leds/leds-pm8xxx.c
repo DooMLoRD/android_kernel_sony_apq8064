@@ -20,6 +20,7 @@
 #include <linux/leds.h>
 #include <linux/workqueue.h>
 #include <linux/err.h>
+#include <linux/ctype.h>
 
 #include <linux/mfd/pm8xxx/core.h>
 #include <linux/mfd/pm8xxx/pwm.h>
@@ -46,8 +47,8 @@
 /* wled control registers */
 #define WLED_MOD_CTRL_REG		SSBI_REG_ADDR_WLED_CTRL(1)
 #define WLED_MAX_CURR_CFG_REG(n)	SSBI_REG_ADDR_WLED_CTRL(n + 2)
-#define WLED_BRIGHTNESS_CNTL_REG1(n)	SSBI_REG_ADDR_WLED_CTRL(n + 5)
-#define WLED_BRIGHTNESS_CNTL_REG2(n)	SSBI_REG_ADDR_WLED_CTRL(n + 6)
+#define WLED_BRIGHTNESS_CNTL_REG1(n)	SSBI_REG_ADDR_WLED_CTRL((2 * n) + 5)
+#define WLED_BRIGHTNESS_CNTL_REG2(n)	SSBI_REG_ADDR_WLED_CTRL((2 * n) + 6)
 #define WLED_SYNC_REG			SSBI_REG_ADDR_WLED_CTRL(11)
 #define WLED_OVP_CFG_REG		SSBI_REG_ADDR_WLED_CTRL(13)
 #define WLED_BOOST_CFG_REG		SSBI_REG_ADDR_WLED_CTRL(14)
@@ -116,7 +117,11 @@
 
 #define PM8XXX_LED_OFFSET(id) ((id) - PM8XXX_ID_LED_0)
 
-#define PM8XXX_LED_PWM_FLAGS	(PM_PWM_LUT_LOOP | PM_PWM_LUT_RAMP_UP)
+#define PM8XXX_LED_PWM_FLAGS	(PM_PWM_LUT_LOOP | PM_PWM_LUT_RAMP_UP | \
+				PM_PWM_LUT_PAUSE_LO_EN | PM_PWM_LUT_PAUSE_HI_EN)
+
+#define PM8XXX_LED_PWM_GRPFREQ_MAX	255
+#define PM8XXX_LED_PWM_GRPPWM_MAX	255
 
 #define LED_MAP(_version, _kb, _led0, _led1, _led2, _flash_led0, _flash_led1, \
 	_wled, _rgb_led_red, _rgb_led_green, _rgb_led_blue)\
@@ -163,12 +168,15 @@ static const struct supported_leds led_map[] = {
  * @pwm_channel - PWM channel ID
  * @pwm_period_us - PWM period in micro seconds
  * @pwm_duty_cycles - struct that describes PWM duty cycles info
+ * @use_pwm - controlled by userspace
  */
 struct pm8xxx_led_data {
 	struct led_classdev	cdev;
 	int			id;
 	u8			reg;
 	u8			wled_mod_ctrl_val;
+	u8			lock_update;
+	u8			blink;
 	struct device		*dev;
 	struct work_struct	work;
 	struct mutex		lock;
@@ -178,6 +186,12 @@ struct pm8xxx_led_data {
 	struct pm8xxx_pwm_duty_cycles *pwm_duty_cycles;
 	struct wled_config_data *wled_cfg;
 	int			max_current;
+	int			use_pwm;
+	int			adjust_brightness;
+	u16			pwm_grppwm;
+	u16			pwm_grpfreq;
+	u16			pwm_pause_hi;
+	u16			pwm_pause_lo;
 };
 
 static void led_kp_set(struct pm8xxx_led_data *led, enum led_brightness value)
@@ -394,14 +408,109 @@ led_rgb_set(struct pm8xxx_led_data *led, enum led_brightness value)
 	}
 }
 
+static int pm8xxx_adjust_brightness(struct led_classdev *led_cdev,
+		enum led_brightness value)
+{
+	int level = 0;
+	struct	pm8xxx_led_data *led;
+	led = container_of(led_cdev, struct pm8xxx_led_data, cdev);
+
+	if (!led->adjust_brightness)
+		return value;
+
+	if (led->adjust_brightness == led->cdev.max_brightness)
+		return value;
+
+	level = (2 * value * led->adjust_brightness
+			+ led->cdev.max_brightness)
+		/ (2 * led->cdev.max_brightness);
+
+	if (!level && value)
+		level = 1;
+
+	return level;
+}
+
+static int pm8xxx_led_pwm_pattern_update(struct pm8xxx_led_data * led)
+{
+	int start_idx, idx_len;
+	int *pcts = NULL;
+	int i, rc = 0;
+	int temp = 0;
+	int pwm_max = 0;
+	int total_ms, on_ms;
+
+	if (!led->pwm_duty_cycles || !led->pwm_duty_cycles->duty_pcts) {
+		dev_err(led->cdev.dev, "duty_cycles and duty_pcts is not exist\n");
+		return -EINVAL;
+	}
+
+	if (led->pwm_grppwm > 0 && led->pwm_grpfreq > 0) {
+		total_ms = led->pwm_grpfreq * 50;
+		on_ms = (led->pwm_grppwm * total_ms) >> 8;
+		if (PM8XXX_LED_PWM_FLAGS & PM_PWM_LUT_REVERSE) {
+			led->pwm_duty_cycles->duty_ms = on_ms /
+				(led->pwm_duty_cycles->num_duty_pcts << 1);
+			led->pwm_pause_lo = on_ms %
+				(led->pwm_duty_cycles->num_duty_pcts << 1);
+		} else {
+			led->pwm_duty_cycles->duty_ms = on_ms /
+				(led->pwm_duty_cycles->num_duty_pcts);
+			led->pwm_pause_lo = on_ms %
+				(led->pwm_duty_cycles->num_duty_pcts);
+		}
+		led->pwm_pause_hi = total_ms - on_ms;
+		dev_dbg(led->cdev.dev, "duty_ms %d, pause_hi %d, pause_lo %d, total_ms %d, on_ms %d\n",
+				led->pwm_duty_cycles->duty_ms, led->pwm_pause_hi, led->pwm_pause_lo,
+				total_ms, on_ms);
+	}
+
+	pwm_max = pm8xxx_adjust_brightness(&led->cdev, led->cdev.brightness);
+	start_idx = led->pwm_duty_cycles->start_idx;
+	idx_len = led->pwm_duty_cycles->num_duty_pcts;
+	pcts = led->pwm_duty_cycles->duty_pcts;
+
+	if (led->blink) {
+		int mid = (idx_len - 1) >> 1;
+		for (i = 0; i <= mid; i++) {
+			temp = ((pwm_max * i) << 1) / mid + 1;
+			pcts[i] = temp >> 1;
+			pcts[idx_len - 1 - i] = temp >> 1;
+		}
+	} else {
+		for (i = 0; i < idx_len; i++) {
+			pcts[i] = pwm_max;
+		}
+	}
+
+	if (idx_len >= PM_PWM_LUT_SIZE && start_idx) {
+		pr_err("Wrong LUT size or index\n");
+		return -EINVAL;
+	}
+	if ((start_idx + idx_len) > PM_PWM_LUT_SIZE) {
+		pr_err("Exceed LUT limit\n");
+		return -EINVAL;
+	}
+
+	rc = pm8xxx_pwm_lut_config(led->pwm_dev, led->pwm_period_us,
+			led->pwm_duty_cycles->duty_pcts,
+			led->pwm_duty_cycles->duty_ms,
+			start_idx, idx_len, led->pwm_pause_lo, led->pwm_pause_hi,
+			PM8XXX_LED_PWM_FLAGS);
+
+	return rc;
+}
+
 static int pm8xxx_led_pwm_work(struct pm8xxx_led_data *led)
 {
 	int duty_us;
 	int rc = 0;
+	int level = 0;
+
+	level = pm8xxx_adjust_brightness(&led->cdev, led->cdev.brightness);
 
 	if (led->pwm_duty_cycles == NULL) {
-		duty_us = (led->pwm_period_us * led->cdev.brightness) /
-								LED_FULL;
+		duty_us = (led->pwm_period_us * level) / LED_FULL;
 		rc = pwm_config(led->pwm_dev, duty_us, led->pwm_period_us);
 		if (led->cdev.brightness) {
 			led_rgb_write(led, SSBI_REG_ADDR_RGB_CNTL1,
@@ -413,24 +522,28 @@ static int pm8xxx_led_pwm_work(struct pm8xxx_led_data *led)
 				led->cdev.brightness);
 		}
 	} else {
-		if (led->cdev.brightness)
-			led_rgb_write(led, SSBI_REG_ADDR_RGB_CNTL1,
-				led->cdev.brightness);
-		rc = pm8xxx_pwm_lut_enable(led->pwm_dev, led->cdev.brightness);
-		if (!led->cdev.brightness)
-			led_rgb_write(led, SSBI_REG_ADDR_RGB_CNTL1,
-				led->cdev.brightness);
+		if (level) {
+			pm8xxx_led_pwm_pattern_update(led);
+			led_rgb_write(led, SSBI_REG_ADDR_RGB_CNTL1, level);
+		}
+
+		rc = pm8xxx_pwm_lut_enable(led->pwm_dev, level);
+		if (!level)
+			led_rgb_write(led, SSBI_REG_ADDR_RGB_CNTL1, level);
 	}
 
 	return rc;
 }
 
 static void __pm8xxx_led_work(struct pm8xxx_led_data *led,
-					enum led_brightness level)
+					enum led_brightness value)
 {
 	int rc;
+	int level = 0;
 
 	mutex_lock(&led->lock);
+
+	level = pm8xxx_adjust_brightness(&led->cdev, value);
 
 	switch (led->id) {
 	case PM8XXX_ID_LED_KB_LIGHT:
@@ -470,6 +583,10 @@ static void pm8xxx_led_work(struct work_struct *work)
 	struct pm8xxx_led_data *led = container_of(work,
 					 struct pm8xxx_led_data, work);
 
+	dev_dbg(led->cdev.dev, "led %s set %d (%s mode)\n",
+			led->cdev.name, led->cdev.brightness,
+			(led->pwm_dev ? "pwm" : "manual"));
+
 	if (led->pwm_dev == NULL) {
 		__pm8xxx_led_work(led, led->cdev.brightness);
 	} else {
@@ -492,30 +609,34 @@ static void pm8xxx_led_set(struct led_classdev *led_cdev,
 		return;
 	}
 
-	led->cdev.brightness = value;
-	schedule_work(&led->work);
+	if (!led->lock_update) {
+		schedule_work(&led->work);
+	} else {
+		dev_dbg(led->cdev.dev, "set %d pending\n",
+				value);
+	}
 }
 
-static int pm8xxx_set_led_mode_and_max_brightness(struct pm8xxx_led_data *led,
+static int pm8xxx_set_led_mode_and_adjust_brightness(struct pm8xxx_led_data *led,
 		enum pm8xxx_led_modes led_mode, int max_current)
 {
 	switch (led->id) {
 	case PM8XXX_ID_LED_0:
 	case PM8XXX_ID_LED_1:
 	case PM8XXX_ID_LED_2:
-		led->cdev.max_brightness = max_current /
-						PM8XXX_ID_LED_CURRENT_FACTOR;
-		if (led->cdev.max_brightness > MAX_LC_LED_BRIGHTNESS)
-			led->cdev.max_brightness = MAX_LC_LED_BRIGHTNESS;
+		led->adjust_brightness = max_current /
+			PM8XXX_ID_LED_CURRENT_FACTOR;
+		if (led->adjust_brightness > MAX_LC_LED_BRIGHTNESS)
+			led->adjust_brightness = MAX_LC_LED_BRIGHTNESS;
 		led->reg = led_mode;
 		break;
 	case PM8XXX_ID_LED_KB_LIGHT:
 	case PM8XXX_ID_FLASH_LED_0:
 	case PM8XXX_ID_FLASH_LED_1:
-		led->cdev.max_brightness = max_current /
+		led->adjust_brightness = max_current /
 						PM8XXX_ID_FLASH_CURRENT_FACTOR;
-		if (led->cdev.max_brightness > MAX_FLASH_BRIGHTNESS)
-			led->cdev.max_brightness = MAX_FLASH_BRIGHTNESS;
+		if (led->adjust_brightness > MAX_FLASH_BRIGHTNESS)
+			led->adjust_brightness = MAX_FLASH_BRIGHTNESS;
 
 		switch (led_mode) {
 		case PM8XXX_LED_MODE_PWM1:
@@ -535,12 +656,11 @@ static int pm8xxx_set_led_mode_and_max_brightness(struct pm8xxx_led_data *led,
 		}
 		break;
 	case PM8XXX_ID_WLED:
-		led->cdev.max_brightness = WLED_MAX_LEVEL;
+		led->adjust_brightness = WLED_MAX_LEVEL;
 		break;
 	case PM8XXX_ID_RGB_LED_RED:
 	case PM8XXX_ID_RGB_LED_GREEN:
 	case PM8XXX_ID_RGB_LED_BLUE:
-		led->cdev.max_brightness = LED_FULL;
 		break;
 	default:
 		dev_err(led->cdev.dev, "LED Id is invalid");
@@ -640,7 +760,7 @@ static int __devinit init_wled(struct pm8xxx_led_data *led)
 	/* program activation delay and maximum current */
 	for (i = 0; i < num_wled_strings; i++) {
 		rc = pm8xxx_readb(led->dev->parent,
-				WLED_MAX_CURR_CFG_REG(i + 2), &val);
+				WLED_MAX_CURR_CFG_REG(i), &val);
 		if (rc) {
 			dev_err(led->dev->parent, "can't read wled max current"
 				" config register rc=%d\n", rc);
@@ -665,7 +785,7 @@ static int __devinit init_wled(struct pm8xxx_led_data *led)
 		val = (val & ~WLED_MAX_CURR_MASK) | led->max_current;
 
 		rc = pm8xxx_writeb(led->dev->parent,
-				WLED_MAX_CURR_CFG_REG(i + 2), val);
+				WLED_MAX_CURR_CFG_REG(i), val);
 		if (rc) {
 			dev_err(led->dev->parent, "can't write wled max current"
 				" config register rc=%d\n", rc);
@@ -780,7 +900,7 @@ static int __devinit get_init_value(struct pm8xxx_led_data *led, u8 *val)
 
 static int pm8xxx_led_pwm_configure(struct pm8xxx_led_data *led)
 {
-	int start_idx, idx_len, duty_us, rc;
+	int duty_us, rc;
 
 	led->pwm_dev = pwm_request(led->pwm_channel,
 					led->cdev.name);
@@ -794,23 +914,7 @@ static int pm8xxx_led_pwm_configure(struct pm8xxx_led_data *led)
 	}
 
 	if (led->pwm_duty_cycles != NULL) {
-		start_idx = led->pwm_duty_cycles->start_idx;
-		idx_len = led->pwm_duty_cycles->num_duty_pcts;
-
-		if (idx_len >= PM_PWM_LUT_SIZE && start_idx) {
-			pr_err("Wrong LUT size or index\n");
-			return -EINVAL;
-		}
-		if ((start_idx + idx_len) > PM_PWM_LUT_SIZE) {
-			pr_err("Exceed LUT limit\n");
-			return -EINVAL;
-		}
-
-		rc = pm8xxx_pwm_lut_config(led->pwm_dev, led->pwm_period_us,
-				led->pwm_duty_cycles->duty_pcts,
-				led->pwm_duty_cycles->duty_ms,
-				start_idx, idx_len, 0, 0,
-				PM8XXX_LED_PWM_FLAGS);
+		rc = pm8xxx_led_pwm_pattern_update(led);
 	} else {
 		duty_us = led->pwm_period_us;
 		rc = pwm_config(led->pwm_dev, duty_us, led->pwm_period_us);
@@ -818,6 +922,193 @@ static int pm8xxx_led_pwm_configure(struct pm8xxx_led_data *led)
 
 	return rc;
 }
+
+static ssize_t pm8xxx_led_lock_update_show(struct device *dev,
+		                struct device_attribute *attr, char *buf)
+{
+	const struct pm8xxx_led_platform_data *pdata = dev->platform_data;
+	struct pm8xxx_led_data *leds =  (struct pm8xxx_led_data *)dev_get_drvdata(dev);
+	int i, n = 0;
+
+	for (i = 0; i < pdata->num_configs; i++)
+	{
+		n += sprintf(&buf[n], "%s is %s\n",
+					leds[i].cdev.name,
+					(leds[i].lock_update ? "non-updatable" : "updatable"));
+	}
+
+	return n;
+}
+
+static ssize_t pm8xxx_led_lock_update_store(struct device *dev,
+				struct device_attribute *attr, const char *buf, size_t size)
+{
+	struct pm8xxx_led_platform_data *pdata = dev->platform_data;
+	struct pm8xxx_led_data *leds =  (struct pm8xxx_led_data *)dev_get_drvdata(dev);
+	ssize_t rc = -EINVAL;
+	char *after;
+	unsigned long state = simple_strtoul(buf, &after, 10);
+	size_t count = after - buf;
+	int i;
+
+	if (isspace(*after))
+		count++;
+
+	if (count == size) {
+		rc = count;
+		for (i = 0; i < pdata->num_configs; i++)
+		{
+			leds[i].lock_update = state;
+			if (!state) {
+				dev_info(dev, "resume %s set %d\n",
+						leds[i].cdev.name, leds[i].cdev.brightness);
+				schedule_work(&leds[i].work);
+			}
+		}
+	}
+	return rc;
+}
+
+static DEVICE_ATTR(lock, 0644, pm8xxx_led_lock_update_show, pm8xxx_led_lock_update_store);
+
+static ssize_t pm8xxx_led_grppwm_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	const struct pm8xxx_led_platform_data *pdata = dev->platform_data;
+	struct pm8xxx_led_data *leds =  (struct pm8xxx_led_data *)dev_get_drvdata(dev);
+	int i,  n = 0;
+
+	for (i = 0; i < pdata->num_configs; i++)
+	{
+		n += sprintf(&buf[n], "%s period_us is %d\n", leds[i].cdev.name, leds[i].pwm_grppwm);
+	}
+	return n;
+}
+
+static ssize_t pm8xxx_led_grppwm_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+	const struct pm8xxx_led_platform_data *pdata = dev->platform_data;
+	struct pm8xxx_led_data *leds =  (struct pm8xxx_led_data *)dev_get_drvdata(dev);
+	ssize_t rc = -EINVAL;
+	char *after;
+	unsigned long state = simple_strtoul(buf, &after, 10);
+	size_t count = after - buf;
+	int i;
+
+	if (isspace(*after))
+		count++;
+
+	if (count == size) {
+		rc = count;
+		if (state < 0)
+			state = 0;
+		if (state > PM8XXX_LED_PWM_GRPPWM_MAX)
+			state = PM8XXX_LED_PWM_GRPPWM_MAX;
+
+		for (i = 0; i < pdata->num_configs; i++)
+		{
+			leds[i].pwm_grppwm = state;
+			dev_dbg(leds[i].cdev.dev, "set grppwm %lu\n", state);
+		}
+	}
+	return rc;
+}
+
+static DEVICE_ATTR(grppwm, 0644, pm8xxx_led_grppwm_show, pm8xxx_led_grppwm_store);
+
+static ssize_t pm8xxx_led_grpfreq_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	const struct pm8xxx_led_platform_data *pdata = dev->platform_data;
+	struct pm8xxx_led_data *leds =  (struct pm8xxx_led_data *)dev_get_drvdata(dev);
+	int i,  n = 0;
+
+	for (i = 0; i < pdata->num_configs; i++)
+	{
+		n += sprintf(&buf[n], "%s freq %d\n", leds[i].cdev.name, leds[i].pwm_grpfreq);
+	}
+	return n;
+}
+
+static ssize_t pm8xxx_led_grpfreq_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+	const struct pm8xxx_led_platform_data *pdata = dev->platform_data;
+	struct pm8xxx_led_data *leds =  (struct pm8xxx_led_data *)dev_get_drvdata(dev);
+	ssize_t rc = -EINVAL;
+	char *after;
+	unsigned long state = simple_strtoul(buf, &after, 10);
+	size_t count = after - buf;
+	int i;
+
+	if (isspace(*after))
+		count++;
+
+	if (count == size) {
+		rc = count;
+
+		if(state < 0)
+			state = 0;
+		if(state > PM8XXX_LED_PWM_GRPFREQ_MAX)
+			state = PM8XXX_LED_PWM_GRPFREQ_MAX;
+
+		for (i = 0; i < pdata->num_configs; i++)
+		{
+			leds[i].pwm_grpfreq = state;
+			dev_dbg(leds[i].cdev.dev, "set grpfreq %lu\n", state);
+		}
+	}
+	return rc;
+}
+
+static DEVICE_ATTR(grpfreq, 0644, pm8xxx_led_grpfreq_show, pm8xxx_led_grpfreq_store);
+
+static ssize_t pm8xxx_led_blink_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	const struct pm8xxx_led_platform_data *pdata = dev->platform_data;
+	struct pm8xxx_led_data *leds =  (struct pm8xxx_led_data *)dev_get_drvdata(dev);
+	int i, blink = 0;
+
+	for (i = 0; i < pdata->num_configs; i++)
+	{
+		if (leds[i].blink)
+			blink |= 1 << i;
+	}
+	return sprintf(buf, "%d", blink);
+}
+
+static ssize_t pm8xxx_led_blink_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+	const struct pm8xxx_led_platform_data *pdata = dev->platform_data;
+	struct pm8xxx_led_data *leds =  (struct pm8xxx_led_data *)dev_get_drvdata(dev);
+	ssize_t rc = -EINVAL;
+	char *after;
+	unsigned long state = simple_strtoul(buf, &after, 10);
+	size_t count = after - buf;
+	int i;
+
+	if (isspace(*after))
+		count++;
+
+	if (count == size) {
+		rc = count;
+
+		for (i = 0; i < pdata->num_configs; i++)
+		{
+			if (leds[i].blink != state) {
+				leds[i].blink = state;
+				if(!leds[i].lock_update)
+					rc = pm8xxx_led_pwm_pattern_update(&leds[i]);
+			}
+		}
+	}
+	return rc;
+}
+
+static DEVICE_ATTR(blink, 0644, pm8xxx_led_blink_show, pm8xxx_led_blink_store);
 
 
 static int __devinit pm8xxx_led_probe(struct platform_device *pdev)
@@ -861,6 +1152,8 @@ static int __devinit pm8xxx_led_probe(struct platform_device *pdev)
 		led_dat->pwm_duty_cycles = led_cfg->pwm_duty_cycles;
 		led_dat->wled_cfg = led_cfg->wled_cfg;
 		led_dat->max_current = led_cfg->max_current;
+		led_dat->lock_update = 0;
+		led_dat->blink = 0;
 
 		if (!((led_dat->id >= PM8XXX_ID_LED_KB_LIGHT) &&
 				(led_dat->id < PM8XXX_ID_MAX))) {
@@ -892,6 +1185,7 @@ static int __devinit pm8xxx_led_probe(struct platform_device *pdev)
 		led_dat->cdev.default_trigger   = curr_led->default_trigger;
 		led_dat->cdev.brightness_set    = pm8xxx_led_set;
 		led_dat->cdev.brightness_get    = pm8xxx_led_get;
+		led_dat->cdev.max_brightness    = LED_FULL;
 		led_dat->cdev.brightness	= LED_OFF;
 		led_dat->cdev.flags		= curr_led->flags;
 		led_dat->dev			= &pdev->dev;
@@ -900,7 +1194,7 @@ static int __devinit pm8xxx_led_probe(struct platform_device *pdev)
 		if (rc < 0)
 			goto fail_id_check;
 
-		rc = pm8xxx_set_led_mode_and_max_brightness(led_dat,
+		rc = pm8xxx_set_led_mode_and_adjust_brightness(led_dat,
 					led_cfg->mode, led_cfg->max_current);
 		if (rc < 0)
 			goto fail_id_check;
@@ -917,9 +1211,9 @@ static int __devinit pm8xxx_led_probe(struct platform_device *pdev)
 
 		/* configure default state */
 		if (led_cfg->default_state)
-			led->cdev.brightness = led_dat->cdev.max_brightness;
+			led_dat->cdev.brightness = led_dat->cdev.max_brightness;
 		else
-			led->cdev.brightness = LED_OFF;
+			led_dat->cdev.brightness = LED_OFF;
 
 		if (led_cfg->mode != PM8XXX_LED_MODE_MANUAL) {
 			if (led_dat->id == PM8XXX_ID_RGB_LED_RED ||
@@ -931,21 +1225,54 @@ static int __devinit pm8xxx_led_probe(struct platform_device *pdev)
 					led_dat->cdev.max_brightness);
 
 			if (led_dat->pwm_channel != -1) {
-				led_dat->cdev.max_brightness = LED_FULL;
+				if (led_cfg->pwm_adjust_brightness) {
+					led_dat->adjust_brightness = led_cfg->pwm_adjust_brightness;
+				} else {
+					led_dat->adjust_brightness = 100;
+				}
+
 				rc = pm8xxx_led_pwm_configure(led_dat);
 				if (rc) {
 					dev_err(&pdev->dev, "failed to "
 					"configure LED, error: %d\n", rc);
 					goto fail_id_check;
 				}
-			schedule_work(&led->work);
+				schedule_work(&led->work);
 			}
 		} else {
-			__pm8xxx_led_work(led_dat, led->cdev.brightness);
+			__pm8xxx_led_work(led_dat, led_dat->cdev.brightness);
 		}
 	}
 
+	led->use_pwm = pdata->use_pwm;
+
 	platform_set_drvdata(pdev, led);
+
+	rc = device_create_file(&pdev->dev, &dev_attr_lock);
+	if (rc) {
+		device_remove_file(&pdev->dev, &dev_attr_lock);
+		dev_err(&pdev->dev, "failed device_create_file(lock)\n");
+	}
+
+	if (led->use_pwm) {
+		rc = device_create_file(&pdev->dev, &dev_attr_blink);
+		if (rc) {
+			device_remove_file(&pdev->dev, &dev_attr_blink);
+			dev_err(&pdev->dev, "failed device_create_file(blink)\n");
+		}
+
+		rc = device_create_file(&pdev->dev, &dev_attr_grppwm);
+		if (rc) {
+			device_remove_file(&pdev->dev, &dev_attr_grppwm);
+			dev_err(&pdev->dev, "failed device_create_fiaild(grppwm)\n");
+		}
+
+		rc = device_create_file(&pdev->dev, &dev_attr_grpfreq);
+		if (rc) {
+			device_remove_file(&pdev->dev, &dev_attr_grpfreq);
+			dev_err(&pdev->dev, "failed device_create_file(grpfreq)\n");
+		}
+	}
 
 	return 0;
 
@@ -973,8 +1300,17 @@ static int __devexit pm8xxx_led_remove(struct platform_device *pdev)
 		cancel_work_sync(&led[i].work);
 		mutex_destroy(&led[i].lock);
 		led_classdev_unregister(&led[i].cdev);
-		if (led[i].pwm_dev != NULL)
+		if (led[i].pwm_dev != NULL) {
 			pwm_free(led[i].pwm_dev);
+		}
+	}
+
+	device_remove_file(&pdev->dev, &dev_attr_lock);
+
+	if (led->use_pwm) {
+		device_remove_file(&pdev->dev, &dev_attr_blink);
+		device_remove_file(&pdev->dev, &dev_attr_grppwm);
+		device_remove_file(&pdev->dev, &dev_attr_grpfreq);
 	}
 
 	kfree(led);

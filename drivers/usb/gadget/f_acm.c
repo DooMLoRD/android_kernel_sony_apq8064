@@ -6,7 +6,6 @@
  * Copyright (C) 2008 by Nokia Corporation
  * Copyright (C) 2009 by Samsung Electronics
  * Copyright (c) 2011 The Linux Foundation. All rights reserved.
- * Copyright (C) 2013 Sony Mobile Communications AB.
  * Author: Michal Nazarewicz (mina86@mina86.com)
  *
  * This software is distributed under the terms of the GNU General
@@ -103,13 +102,12 @@ static inline struct f_acm *port_to_acm(struct gserial *p)
 static int acm_port_setup(struct usb_configuration *c)
 {
 	int ret = 0;
-	int port_idx;
-	int i;
+	int port_idx=0;
+	int i=0;
 
-	pr_debug("%s: no_acm_tty_ports: %u no_acm_sdio_ports: %u "
-		"nr_acm_ports: %u no_acm_hsic_sports: %u\n", __func__,
-		no_acm_tty_ports, no_acm_sdio_ports, nr_acm_ports,
-		no_acm_hsic_sports);
+	pr_debug("%s: no_acm_tty_ports:%u no_acm_sdio_ports: %u nr_acm_ports:%u\n",
+			__func__, no_acm_tty_ports, no_acm_sdio_ports,
+				nr_acm_ports);
 
 	if (no_acm_tty_ports)
 		ret = gserial_setup(c->cdev->gadget, no_acm_tty_ports);
@@ -118,7 +116,8 @@ static int acm_port_setup(struct usb_configuration *c)
 	if (no_acm_smd_ports)
 		ret = gsmd_setup(c->cdev->gadget, no_acm_smd_ports);
 	if (no_acm_hsic_sports) {
-		port_idx = ghsic_data_setup(no_acm_hsic_sports, USB_GADGET_SERIAL);
+		port_idx = ghsic_data_setup(no_acm_hsic_sports,
+				USB_GADGET_SERIAL);
 		if (port_idx < 0)
 			return port_idx;
 
@@ -130,20 +129,19 @@ static int acm_port_setup(struct usb_configuration *c)
 			}
 		}
 
-		/* client port num is same for data setup and ctrl setup */
+		/*clinet port num is same for data setup and ctrl setup*/
 		ret = ghsic_ctrl_setup(no_acm_hsic_sports, USB_GADGET_SERIAL);
 		if (ret < 0)
 			return ret;
 		return 0;
 	}
-
 	return ret;
 }
 
 static int acm_port_connect(struct f_acm *acm)
 {
 	unsigned port_num;
-	int ret;
+	int ret=0;
 
 	port_num = gacm_ports[acm->port_num].client_port_num;
 
@@ -223,7 +221,7 @@ static int acm_port_disconnect(struct f_acm *acm)
 /* notification endpoint uses smallish and infrequent fixed-size messages */
 
 #define GS_LOG2_NOTIFY_INTERVAL		5	/* 1 << 5 == 32 msec */
-#define GS_NOTIFY_MAXPACKET		10	/* notification + 2 bytes */
+#define GS_NOTIFY_MAXPACKET		16
 
 /* interface and class descriptors: */
 
@@ -639,15 +637,17 @@ static int acm_cdc_notify(struct f_acm *acm, u8 type, u16 value,
 	struct usb_ep			*ep = acm->notify;
 	struct usb_request		*req;
 	struct usb_cdc_notification	*notify;
-	const unsigned			len = sizeof(*notify) + length;
 	void				*buf;
 	int				status;
+	unsigned char noti_buf[GS_NOTIFY_MAXPACKET];
+
+	memset(noti_buf, 0, GS_NOTIFY_MAXPACKET);
 
 	req = acm->notify_req;
 	acm->notify_req = NULL;
 	acm->pending = false;
 
-	req->length = len;
+	req->length = GS_NOTIFY_MAXPACKET;
 	notify = req->buf;
 	buf = notify + 1;
 
@@ -657,6 +657,8 @@ static int acm_cdc_notify(struct f_acm *acm, u8 type, u16 value,
 	notify->wValue = cpu_to_le16(value);
 	notify->wIndex = cpu_to_le16(acm->ctrl_id);
 	notify->wLength = cpu_to_le16(length);
+	memcpy(noti_buf, data, length);
+	memcpy(buf, noti_buf, GS_NOTIFY_MAXPACKET);
 	memcpy(buf, data, length);
 
 	/* ep_queue() can complete immediately if it fills the fifo... */
@@ -1012,7 +1014,7 @@ static int acm_init_port(int port_num, const char *name)
 		no_acm_smd_ports++;
 		break;
 	case USB_GADGET_XPORT_HSIC:
-		/*client port number will be updated in gport_setup*/
+		/*client port number will be updated in acm_port_setup*/
 		no_acm_hsic_sports++;
 		break;
 	default:

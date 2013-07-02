@@ -1,4 +1,5 @@
-/* Copyright (c) 2008-2009, 2012 The Linux Foundation. All rights reserved.
+/*
+ * Copyright (c) 2008-2009, 2012-2013 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -64,7 +65,7 @@ ssize_t mdp_dma_lcdc_show_event(struct device *dev,
 
 	wait_for_completion(&vsync_cntrl.vsync_wait);
 	ret = snprintf(buf, PAGE_SIZE, "VSYNC=%llu",
-	ktime_to_ns(vsync_cntrl.vsync_time));
+			ktime_to_ns(vsync_cntrl.vsync_time));
 	buf[strlen(buf) + 1] = '\0';
 	return ret;
 }
@@ -125,6 +126,7 @@ int mdp_lcdc_on(struct platform_device *pdev)
 	var = &fbi->var;
 	vsync_cntrl.dev = mfd->fbi->dev;
 	atomic_set(&vsync_cntrl.suspend, 0);
+	vsync_cntrl.vsync_irq_enabled = 0;
 
 	/* MDP cmd block enable */
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
@@ -308,8 +310,10 @@ int mdp_lcdc_on(struct platform_device *pdev)
 		MDP_OUTP(MDP_BASE + timer_base, 1);
 		mdp_pipe_ctrl(block, MDP_BLOCK_POWER_ON, FALSE);
 	}
+	mdp_histogram_ctrl_all(TRUE);
 	/* MDP cmd block disable */
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
+
 
 	return ret;
 }
@@ -329,6 +333,7 @@ int mdp_lcdc_off(struct platform_device *pdev)
 		timer_base = DTV_BASE;
 	}
 #endif
+	mdp_histogram_ctrl_all(FALSE);
 
 	down(&mfd->dma->mutex);
 	/* MDP cmd block enable */
