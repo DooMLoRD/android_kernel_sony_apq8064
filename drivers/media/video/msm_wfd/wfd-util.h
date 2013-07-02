@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,6 +14,7 @@
 #include <linux/debugfs.h>
 #include <linux/list.h>
 #include <linux/ktime.h>
+#include <linux/mutex.h>
 
 #ifndef _WFD_UTIL_H_
 #define _WFD_UTIL_H_
@@ -21,16 +22,11 @@
 /*#define DEBUG_WFD*/
 
 #define WFD_TAG "wfd: "
-#ifdef DEBUG_WFD
-	#define WFD_MSG_INFO(fmt...) pr_info(WFD_TAG fmt)
-	#define WFD_MSG_WARN(fmt...) pr_warning(WFD_TAG fmt)
-#else
-	#define WFD_MSG_INFO(fmt...)
-	#define WFD_MSG_WARN(fmt...)
-#endif
-	#define WFD_MSG_ERR(fmt...) pr_err(KERN_ERR WFD_TAG fmt)
-	#define WFD_MSG_CRIT(fmt...) pr_crit(KERN_CRIT WFD_TAG fmt)
-	#define WFD_MSG_DBG(fmt...) pr_debug(WFD_TAG fmt)
+#define WFD_MSG_INFO(fmt...) pr_info(WFD_TAG fmt)
+#define WFD_MSG_WARN(fmt...) pr_warning(WFD_TAG fmt)
+#define WFD_MSG_ERR(fmt...) pr_err(KERN_ERR WFD_TAG fmt)
+#define WFD_MSG_CRIT(fmt...) pr_crit(KERN_CRIT WFD_TAG fmt)
+#define WFD_MSG_DBG(fmt...) pr_debug(WFD_TAG fmt)
 
 
 struct wfd_stats_encode_sample {
@@ -39,6 +35,8 @@ struct wfd_stats_encode_sample {
 };
 
 struct wfd_stats {
+	struct mutex mutex;
+
 	/* Output Buffers */
 	uint32_t v4l2_buf_count;
 

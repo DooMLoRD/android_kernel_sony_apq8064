@@ -179,6 +179,11 @@ config FB_MSM_MIPI_DSI_TOSHIBA
 	select FB_MSM_MIPI_DSI
 	default n
 
+config FB_MSM_MIPI_DSI_LGIT
+	bool
+	select FB_MSM_MIPI_DSI
+	default n
+
 config FB_MSM_MIPI_DSI_RENESAS
 	bool
 	select FB_MSM_MIPI_DSI
@@ -208,6 +213,10 @@ config FB_MSM_MIPI_DSI_ORISE
         default n
 
 config FB_MSM_MIPI_DSI_NT35516
+	bool
+	select FB_MSM_MIPI_DSI
+
+config FB_MSM_MIPI_DSI_NT35590
 	bool
 	select FB_MSM_MIPI_DSI
 
@@ -302,12 +311,12 @@ config FB_MSM_LCDC_WXGA
 	select FB_MSM_LCDC_PANEL
 	default n
 
-config FB_MSM_LVDS_CHIMEI_WXGA
+config FB_MSM_MIPI_LGIT_VIDEO_WXGA_PT
 	bool
-	select FB_MSM_LVDS
+	select FB_MSM_MIPI_DSI_LGIT
 	default n
 
-config FB_MSM_LVDS_FRC_FHD
+config FB_MSM_LVDS_CHIMEI_WXGA
 	bool
 	select FB_MSM_LVDS
 	default n
@@ -382,6 +391,15 @@ config FB_MSM_MIPI_NT35516_CMD_QHD_PT
         select FB_MSM_MIPI_DSI_NT35516
         default n
 
+config FB_MSM_MIPI_NT35590_CMD_720P_PT
+        bool
+        select FB_MSM_MIPI_DSI_NT35590
+        default n
+
+config FB_MSM_MIPI_NT35590_VIDEO_720P_PT
+        bool
+        select FB_MSM_MIPI_DSI_NT35590
+        default n
 
 config FB_MSM_MIPI_CHIMEI_WXGA
 	bool "LVDS Chimei WXGA Panel using Toshiba MIPI DSI-to-LVDS bridge."
@@ -425,6 +443,7 @@ config FB_MSM_OVERLAY0_WRITEBACK
 	---help---
 	  Support for MDP4 OVERLAY0 write back mode
 
+
 config FB_MSM_OVERLAY1_WRITEBACK
         depends on FB_MSM_OVERLAY
         bool "MDP overlay1 write back mode enable"
@@ -436,7 +455,6 @@ config FB_MSM_WRITEBACK_MSM_PANEL
         bool "MDP overlay write back panel enable"
 	---help---
 	  Support for MDP4 OVERLAY write back mode
-
 choice
 	prompt "LCD Panel"
 	optional
@@ -561,6 +579,8 @@ config FB_MSM_MIPI_PANEL_DETECT
 	select FB_MSM_MIPI_ORISE_CMD_720P_PT
 	select FB_MSM_MIPI_NT35516_VIDEO_QHD_PT
 	select FB_MSM_MIPI_NT35516_CMD_QHD_PT
+	select FB_MSM_MIPI_NT35590_CMD_720P_PT
+	select FB_MSM_MIPI_NT35590_VIDEO_720P_PT
 	select FB_MSM_MIPI_SIMULATOR_VIDEO
 	select FB_MSM_MIPI_CHIMEI_WXGA
 	select FB_MSM_MIPI_CHIMEI_WUXGA
@@ -602,6 +622,8 @@ config FB_MSM_LCDC_MIPI_PANEL_AUTO_DETECT
 	select FB_MSM_MIPI_NT35510_CMD_WVGA_PT
 	select FB_MSM_MIPI_NT35516_VIDEO_QHD_PT
 	select FM_MSM_MIPI_NT35516_CMD_QHD_PT
+	select FM_MSM_MIPI_NT35590_CMD_720P_PT
+	select FM_MSM_MIPI_NT35590_VIDEO_720P_PT
 	select FB_MSM_MIPI_SIMULATOR_VIDEO
 	---help---
 	  Support for LCDC + MIPI panel auto detect
@@ -610,6 +632,7 @@ config FB_MSM_LVDS_MIPI_PANEL_DETECT
 	bool "LVDS + MIPI Panel Auto Detect"
 	select FB_MSM_LVDS_CHIMEI_WXGA
 	select FB_MSM_LVDS_FRC_FHD
+	select FB_MSM_MIPI_NT35590_VIDEO_720P_PT
 	select FB_MSM_MIPI_TOSHIBA_VIDEO_WVGA_PT
 	select FB_MSM_MIPI_TOSHIBA_VIDEO_WSVGA_PT
 	select FB_MSM_MIPI_TOSHIBA_VIDEO_WUXGA
@@ -621,6 +644,7 @@ config FB_MSM_LVDS_MIPI_PANEL_DETECT
 	select FB_MSM_MIPI_NOVATEK_CMD_QHD_PT
 	select FB_MSM_MIPI_NT35510_VIDEO_WVGA_PT
 	select FB_MSM_MIPI_NT35510_CMD_WVGA_PT
+	select FB_MSM_MIPI_NT35590_CMD_720P_PT
 	select FB_MSM_MIPI_ORISE_VIDEO_720P_PT
 	select FB_MSM_MIPI_ORISE_CMD_720P_PT
 	select FB_MSM_MIPI_SIMULATOR_VIDEO
@@ -658,6 +682,10 @@ config FB_MSM_MDDI_SHARP_QVGA_128x128
 	select FB_MSM_MDDI
 	---help---
 	  Support for MDDI Sharp QVGA (240x320) and 128x128 dual panel
+
+config FB_MSM_MIPI_LGIT_VIDEO_WXGA_PT_PANEL
+	bool "MIPI LG Display WXGA PT Panel"
+	select FB_MSM_MIPI_LGIT_VIDEO_WXGA_PT
 
 config FB_MSM_MIPI_TOSHIBA_VIDEO_WVGA_PT_PANEL
 	bool "MIPI Toshiba WVGA PT Panel"
@@ -727,6 +755,24 @@ config FB_MSM_MIPI_NT35516_CMD_QHD_PT_PANEL
         bool "MIPI NT35516 Command qHD PT Panel"
         select FB_MSM_MIPI_NT35516_CMD_QHD_PT
 
+config FB_MSM_MIPI_NT35590_CMD_720P_PT_PANEL
+        bool "MIPI NT35590 Command 720p PT Panel"
+        select FB_MSM_MIPI_NT35590_CMD_720P_PT
+	---help---
+	Support for Truly NT35590 panel. This
+	panel supports MIPI DSI interface in
+	Command mode. The panel resolution is
+	720p (720x1280).
+
+config FB_MSM_MIPI_NT35590_VIDEO_720P_PT_PANEL
+        bool "MIPI NT35590 Video 720p PT Panel"
+        select FB_MSM_MIPI_NT35590_VIDEO_720P_PT
+	---help---
+	Support for Truly NT35590 panel. This
+	panel supports MIPI DSI interface in
+	Video mode. The panel resolution is
+	720p (720x1280).
+
 config FB_MSM_MIPI_SIMULATOR_VIDEO_PANEL
 	bool "MIPI Simulator Video Panel"
 	select FB_MSM_MIPI_SIMULATOR_VIDEO
@@ -748,6 +794,14 @@ config FB_MSM_PANEL_NONE
 	---help---
 	  This will disable LCD panel
 endchoice
+
+config LGIT_VIDEO_WXGA_CABC
+	bool "Content Adaptive Backlight Control on LGIT WXGA Panel"
+	default y
+	depends on FB_MSM_MIPI_LGIT_VIDEO_WXGA_PT_PANEL
+	help
+	  Enable CABC(Content Apaptive Backlight Control) on LGIT Panel
+	  to reduce power consumption
 
 config FB_MSM_MIPI_R63306_SHARP_LS043K3SX04
 	bool "SHARP LS043K3SX04 Panel"
@@ -871,7 +925,7 @@ config FB_MSM_HDMI_MSM_PANEL
 	select FB_MSM_DTV
         select FB_MSM_EXT_INTERFACE_COMMON
 	select FB_MSM_HDMI_COMMON
-	select FB_MSM_HDMI_3D
+	select FB_MSM_HDMI_3D if !FB_MSM_MHL_SII8334
 	default n
 	---help---
 	  Support for 480p/720p/1080i/1080p output through MSM HDMI

@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2012 Sony Mobile Communications AB.
+ * Copyright (c) 2013 Sony Mobile Communications AB.
  *
  * Author: Nilsson, Stefan 2 <stefan2.nilsson@sonymobile.com>
  *
@@ -17,7 +18,7 @@
 int rdtags_remove_tag(const char *name);
 int rdtags_add_tag(const char *name, const unsigned char *data,
 		   const uint32_t size);
-unsigned char *rdtags_get_tag_data(const char *name, uint32_t *size);
+int rdtags_get_tag_data(const char *name, unsigned char *data, uint32_t *size);
 void rdtags_clear_tags(void);
 
 #define rdtags_add_tag_string(x, y) rdtags_add_tag(x, y, sizeof(y))

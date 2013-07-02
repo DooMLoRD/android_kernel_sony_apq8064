@@ -253,15 +253,6 @@ static unsigned long core_address(int id, unsigned long addr)
 	return ret_addr;
 }
 
-static inline struct ocmem_zone *zone_of(struct ocmem_req *req)
-{
-	int owner;
-	if (!req)
-		return NULL;
-	owner = req->owner;
-	return get_zone(owner);
-}
-
 static int insert_region(struct ocmem_region *region)
 {
 
@@ -614,10 +605,6 @@ static int process_map(struct ocmem_req *req, unsigned long start,
 lock_failed:
 	do_unmap(req);
 process_map_fail:
-	ocmem_disable_br_clock();
-br_clock_fail:
-	ocmem_disable_iface_clock();
-iface_clock_fail:
 	ocmem_disable_core_clock();
 core_clock_fail:
 	pr_err("ocmem: Failed to map ocmem request\n");
@@ -642,7 +629,6 @@ static int process_unmap(struct ocmem_req *req, unsigned long start,
 	if (rc < 0)
 		goto process_unmap_fail;
 
-	ocmem_disable_br_clock();
 	ocmem_disable_iface_clock();
 	ocmem_disable_core_clock();
 	return 0;
@@ -891,6 +877,7 @@ static int __sched_shrink(struct ocmem_req *req, unsigned long new_sz)
 		goto invalid_op_error;
 	if (matched_req != req)
 		goto invalid_op_error;
+
 
 	ret = zone->z_ops->free(zone,
 		matched_req->req_start, matched_req->req_sz);
@@ -1368,8 +1355,6 @@ int process_free(int id, struct ocmem_handle *handle)
 	if (rc < 0)
 		return -EINVAL;
 
-	inc_ocmem_stat(zone_of(req), NR_FREES);
-
 	ocmem_destroy_req(req);
 	handle->req = NULL;
 
@@ -1446,15 +1431,13 @@ int process_xfer_out(int id, struct ocmem_handle *handle,
 		goto transfer_out_error;
 	}
 
-	inc_ocmem_stat(zone_of(req), NR_TRANSFERS_TO_DDR);
-
 	rc = queue_transfer(req, handle, list, TO_DDR);
 
 	if (rc < 0) {
 		pr_err("Failed to queue rdm transfer to DDR\n");
-		inc_ocmem_stat(zone_of(req), NR_TRANSFER_FAILS);
 		goto transfer_out_error;
 	}
+
 
 	return 0;
 
@@ -1484,13 +1467,10 @@ int process_xfer_in(int id, struct ocmem_handle *handle,
 		goto transfer_in_error;
 	}
 
-	inc_ocmem_stat(zone_of(req), NR_TRANSFERS_TO_OCMEM);
-
 	rc = queue_transfer(req, handle, list, TO_OCMEM);
 
 	if (rc < 0) {
 		pr_err("Failed to queue rdm transfer to OCMEM\n");
-		inc_ocmem_stat(zone_of(req), NR_TRANSFER_FAILS);
 		goto transfer_in_error;
 	}
 
@@ -1526,8 +1506,6 @@ int process_shrink(int id, struct ocmem_handle *handle, unsigned long size)
 
 	if (is_tcm(req->owner))
 		do_unmap(req);
-
-	inc_ocmem_stat(zone_of(req), NR_SHRINKS);
 
 	if (size == 0) {
 		pr_info("req %p being shrunk to zero\n", req);
@@ -1611,8 +1589,6 @@ int process_evict(int id)
 					req->edata = edata;
 					buffer.addr = req->req_start;
 					buffer.len = 0x0;
-					inc_ocmem_stat(zone_of(req),
-								NR_EVICTIONS);
 					dispatch_notification(req->owner,
 						OCMEM_ALLOC_SHRINK, &buffer);
 				}
@@ -1642,10 +1618,8 @@ static int do_allocate(struct ocmem_req *req, bool can_block, bool can_wait)
 	rc = __sched_allocate(req, can_block, can_wait);
 	mutex_unlock(&sched_mutex);
 
-	if (rc == OP_FAIL) {
-		inc_ocmem_stat(zone_of(req), NR_ALLOCATION_FAILS);
+	if (rc == OP_FAIL)
 		goto err_allocate_fail;
-	}
 
 	if (rc == OP_RESCHED) {
 		buffer->addr = 0x0;
@@ -1655,7 +1629,6 @@ static int do_allocate(struct ocmem_req *req, bool can_block, bool can_wait)
 	} else if (rc == OP_PARTIAL) {
 		buffer->addr = device_address(req->owner, req->req_start);
 		buffer->len = req->req_sz;
-		inc_ocmem_stat(zone_of(req), NR_RANGE_ALLOCATIONS);
 		pr_debug("ocmem: Enqueuing req %p\n", req);
 		sched_enqueue(req);
 	} else if (rc == OP_COMPLETE) {
@@ -1687,7 +1660,6 @@ int process_restore(int id)
 			list_del(&req->sched_list);
 			req->op = SCHED_ALLOCATE;
 			sched_enqueue(req);
-			inc_ocmem_stat(zone_of(req), NR_RESTORES);
 		}
 	}
 	kfree(edata);
@@ -1734,14 +1706,10 @@ int process_allocate(int id, struct ocmem_handle *handle,
 	req->op = SCHED_ALLOCATE;
 	req->buffer = buffer;
 
-	inc_ocmem_stat(zone_of(req), NR_REQUESTS);
-
 	rc = do_allocate(req, can_block, can_wait);
 
 	if (rc < 0)
 		goto do_allocate_error;
-
-	inc_ocmem_stat(zone_of(req), NR_SYNC_ALLOCATIONS);
 
 	handle->req = req;
 
@@ -1787,10 +1755,9 @@ int process_delayed_allocate(struct ocmem_req *req)
 
 	rc = do_allocate(req, true, false);
 
+
 	if (rc < 0)
 		goto do_allocate_error;
-
-	inc_ocmem_stat(zone_of(req), NR_ASYNC_ALLOCATIONS);
 
 	if (is_tcm(id)) {
 		rc = process_map(req, req->req_start, req->req_end);
@@ -1859,51 +1826,10 @@ static void ocmem_sched_wk_func(struct work_struct *work)
 	return;
 }
 
-static int ocmem_allocations_show(struct seq_file *f, void *dummy)
-{
-	struct rb_node *rb_node = NULL;
-	struct ocmem_req *req = NULL;
-	unsigned j;
-	mutex_lock(&sched_mutex);
-	for (rb_node = rb_first(&sched_tree); rb_node;
-				rb_node = rb_next(rb_node)) {
-		struct ocmem_region *tmp_region = NULL;
-		tmp_region = rb_entry(rb_node, struct ocmem_region, region_rb);
-		for (j = MAX_OCMEM_PRIO - 1; j > NO_PRIO; j--) {
-			req = find_req_match(j, tmp_region);
-			if (req) {
-				seq_printf(f,
-					"owner: %s 0x%lx -- 0x%lx size 0x%lx [state: %2lx]\n",
-					get_name(req->owner),
-					req->req_start, req->req_end,
-					req->req_sz, req->state);
-			}
-		}
-	}
-	mutex_unlock(&sched_mutex);
-	return 0;
-}
-
-static int ocmem_allocations_open(struct inode *inode, struct file *file)
-{
-	return single_open(file, ocmem_allocations_show, inode->i_private);
-}
-
-static const struct file_operations allocations_show_fops = {
-	.open = ocmem_allocations_open,
-	.read = seq_read,
-	.llseek = seq_lseek,
-	.release = seq_release,
-};
-
-int ocmem_sched_init(struct platform_device *pdev)
+int ocmem_sched_init(void)
 {
 	int i = 0;
-	struct ocmem_plat_data *pdata = NULL;
-	struct device   *dev = &pdev->dev;
-
 	sched_tree = RB_ROOT;
-	pdata = platform_get_drvdata(pdev);
 	mutex_init(&sched_mutex);
 	mutex_init(&sched_queue_mutex);
 	for (i = MIN_PRIO; i < MAX_OCMEM_PRIO; i++)
@@ -1917,11 +1843,5 @@ int ocmem_sched_init(struct platform_device *pdev)
 	ocmem_eviction_wq = alloc_workqueue("ocmem_eviction_wq", 0, 0);
 	if (!ocmem_eviction_wq)
 		return -ENOMEM;
-
-	if (!debugfs_create_file("allocations", S_IRUGO, pdata->debug_node,
-					NULL, &allocations_show_fops)) {
-		dev_err(dev, "Unable to create debugfs node for scheduler\n");
-		return -EBUSY;
-	}
 	return 0;
 }

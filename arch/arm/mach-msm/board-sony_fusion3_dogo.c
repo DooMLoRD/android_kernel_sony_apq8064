@@ -46,7 +46,7 @@ struct lm3533_platform_data lm3533_pdata = {
 			.iname = "lm3533-lcd-bl",
 		},
 		[LM3533_CBNKB] = {
-			.pwm = 0,
+			.pwm = LM3533_PWM_ALL,
 			.ctl = LM3533_HVB_MAP_EXP | LM3533_HVB_BR_CTL,
 			.fsc =  I_UA_TO_FSC(0),
 			.iname = "not-connected",

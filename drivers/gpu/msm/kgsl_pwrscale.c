@@ -237,18 +237,16 @@ EXPORT_SYMBOL(kgsl_pwrscale_wake);
 void kgsl_pwrscale_busy(struct kgsl_device *device)
 {
 	if (PWRSCALE_ACTIVE(device) && device->pwrscale.policy->busy)
-		if (device->requested_state != KGSL_STATE_SLUMBER)
-			device->pwrscale.policy->busy(device,
-					&device->pwrscale);
+		device->pwrscale.policy->busy(device,
+				&device->pwrscale);
 }
 
-void kgsl_pwrscale_idle(struct kgsl_device *device, unsigned int ignore_idle)
+void kgsl_pwrscale_idle(struct kgsl_device *device)
 {
 	if (PWRSCALE_ACTIVE(device) && device->pwrscale.policy->idle)
-		if (device->requested_state != KGSL_STATE_SLUMBER &&
-			device->requested_state != KGSL_STATE_SLEEP)
+		if (device->state == KGSL_STATE_ACTIVE)
 			device->pwrscale.policy->idle(device,
-					&device->pwrscale, ignore_idle);
+					&device->pwrscale);
 }
 EXPORT_SYMBOL(kgsl_pwrscale_idle);
 
@@ -299,8 +297,14 @@ static void _kgsl_pwrscale_detach_policy(struct kgsl_device *device)
 {
 	if (device->pwrscale.policy != NULL) {
 		device->pwrscale.policy->close(device, &device->pwrscale);
+
+		/*
+		 * Try to set max pwrlevel which will be limited to thermal by
+		 * kgsl_pwrctrl_pwrlevel_change if thermal is indeed lower
+		 */
+
 		kgsl_pwrctrl_pwrlevel_change(device,
-				device->pwrctrl.thermal_pwrlevel);
+				device->pwrctrl.max_pwrlevel);
 	}
 	device->pwrscale.policy = NULL;
 }

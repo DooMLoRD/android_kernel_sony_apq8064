@@ -1,6 +1,6 @@
 /* Copyright (C) 2008 Google, Inc.
  * Copyright (C) 2008 HTC Corporation
- * Copyright (c) 2009-2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2009-2013, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -21,7 +21,7 @@
 #include <linux/wait.h>
 #include <linux/dma-mapping.h>
 #include <linux/slab.h>
-#include <linux/atomic.h>
+#include <asm/atomic.h>
 #include <asm/ioctls.h>
 #include <linux/debugfs.h>
 #include "audio_utils_aio.h"
@@ -91,6 +91,39 @@ static int insert_meta_data_flush(struct q6audio_aio *audio,
 	meta_data->meta_out_dsp[0].nflags = 0x0;
 	return sizeof(struct dec_meta_out) +
 		sizeof(meta_data->meta_out_dsp[0]);
+}
+
+void extract_meta_out_info(struct q6audio_aio *audio,
+		struct audio_aio_buffer_node *buf_node, int dir)
+{
+	struct dec_meta_out *meta_data = buf_node->kvaddr;
+	if (dir) { /* input buffer - Write */
+		if (audio->buf_cfg.meta_info_enable)
+			memcpy(&buf_node->meta_info.meta_in,
+			(char *)buf_node->kvaddr, sizeof(struct dec_meta_in));
+		else
+			memset(&buf_node->meta_info.meta_in,
+			0, sizeof(struct dec_meta_in));
+		pr_debug("%s[%p]:i/p: msw_ts 0x%lx lsw_ts 0x%lx nflags 0x%8x\n",
+			__func__, audio,
+			buf_node->meta_info.meta_in.ntimestamp.highpart,
+			buf_node->meta_info.meta_in.ntimestamp.lowpart,
+			buf_node->meta_info.meta_in.nflags);
+	} else { /* output buffer - Read */
+		memcpy((char *)buf_node->kvaddr,
+			&buf_node->meta_info.meta_out,
+			sizeof(struct dec_meta_out));
+		meta_data->meta_out_dsp[0].nflags = 0x00000000;
+		pr_debug("%s[%p]:o/p: msw_ts 0x%8x lsw_ts 0x%8x nflags 0x%8x, num_frames = %d\n",
+		__func__, audio,
+		((struct dec_meta_out *)buf_node->kvaddr)->\
+			meta_out_dsp[0].msw_ts,
+		((struct dec_meta_out *)buf_node->kvaddr)->\
+			meta_out_dsp[0].lsw_ts,
+		((struct dec_meta_out *)buf_node->kvaddr)->\
+			meta_out_dsp[0].nflags,
+		((struct dec_meta_out *)buf_node->kvaddr)->num_of_frames);
+	}
 }
 
 static int audio_aio_ion_lookup_vaddr(struct q6audio_aio *audio, void *addr,
@@ -671,7 +704,7 @@ static int audio_aio_ion_add(struct q6audio_aio *audio,
 		goto flag_error;
 	}
 
-	temp_ptr = ion_map_kernel(audio->client, handle, ionflag);
+	temp_ptr = ion_map_kernel(audio->client, handle);
 	if (IS_ERR_OR_NULL(temp_ptr)) {
 		pr_err("%s: could not get virtual address\n", __func__);
 		goto map_error;
@@ -769,6 +802,11 @@ static void audio_aio_async_write(struct q6audio_aio *audio,
 	struct audio_client *ac;
 	struct audio_aio_write_param param;
 
+        if (!audio || !buf_node) {
+                pr_err("%s: NULL pointer audio=[0x%p], buf_node=[0x%p]\n",
+                        __func__, audio, buf_node);
+                return;
+        }
 	pr_debug("%s[%p]: Send write buff %p phy %lx len %d meta_enable = %d\n",
 		__func__, audio, buf_node, buf_node->paddr,
 		buf_node->buf.data_len,
@@ -795,8 +833,7 @@ static void audio_aio_async_write(struct q6audio_aio *audio,
 	else
 		param.flags = 0xFF00;
 
-	if ((buf_node != NULL) &&
-		(buf_node->meta_info.meta_in.nflags & AUDIO_DEC_EOF_SET))
+	if (buf_node->meta_info.meta_in.nflags & AUDIO_DEC_EOF_SET)
 		param.flags |= AUDIO_DEC_EOF_SET;
 
 	param.uid = param.paddr;
@@ -959,7 +996,7 @@ static int audio_aio_buf_add(struct q6audio_aio *audio, unsigned dir,
 	return 0;
 }
 
-static void audio_aio_ioport_reset(struct q6audio_aio *audio)
+void audio_aio_ioport_reset(struct q6audio_aio *audio)
 {
 	if (audio->drv_status & ADRV_STATUS_AIO_INTF) {
 		/* If fsync is in progress, make sure
@@ -1044,9 +1081,6 @@ int audio_aio_open(struct q6audio_aio *audio, struct file *file)
 	pr_debug("Ion client create in audio_aio_open %p", audio->client);
 	return 0;
 fail:
-	q6asm_audio_client_free(audio->ac);
-	kfree(audio->codec_cfg);
-	kfree(audio);
 	return rc;
 }
 
@@ -1120,15 +1154,15 @@ long audio_aio_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 				audio, audio->ac->session);
 		mutex_lock(&audio->lock);
 		audio->stopped = 1;
-		audio_aio_flush(audio);
-		audio->enabled = 0;
-		audio->drv_status &= ~ADRV_STATUS_PAUSE;
+		rc = audio_aio_flush(audio);
 		if (rc < 0) {
 			pr_err("%s[%p]:Audio Stop procedure failed rc=%d\n",
 				__func__, audio, rc);
 			mutex_unlock(&audio->lock);
 			break;
 		}
+		audio->enabled = 0;
+		audio->drv_status &= ~ADRV_STATUS_PAUSE;
 		mutex_unlock(&audio->lock);
 		break;
 	}
@@ -1167,8 +1201,6 @@ long audio_aio_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		audio->wflush = 1;
 		/* Flush DSP */
 		rc = audio_aio_flush(audio);
-		/* Flush input / Output buffer in software*/
-		audio_aio_ioport_reset(audio);
 		if (rc < 0) {
 			pr_err("%s[%p]:AUDIO_FLUSH interrupted\n",
 				__func__, audio);

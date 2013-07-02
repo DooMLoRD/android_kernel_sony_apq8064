@@ -98,8 +98,8 @@ VREG_CONSUMERS(L13) = {
 };
 VREG_CONSUMERS(L14) = {
 	REGULATOR_SUPPLY("8921_l14",		NULL),
-	REGULATOR_SUPPLY("pa_therm",		"pm8xxx-adc"),
 	REGULATOR_SUPPLY("vreg_xoadc",		"pm8921-charger"),
+	REGULATOR_SUPPLY("pa_therm",		"pm8xxx-adc"),
 };
 VREG_CONSUMERS(L15) = {
 	REGULATOR_SUPPLY("8921_l15",		NULL),
@@ -293,7 +293,6 @@ VREG_CONSUMERS(L36) = {
 };
 VREG_CONSUMERS(BOOST) = {
 	REGULATOR_SUPPLY("8917_boost",		NULL),
-	REGULATOR_SUPPLY("ext_ddr3",		NULL),
 	REGULATOR_SUPPLY("vbus",		"msm_ehci_host.0"),
 	REGULATOR_SUPPLY("hdmi_mvs",		"hdmi_msm.0"),
 };
@@ -700,4 +699,9 @@ void __init configure_apq8064_pm8917_power_grid(void)
 				= ARRAY_SIZE(vreg_consumers_8917_S1);
 		}
 	}
+        /*
+         * Switch to 8960_PM8917 rpm-regulator version so that TCXO workaround
+         * is applied to PM8917 regulators L25, L26, L27, and L28.
+         */
+        apq8064_rpm_regulator_pdata.version = RPM_VREG_VERSION_8960_PM8917;
 }

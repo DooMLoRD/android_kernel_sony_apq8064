@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  * Author: Brian Swetland <swetland@google.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -136,7 +136,7 @@ static ssize_t audio_output_latency_dbgfs_write(struct file *file,
 			kfree(temp);
 			return -EFAULT;
 		}
-		if (!kstrtol(temp, 10, &out_enable_flag)) {
+		if (!strict_strtol(temp, 10, &out_enable_flag)) {
 			kfree(temp);
 			return count;
 		}
@@ -177,7 +177,7 @@ static ssize_t audio_input_latency_dbgfs_write(struct file *file,
 			kfree(temp);
 			return -EFAULT;
 		}
-		if (!kstrtol(temp, 10, &in_enable_flag)) {
+		if (!strict_strtol(temp, 10, &in_enable_flag)) {
 			kfree(temp);
 			return count;
 		}
@@ -347,7 +347,7 @@ int q6asm_audio_client_buf_free(unsigned int dir,
 	int rc = 0;
 	pr_debug("%s: Session id %d\n", __func__, ac->session);
 	mutex_lock(&ac->cmd_lock);
-	if (ac->io_mode & SYNC_IO_MODE) {
+	if (ac->io_mode == SYNC_IO_MODE) {
 		port = &ac->port[dir];
 		if (!port->buf) {
 			mutex_unlock(&ac->cmd_lock);
@@ -454,7 +454,7 @@ void q6asm_audio_client_free(struct audio_client *ac)
 	if (!ac || !ac->session)
 		return;
 	pr_debug("%s: Session id %d\n", __func__, ac->session);
-	if (ac->io_mode & SYNC_IO_MODE) {
+	if (ac->io_mode == SYNC_IO_MODE) {
 		for (loopcnt = 0; loopcnt <= OUT; loopcnt++) {
 			port = &ac->port[loopcnt];
 			if (!port->buf)
@@ -603,7 +603,7 @@ int q6asm_audio_client_buf_alloc(unsigned int dir,
 	if (ac->session <= 0 || ac->session > 8)
 		goto fail;
 
-	if (ac->io_mode & SYNC_IO_MODE) {
+	if (ac->io_mode == SYNC_IO_MODE) {
 		if (ac->port[dir].buf) {
 			pr_debug("%s: buffer already allocated\n", __func__);
 			return 0;
@@ -632,7 +632,7 @@ int q6asm_audio_client_buf_alloc(unsigned int dir,
 					}
 					buf[cnt].handle = ion_alloc
 						(buf[cnt].client, bufsz, SZ_4K,
-						(0x1 << ION_AUDIO_HEAP_ID));
+						(0x1 << ION_AUDIO_HEAP_ID), 0);
 					if (IS_ERR_OR_NULL((void *)
 						buf[cnt].handle)) {
 						pr_err("%s: ION memory allocation for AUDIO failed\n",
@@ -652,8 +652,7 @@ int q6asm_audio_client_buf_alloc(unsigned int dir,
 					}
 
 					buf[cnt].data = ion_map_kernel
-					(buf[cnt].client, buf[cnt].handle,
-							 0);
+					(buf[cnt].client, buf[cnt].handle);
 					if (IS_ERR_OR_NULL((void *)
 						buf[cnt].data)) {
 						pr_err("%s: ION memory mapping for AUDIO failed\n",
@@ -729,7 +728,7 @@ int q6asm_audio_client_buf_alloc_contiguous(unsigned int dir,
 		goto fail;
 	}
 	buf[0].handle = ion_alloc(buf[0].client, bufsz * bufcnt, SZ_4K,
-				  (0x1 << ION_AUDIO_HEAP_ID));
+				  (0x1 << ION_AUDIO_HEAP_ID), 0);
 	if (IS_ERR_OR_NULL((void *) buf[0].handle)) {
 		pr_err("%s: ION memory allocation for AUDIO failed\n",
 			__func__);
@@ -744,7 +743,7 @@ int q6asm_audio_client_buf_alloc_contiguous(unsigned int dir,
 		goto fail;
 	}
 
-	buf[0].data = ion_map_kernel(buf[0].client, buf[0].handle, 0);
+	buf[0].data = ion_map_kernel(buf[0].client, buf[0].handle);
 	if (IS_ERR_OR_NULL((void *) buf[0].data)) {
 		pr_err("%s: ION memory mapping for AUDIO failed\n", __func__);
 		goto fail;
@@ -973,7 +972,7 @@ static int32_t q6asm_callback(struct apr_client_data *data, void *priv)
 		pr_debug("%s: Rxed opcode[0x%x] status[0x%x] token[%d]",
 				__func__, payload[0], payload[1],
 				data->token);
-		if (ac->io_mode & SYNC_IO_MODE) {
+		if (ac->io_mode == SYNC_IO_MODE) {
 			if (port->buf == NULL) {
 				pr_err("%s: Unexpected Write Done\n",
 								__func__);
@@ -1025,7 +1024,7 @@ static int32_t q6asm_callback(struct apr_client_data *data, void *priv)
 				payload[READDONE_IDX_SEQ_ID],
 				payload[READDONE_IDX_NUMFRAMES]);
 
-		if (ac->io_mode & SYNC_IO_MODE) {
+		if (ac->io_mode == SYNC_IO_MODE) {
 			if (port->buf == NULL) {
 				pr_err("%s: Unexpected Write Done\n", __func__);
 				return -EINVAL;
@@ -1092,7 +1091,7 @@ void *q6asm_is_cpu_buf_avail(int dir, struct audio_client *ac, uint32_t *size,
 	if (!ac || ((dir != IN) && (dir != OUT)))
 		return NULL;
 
-	if (ac->io_mode & SYNC_IO_MODE) {
+	if (ac->io_mode == SYNC_IO_MODE) {
 		port = &ac->port[dir];
 
 		mutex_lock(&port->lock);
@@ -1186,7 +1185,7 @@ int q6asm_is_dsp_buf_avail(int dir, struct audio_client *ac)
 	if (!ac || (dir != OUT))
 		return ret;
 
-	if (ac->io_mode & SYNC_IO_MODE) {
+	if (ac->io_mode == SYNC_IO_MODE) {
 		port = &ac->port[dir];
 
 		mutex_lock(&port->lock);
@@ -1886,6 +1885,13 @@ int q6asm_cfg_dual_mono_aac(struct audio_client *ac,
 	return 0;
 fail_cmd:
 	return -EINVAL;
+}
+
+/* Support for selecting stereo mixing coefficients for B family not done */
+int q6asm_cfg_aac_sel_mix_coef(struct audio_client *ac, uint32_t mix_coeff)
+{
+	/* To Be Done */
+	return 0;
 }
 
 int q6asm_enc_cfg_blk_qcelp(struct audio_client *ac, uint32_t frames_per_buf,
@@ -2825,7 +2831,7 @@ int q6asm_read(struct audio_client *ac)
 		pr_err("APR handle NULL\n");
 		return -EINVAL;
 	}
-	if (ac->io_mode & SYNC_IO_MODE) {
+	if (ac->io_mode == SYNC_IO_MODE) {
 		port = &ac->port[OUT];
 
 		q6asm_add_hdr(ac, &read.hdr, sizeof(read), FALSE);
@@ -2888,7 +2894,7 @@ int q6asm_read_nolock(struct audio_client *ac)
 		pr_err("APR handle NULL\n");
 		return -EINVAL;
 	}
-	if (ac->io_mode & SYNC_IO_MODE) {
+	if (ac->io_mode == SYNC_IO_MODE) {
 		port = &ac->port[OUT];
 
 		q6asm_add_hdr_async(ac, &read.hdr, sizeof(read), FALSE);
@@ -2969,10 +2975,12 @@ int q6asm_async_write(struct audio_client *ac,
 	write.timestamp_lsw = param->lsw_ts;
 	liomode = (ASYNC_IO_MODE | NT_MODE);
 
-	if (ac->io_mode == liomode)
+	if (ac->io_mode == liomode) {
+		pr_info("%s: subtracting 32 for header\n", __func__);
 		lbuf_addr_lsw = (write.buf_addr_lsw - 32);
-	else
+	} else{
 		lbuf_addr_lsw = write.buf_addr_lsw;
+	}
 
 	pr_debug("%s: token[0x%x], buf_addr_lsw[0x%x], buf_size[0x%x], ts_msw[0x%x], ts_lsw[0x%x], lbuf_addr_lsw: 0x[%x]\n",
 		__func__,
@@ -3032,10 +3040,12 @@ int q6asm_async_read(struct audio_client *ac,
 	read.buf_size = param->len;
 	read.seq_id = param->uid;
 	liomode = (NT_MODE | ASYNC_IO_MODE);
-	if (ac->io_mode == liomode)
+	if (ac->io_mode == liomode) {
+		pr_info("%s: subtracting 32 for header\n", __func__);
 		lbuf_addr_lsw = (read.buf_addr_lsw - 32);
-	else
+	} else{
 		lbuf_addr_lsw = read.buf_addr_lsw;
+	}
 
 	list_for_each_safe(ptr, next, &ac->port[IN].mem_map_handle) {
 		buf_node = list_entry(ptr, struct asm_buffer_node, list);
@@ -3071,7 +3081,7 @@ int q6asm_write(struct audio_client *ac, uint32_t len, uint32_t msw_ts,
 		return -EINVAL;
 	}
 	pr_debug("%s: session[%d] len=%d", __func__, ac->session, len);
-	if (ac->io_mode & SYNC_IO_MODE) {
+	if (ac->io_mode == SYNC_IO_MODE) {
 		port = &ac->port[IN];
 
 		q6asm_add_hdr(ac, &write.hdr, sizeof(write),
@@ -3139,7 +3149,7 @@ int q6asm_write_nolock(struct audio_client *ac, uint32_t len, uint32_t msw_ts,
 		return -EINVAL;
 	}
 	pr_debug("%s: session[%d] len=%d", __func__, ac->session, len);
-	if (ac->io_mode & SYNC_IO_MODE) {
+	if (ac->io_mode == SYNC_IO_MODE) {
 		port = &ac->port[IN];
 
 		q6asm_add_hdr_async(ac, &write.hdr, sizeof(write),
@@ -3188,13 +3198,13 @@ fail_cmd:
 	return -EINVAL;
 }
 
-uint64_t q6asm_get_session_time(struct audio_client *ac)
+int q6asm_get_session_time(struct audio_client *ac, uint64_t *tstamp)
 {
 	struct apr_hdr hdr;
 	int rc;
 
-	if (!ac || ac->apr == NULL) {
-		pr_err("APR handle NULL\n");
+	if (!ac || ac->apr == NULL || tstamp == NULL) {
+		pr_err("APR handle NULL or tstamp NULL\n");
 		return -EINVAL;
 	}
 	q6asm_add_hdr(ac, &hdr, sizeof(hdr), TRUE);
@@ -3216,7 +3226,9 @@ uint64_t q6asm_get_session_time(struct audio_client *ac)
 			__func__);
 		goto fail_cmd;
 	}
-	return ac->time_stamp;
+
+	*tstamp = ac->time_stamp;
+	return 0;
 
 fail_cmd:
 	return -EINVAL;
@@ -3348,7 +3360,7 @@ static void q6asm_reset_buf_state(struct audio_client *ac)
 	int loopcnt = 0;
 	struct audio_port_data *port = NULL;
 
-	if (ac->io_mode & SYNC_IO_MODE) {
+	if (ac->io_mode == SYNC_IO_MODE) {
 		mutex_lock(&ac->cmd_lock);
 		for (loopcnt = 0; loopcnt <= OUT; loopcnt++) {
 			port = &ac->port[loopcnt];

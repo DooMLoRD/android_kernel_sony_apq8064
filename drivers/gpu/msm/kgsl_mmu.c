@@ -25,6 +25,7 @@
 #include "kgsl_mmu.h"
 #include "kgsl_device.h"
 #include "kgsl_sharedmem.h"
+#include "adreno.h"
 
 #define KGSL_MMU_ALIGN_SHIFT    13
 #define KGSL_MMU_ALIGN_MASK     (~((1 << KGSL_MMU_ALIGN_SHIFT) - 1))
@@ -346,6 +347,35 @@ kgsl_mmu_get_ptname_from_ptbase(struct kgsl_mmu *mmu, unsigned int pt_base)
 }
 EXPORT_SYMBOL(kgsl_mmu_get_ptname_from_ptbase);
 
+unsigned int
+kgsl_mmu_log_fault_addr(struct kgsl_mmu *mmu, unsigned int pt_base,
+					unsigned int addr)
+{
+	struct kgsl_pagetable *pt;
+	unsigned int ret = 0;
+
+	if (!mmu->mmu_ops || !mmu->mmu_ops->mmu_pt_equal)
+		return KGSL_MMU_GLOBAL_PT;
+	spin_lock(&kgsl_driver.ptlock);
+	list_for_each_entry(pt, &kgsl_driver.pagetable_list, list) {
+		if (mmu->mmu_ops->mmu_pt_equal(mmu, pt, pt_base)) {
+			if ((addr & (PAGE_SIZE-1)) == pt->fault_addr) {
+				ret = 1;
+				break;
+			} else {
+				pt->fault_addr = (addr & (PAGE_SIZE-1));
+				ret = 0;
+				break;
+			}
+
+		}
+	}
+	spin_unlock(&kgsl_driver.ptlock);
+
+	return ret;
+}
+EXPORT_SYMBOL(kgsl_mmu_log_fault_addr);
+
 int kgsl_mmu_init(struct kgsl_device *device)
 {
 	int status = 0;
@@ -451,6 +481,7 @@ static struct kgsl_pagetable *kgsl_mmu_createpagetableobject(
 
 	pagetable->name = name;
 	pagetable->max_entries = KGSL_PAGETABLE_ENTRIES(ptsize);
+	pagetable->fault_addr = 0xFFFFFFFF;
 
 	/*
 	 * create a separate kgsl pool for IOMMU, global mappings can be mapped
@@ -553,6 +584,12 @@ void kgsl_setstate(struct kgsl_mmu *mmu, unsigned int context_id,
 			uint32_t flags)
 {
 	struct kgsl_device *device = mmu->device;
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+
+	if (!(flags & (KGSL_MMUFLAGS_TLBFLUSH | KGSL_MMUFLAGS_PTUPDATE))
+		&& !adreno_is_a2xx(adreno_dev))
+		return;
+
 	if (KGSL_MMU_TYPE_NONE == kgsl_mmu_type)
 		return;
 	else if (device->ftbl->setstate)
@@ -593,7 +630,7 @@ static inline struct gen_pool *
 _get_pool(struct kgsl_pagetable *pagetable, unsigned int flags)
 {
 	if (pagetable->kgsl_pool &&
-		(KGSL_MEMFLAGS_GLOBAL & flags))
+		(KGSL_MEMDESC_GLOBAL & flags))
 		return pagetable->kgsl_pool;
 	return pagetable->pool;
 }
@@ -606,6 +643,7 @@ kgsl_mmu_map(struct kgsl_pagetable *pagetable,
 	int ret;
 	struct gen_pool *pool;
 	int size;
+	int page_align = ilog2(PAGE_SIZE);
 
 	if (kgsl_mmu_type == KGSL_MMU_TYPE_NONE) {
 		if (memdesc->sglen == 1) {
@@ -630,7 +668,16 @@ kgsl_mmu_map(struct kgsl_pagetable *pagetable,
 	/* Allocate from kgsl pool if it exists for global mappings */
 	pool = _get_pool(pagetable, memdesc->priv);
 
-	memdesc->gpuaddr = gen_pool_alloc(pool, size);
+	/* Allocate aligned virtual addresses for iommu. This allows
+	 * more efficient pagetable entries if the physical memory
+	 * is also aligned. Don't do this for GPUMMU, because
+	 * the address space is so small.
+	 */
+	if (KGSL_MMU_TYPE_IOMMU == kgsl_mmu_get_mmutype() &&
+	    kgsl_memdesc_get_align(memdesc) > 0)
+		page_align = kgsl_memdesc_get_align(memdesc);
+
+	memdesc->gpuaddr = gen_pool_alloc_aligned(pool, size, page_align);
 	if (memdesc->gpuaddr == 0) {
 		KGSL_CORE_ERR("gen_pool_alloc(%d) failed from pool: %s\n",
 			size,
@@ -678,6 +725,8 @@ kgsl_mmu_unmap(struct kgsl_pagetable *pagetable,
 {
 	struct gen_pool *pool;
 	int size;
+	unsigned int start_addr = 0;
+	unsigned int end_addr = 0;
 
 	if (memdesc->size == 0 || memdesc->gpuaddr == 0)
 		return 0;
@@ -689,10 +738,19 @@ kgsl_mmu_unmap(struct kgsl_pagetable *pagetable,
 
 	size = kgsl_sg_size(memdesc->sg, memdesc->sglen);
 
+	start_addr = memdesc->gpuaddr;
+	end_addr = (memdesc->gpuaddr + size);
+
 	if (KGSL_MMU_TYPE_IOMMU != kgsl_mmu_get_mmutype())
 		spin_lock(&pagetable->lock);
 	pagetable->pt_ops->mmu_unmap(pagetable->priv, memdesc,
 					&pagetable->tlb_flags);
+
+	/* If buffer is unmapped 0 fault addr */
+	if ((pagetable->fault_addr >= start_addr) &&
+		(pagetable->fault_addr < end_addr))
+		pagetable->fault_addr = 0;
+
 	if (KGSL_MMU_TYPE_IOMMU == kgsl_mmu_get_mmutype())
 		spin_lock(&pagetable->lock);
 	/* Remove the statistics */
@@ -708,7 +766,7 @@ kgsl_mmu_unmap(struct kgsl_pagetable *pagetable,
 	 * Don't clear the gpuaddr on global mappings because they
 	 * may be in use by other pagetables
 	 */
-	if (!(memdesc->priv & KGSL_MEMFLAGS_GLOBAL))
+	if (!(memdesc->priv & KGSL_MEMDESC_GLOBAL))
 		memdesc->gpuaddr = 0;
 	return 0;
 }
@@ -729,7 +787,7 @@ int kgsl_mmu_map_global(struct kgsl_pagetable *pagetable,
 		return 0;
 
 	gpuaddr = memdesc->gpuaddr;
-	memdesc->priv |= KGSL_MEMFLAGS_GLOBAL;
+	memdesc->priv |= KGSL_MEMDESC_GLOBAL;
 
 	result = kgsl_mmu_map(pagetable, memdesc, protflags);
 	if (result)

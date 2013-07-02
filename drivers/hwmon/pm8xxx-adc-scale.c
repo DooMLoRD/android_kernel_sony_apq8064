@@ -27,7 +27,7 @@
    and provided to the battery driver in the units desired for
    their framework which is 0.1DegC. True resolution of 0.1DegC
    will result in the below table size to increase by 10 times */
-static const struct pm8xxx_adc_map_pt adcmap_btm_threshold[] = {
+static struct pm8xxx_adc_map_pt adcmap_btm_threshold[] = {
 	{-300,	1377},
 	{-290,	1375},
 	{-280,	1372},

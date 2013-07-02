@@ -134,7 +134,6 @@ static int msm_ext_top_spk_pamp;
 static int msm_slim_0_rx_ch = 1;
 static int msm_slim_0_tx_ch = 1;
 static int msm_hdmi_rx_ch = 8;
-static int mi2s_rate_variable;
 static int hdmi_rate_variable;
 static struct clk *codec_clk;
 static int clk_users;
@@ -518,9 +517,7 @@ static const char *slim0_rx_ch_text[] = {"One", "Two"};
 static const char *slim0_tx_ch_text[] = {"One", "Two", "Three", "Four"};
 static const char * const hdmi_rx_ch_text[] = {"Two", "Three", "Four",
 					"Five", "Six", "Seven", "Eight"};
-static const char * const mi2s_rate[] = {"Default", "Variable"};
 static const char * const hdmi_rate[] = {"Default", "Variable"};
-
 
 
 static const struct soc_enum msm_enum[] = {
@@ -528,7 +525,6 @@ static const struct soc_enum msm_enum[] = {
 	SOC_ENUM_SINGLE_EXT(2, slim0_rx_ch_text),
 	SOC_ENUM_SINGLE_EXT(4, slim0_tx_ch_text),
 	SOC_ENUM_SINGLE_EXT(7, hdmi_rx_ch_text),
-	SOC_ENUM_SINGLE_EXT(2, mi2s_rate),
 	SOC_ENUM_SINGLE_EXT(2, hdmi_rate),
 
 };
@@ -590,20 +586,6 @@ static int msm_hdmi_rx_ch_put(struct snd_kcontrol *kcontrol,
 	return 1;
 }
 
-static int msm_mi2s_rate_put(struct snd_kcontrol *kcontrol,
-				struct snd_ctl_elem_value *ucontrol)
-{
-	mi2s_rate_variable = ucontrol->value.integer.value[0];
-	pr_debug("%s: mi2s_rate_variable = %d\n", __func__, mi2s_rate_variable);
-	return 0;
-}
-
-static int msm_mi2s_rate_get(struct snd_kcontrol *kcontrol,
-				struct snd_ctl_elem_value *ucontrol)
-{
-	ucontrol->value.integer.value[0] = mi2s_rate_variable;
-	return 0;
-}
 
 static int msm_hdmi_rate_put(struct snd_kcontrol *kcontrol,
 				struct snd_ctl_elem_value *ucontrol)
@@ -629,13 +611,9 @@ static const struct snd_kcontrol_new tabla_msm_controls[] = {
 		msm_slim_0_tx_ch_get, msm_slim_0_tx_ch_put),
 	SOC_ENUM_EXT("HDMI_RX Channels", msm_enum[3],
 		msm_hdmi_rx_ch_get, msm_hdmi_rx_ch_put),
-	SOC_ENUM_EXT("SEC RX Rate", msm_enum[4],
-					msm_mi2s_rate_get,
-					msm_mi2s_rate_put),
-	SOC_ENUM_EXT("HDMI RX Rate", msm_enum[5],
+	SOC_ENUM_EXT("HDMI RX Rate", msm_enum[4],
 					msm_hdmi_rate_get,
 					msm_hdmi_rate_put),
-
 };
 
 static void *def_tabla_mbhc_cal(void)
@@ -669,7 +647,7 @@ static void *def_tabla_mbhc_cal(void)
 #undef S
 #define S(X, Y) ((TABLA_MBHC_CAL_PLUG_TYPE_PTR(tabla_cal)->X) = (Y))
 	S(v_no_mic, 30);
-	S(v_hs_max, 2400);
+	S(v_hs_max, 1550);
 #undef S
 #define S(X, Y) ((TABLA_MBHC_CAL_BTN_DET_PTR(tabla_cal)->X) = (Y))
 	S(c[0], 62);
@@ -687,24 +665,24 @@ static void *def_tabla_mbhc_cal(void)
 	btn_low = tabla_mbhc_cal_btn_det_mp(btn_cfg, TABLA_BTN_DET_V_BTN_LOW);
 	btn_high = tabla_mbhc_cal_btn_det_mp(btn_cfg, TABLA_BTN_DET_V_BTN_HIGH);
 	btn_low[0] = -50;
-	btn_high[0] = 20;
-	btn_low[1] = 21;
-	btn_high[1] = 62;
-	btn_low[2] = 62;
-	btn_high[2] = 104;
-	btn_low[3] = 105;
-	btn_high[3] = 143;
-	btn_low[4] = 144;
-	btn_high[4] = 181;
-	btn_low[5] = 182;
-	btn_high[5] = 218;
-	btn_low[6] = 219;
-	btn_high[6] = 254;
-	btn_low[7] = 255;
-	btn_high[7] = 330;
+	btn_high[0] = 10;
+	btn_low[1] = 11;
+	btn_high[1] = 38;
+	btn_low[2] = 39;
+	btn_high[2] = 64;
+	btn_low[3] = 65;
+	btn_high[3] = 91;
+	btn_low[4] = 92;
+	btn_high[4] = 115;
+	btn_low[5] = 116;
+	btn_high[5] = 141;
+	btn_low[6] = 142;
+	btn_high[6] = 163;
+	btn_low[7] = 164;
+	btn_high[7] = 250;
 	n_ready = tabla_mbhc_cal_btn_det_mp(btn_cfg, TABLA_BTN_DET_N_READY);
-	n_ready[0] = 80;
-	n_ready[1] = 68;
+	n_ready[0] = 48;
+	n_ready[1] = 38;
 	n_cic = tabla_mbhc_cal_btn_det_mp(btn_cfg, TABLA_BTN_DET_N_CIC);
 	n_cic[0] = 60;
 	n_cic[1] = 47;
@@ -860,10 +838,8 @@ static int msm_be_i2s_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 	struct snd_interval *channels = hw_param_interval(params,
 					SNDRV_PCM_HW_PARAM_CHANNELS);
 
-	pr_debug("%s mi2s_rate_variable = %d\n", __func__, mi2s_rate_variable);
-	/*Configure the sample rate as 48000 KHz for the LPCM playback*/
-	if (!mi2s_rate_variable)
-		rate->min = rate->max = 48000;
+	pr_debug("%s()\n", __func__);
+	rate->min = rate->max = 48000;
 	channels->min =  channels->max = 2;
 
 	return 0;

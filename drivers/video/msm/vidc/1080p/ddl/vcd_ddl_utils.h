@@ -44,6 +44,7 @@ do { \
 #define DDL_MSG_HIGH(x...)
 #endif
 
+#define DDL_MSG_INFO(x...)   printk(KERN_INFO x)
 #define DDL_MSG_ERROR(x...)  printk(KERN_INFO x)
 #define DDL_MSG_FATAL(x...)  printk(KERN_INFO x)
 

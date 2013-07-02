@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -103,6 +103,7 @@
 #define VIDC_1080P_ERROR_SPS_PARSE_ERROR         129
 #define VIDC_1080P_ERROR_PPS_PARSE_ERROR         130
 #define VIDC_1080P_ERROR_SLICE_PARSE_ERROR       131
+#define VIDC_1080P_ERROR_NON_IDR_FRAME_TYPE      132
 #define VIDC_1080P_ERROR_SYNC_POINT_NOT_RECEIVED  171
 
 #define VIDC_1080P_WARN_COMMAND_FLUSHED                  145
@@ -190,6 +191,7 @@
 #define VIDC_1080P_ITLB_MISS_EXCEPTION_HANDLER        0x100
 #define VIDC_1080P_DATA_PAGE_FAULT_EXCEPTION_HANDLER  0x200
 #define VIDC_1080P_INST_PAGE_FAULT_EXCEPTION_HANDLER  0x400
+#define VIDC_1080P_MAX_DEC_DPB                        19
 #define VIDC_1080P_SLICE_BATCH_MAX_STRM_BFR           8
 #define VIDC_1080P_SLICE_BATCH_IN_SIZE(idx)           (4 * sizeof(u32) + \
 							idx * sizeof(u32))
@@ -585,4 +587,6 @@ void vidc_1080p_get_intermedia_stage_debug_counter(
 	u32 *intermediate_stage_counter);
 void vidc_1080p_get_exception_status(u32 *exception_status);
 void vidc_1080p_frame_start_realloc(u32 instance_id);
+void vidc_1080p_set_enc_NV21(u32 enc_nv21);
+
 #endif

@@ -41,8 +41,10 @@ struct snd_msm {
 
 #define PLAYBACK_NUM_PERIODS	8
 #define PLAYBACK_PERIOD_SIZE	2048
-#define CAPTURE_NUM_PERIODS	16
-#define CAPTURE_PERIOD_SIZE	320
+#define CAPTURE_MIN_NUM_PERIODS 2
+#define CAPTURE_MAX_NUM_PERIODS 16
+#define CAPTURE_MAX_PERIOD_SIZE 4096
+#define CAPTURE_MIN_PERIOD_SIZE 320
 
 static struct snd_pcm_hardware msm_pcm_hardware_capture = {
 	.info =                 (SNDRV_PCM_INFO_MMAP |
@@ -56,11 +58,12 @@ static struct snd_pcm_hardware msm_pcm_hardware_capture = {
 	.rate_max =             48000,
 	.channels_min =         1,
 	.channels_max =         4,
-	.buffer_bytes_max =     CAPTURE_NUM_PERIODS * CAPTURE_PERIOD_SIZE,
-	.period_bytes_min =	CAPTURE_PERIOD_SIZE,
-	.period_bytes_max =     CAPTURE_PERIOD_SIZE,
-	.periods_min =          CAPTURE_NUM_PERIODS,
-	.periods_max =          CAPTURE_NUM_PERIODS,
+	.buffer_bytes_max =     CAPTURE_MAX_NUM_PERIODS *
+				CAPTURE_MAX_PERIOD_SIZE,
+	.period_bytes_min =	CAPTURE_MIN_PERIOD_SIZE,
+	.period_bytes_max =     CAPTURE_MAX_PERIOD_SIZE,
+	.periods_min =          CAPTURE_MIN_NUM_PERIODS,
+	.periods_max =          CAPTURE_MAX_NUM_PERIODS,
 	.fifo_size =            0,
 };
 
@@ -89,7 +92,7 @@ static unsigned int supported_sample_rates[] = {
 	8000, 11025, 12000, 16000, 22050, 24000, 32000, 44100, 48000
 };
 
-static uint32_t in_frame_info[CAPTURE_NUM_PERIODS][2];
+static uint32_t in_frame_info[CAPTURE_MAX_NUM_PERIODS][2];
 
 static struct snd_pcm_hw_constraint_list constraints_sample_rates = {
 	.count = ARRAY_SIZE(supported_sample_rates),
@@ -353,12 +356,24 @@ static int msm_pcm_open(struct snd_pcm_substream *substream)
 				SNDRV_PCM_HW_PARAM_RATE,
 				&constraints_sample_rates);
 	if (ret < 0)
-		pr_info("snd_pcm_hw_constraint_list failed\n");
+		pr_err("snd_pcm_hw_constraint_list failed\n");
 	/* Ensure that buffer size is a multiple of period size */
 	ret = snd_pcm_hw_constraint_integer(runtime,
 					    SNDRV_PCM_HW_PARAM_PERIODS);
 	if (ret < 0)
-		pr_info("snd_pcm_hw_constraint_integer failed\n");
+		pr_err("snd_pcm_hw_constraint_integer failed\n");
+
+
+	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
+		ret = snd_pcm_hw_constraint_minmax(runtime,
+			SNDRV_PCM_HW_PARAM_BUFFER_BYTES,
+			CAPTURE_MIN_NUM_PERIODS * CAPTURE_MIN_PERIOD_SIZE,
+			CAPTURE_MAX_NUM_PERIODS * CAPTURE_MAX_PERIOD_SIZE);
+		if (ret < 0) {
+			pr_err("constraint for buffer bytes min max ret = %d\n",
+									ret);
+		}
+	}
 
 	prtd->dsp_cnt = 0;
 	runtime->private_data = prtd;
@@ -655,10 +670,22 @@ static int msm_pcm_hw_params(struct snd_pcm_substream *substream,
 			prtd->session_id, substream->stream);
 		}
 
-	ret = q6asm_audio_client_buf_alloc_contiguous(dir,
+	if (dir == OUT) {
+		ret = q6asm_audio_client_buf_alloc_contiguous(dir,
+			prtd->audio_client,
+			(params_buffer_bytes(params) / params_periods(params)),
+				params_periods(params));
+		pr_debug("buff bytes = %d, period size = %d,\
+			period count = %d\n", params_buffer_bytes(params),
+			params_periods(params),
+			params_buffer_bytes(params) / params_periods(params));
+	} else {
+		ret = q6asm_audio_client_buf_alloc_contiguous(dir,
 			prtd->audio_client,
 			runtime->hw.period_bytes_min,
 			runtime->hw.periods_max);
+	}
+
 	if (ret < 0) {
 		pr_err("Audio Start: Buffer Allocation failed \
 					rc = %d\n", ret);
@@ -675,6 +702,11 @@ static int msm_pcm_hw_params(struct snd_pcm_substream *substream,
 	dma_buf->area = buf[0].data;
 	dma_buf->addr =  buf[0].phys;
 	dma_buf->bytes = runtime->hw.buffer_bytes_max;
+	if (dir == IN)
+		dma_buf->bytes = runtime->hw.buffer_bytes_max;
+	else
+		dma_buf->bytes = params_buffer_bytes(params);
+
 	if (!dma_buf->area)
 		return -ENOMEM;
 

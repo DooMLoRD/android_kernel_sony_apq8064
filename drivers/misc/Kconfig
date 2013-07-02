@@ -603,6 +603,20 @@ config PMIC8XXX_VIBRATOR
 	  on the PM8XXX chips. The vibrator is controlled using the
 	  timed output class.
 
+config ANDROID_VIBRATOR
+	bool "Android vibrator support"
+	depends on ANDROID_TIMED_OUTPUT
+	default n
+	help
+	  This option enalbes device driver support for Android Vibrator driver.
+	  Some functions should be given by platform data for enable PWM, Motor IC, etc.
+
+config TOUCHSENSE_VIBRATOR
+	bool "Immersion Touchsense vibrator support"
+	help
+	  This option enables device driver support for Immersion Touchsense
+	  vibrator.
+
 config VIBRATOR_LC898300
 	tristate "VIBRATOR Support for LC898300 I2C chips"
 	depends on ANDROID_TIMED_OUTPUT && I2C
@@ -658,6 +672,14 @@ config NFC_PN544
 	help
 	  This option enables support for PN544.
 
+config AS3649_FLASHLED
+	tristate "FLASHLED driver for AS3649"
+	default n
+	depends on I2C
+	help
+	  This option enables support for AS3649
+	  flashled controller with AS3649 driver.
+
 config LM3560
         tristate "LED driver for LM3560"
         default n
@@ -674,14 +696,6 @@ config LM3561
           This option enables support for LM3561
           led controller.
 
-config AS3649_FLASHLED
-	tristate "FLASHLED driver for AS3649"
-	default n
-	depends on I2C
-	help
-	  This option enables support for AS3649
-	  flashled controller with AS3649 driver.
-
 config USB_HSIC_SMSC_HUB
 	tristate "Support for HSIC based MSM on-chip SMSC3503 HUB"
 	depends on USB_EHCI_MSM_HSIC
@@ -692,12 +706,19 @@ config USB_HSIC_SMSC_HUB
 	  This adds support for connecting devices like mouse in HSIC
 	  Host mode.
 
-config SONY_ONESEG_TUNER_PM
-	tristate "SONY Oneseg tuner pm driver"
-	default n
-	depends on GENERIC_GPIO
+config BU52031NVX
+	tristate "Cradle BU52031NVX support"
+	depends on MFD_PM8XXX
 	help
-	  Select this module to enable SONY Oneseg Tuner PM Driver.
+	  This option enables device driver support for the cradle
+	  on the PM8XXX chips. The cradle is controlled using the
+	  PM8XXX gpio.
+
+config BU52031NVX_POUCHDETECT
+	tristate "Cradle BU52031NVX_POUCHDETECT support"
+	depends on BU52031NVX
+	help
+	  depends on BU52031NVX
 
 config RAMDUMP_TAGS
 	bool "Ramdump tags to communicate between kernel and ramdump"
@@ -725,6 +746,13 @@ config SONY_FELICA_NFC_SUPPORT
 	help
 	  This option enables support for FeliCa/NFC combination device.
 
+config SONY_ONESEG_TUNER_PM
+	tristate "SONY Oneseg tuner pm driver"
+	default n
+	depends on GENERIC_GPIO
+	help
+	  Select this module to enable SONY Oneseg Tuner PM Driver.
+
 config SOMC_ISDBT_TUNER
 	tristate "SOMC ISDBT/Tmm tuner driver for SMT-EJ103"
 	default n
@@ -740,6 +768,8 @@ source "drivers/misc/ti-st/Kconfig"
 source "drivers/misc/lis3lv02d/Kconfig"
 source "drivers/misc/carma/Kconfig"
 source "drivers/misc/altera-stapl/Kconfig"
+source "drivers/misc/slimport_anx7808/Kconfig"
+
 source "drivers/misc/mpu6050/Kconfig"
 source "drivers/misc/mpu3050/Kconfig"
 endmenu

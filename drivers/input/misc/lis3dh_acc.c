@@ -274,6 +274,7 @@ static int lis3dh_acc_config_regulator(struct lis3dh_acc_data *acc, bool on)
 				rc = PTR_ERR(lis3dh_acc_vreg[i].vreg);
 				pr_err("%s:regulator get failed rc=%d\n",
 								__func__, rc);
+				lis3dh_acc_vreg[i].vreg = NULL;
 				goto error_vdd;
 			}
 
@@ -287,6 +288,7 @@ static int lis3dh_acc_config_regulator(struct lis3dh_acc_data *acc, bool on)
 					pr_err("%s: set voltage failed rc=%d\n",
 					__func__, rc);
 					regulator_put(lis3dh_acc_vreg[i].vreg);
+					lis3dh_acc_vreg[i].vreg = NULL;
 					goto error_vdd;
 				}
 			}
@@ -302,6 +304,7 @@ static int lis3dh_acc_config_regulator(struct lis3dh_acc_data *acc, bool on)
 						lis3dh_acc_vreg[i].max_uV);
 				}
 				regulator_put(lis3dh_acc_vreg[i].vreg);
+				lis3dh_acc_vreg[i].vreg = NULL;
 				goto error_vdd;
 			}
 		}
@@ -312,12 +315,16 @@ static int lis3dh_acc_config_regulator(struct lis3dh_acc_data *acc, bool on)
 
 error_vdd:
 	while (--i >= 0) {
-		if (regulator_count_voltages(lis3dh_acc_vreg[i].vreg) > 0) {
-			regulator_set_voltage(lis3dh_acc_vreg[i].vreg, 0,
-						lis3dh_acc_vreg[i].max_uV);
+		if (!IS_ERR_OR_NULL(lis3dh_acc_vreg[i].vreg)) {
+			if (regulator_count_voltages(
+			lis3dh_acc_vreg[i].vreg) > 0) {
+				regulator_set_voltage(lis3dh_acc_vreg[i].vreg,
+						0, lis3dh_acc_vreg[i].max_uV);
+			}
+			regulator_disable(lis3dh_acc_vreg[i].vreg);
+			regulator_put(lis3dh_acc_vreg[i].vreg);
+			lis3dh_acc_vreg[i].vreg = NULL;
 		}
-		regulator_disable(lis3dh_acc_vreg[i].vreg);
-		regulator_put(lis3dh_acc_vreg[i].vreg);
 	}
 	return rc;
 }
@@ -1086,26 +1093,26 @@ static ssize_t attr_addr_set(struct device *dev, struct device_attribute *attr,
 
 static struct device_attribute attributes[] = {
 
-	__ATTR(pollrate_ms, 0666, attr_get_polling_rate,
+	__ATTR(pollrate_ms, 0664, attr_get_polling_rate,
 			attr_set_polling_rate),
-	__ATTR(range, 0666, attr_get_range, attr_set_range),
-	__ATTR(enable, 0666, attr_get_enable, attr_set_enable),
-	__ATTR(int1_config, 0666, attr_get_intconfig1, attr_set_intconfig1),
-	__ATTR(int1_duration, 0666, attr_get_duration1, attr_set_duration1),
-	__ATTR(int1_threshold, 0666, attr_get_thresh1, attr_set_thresh1),
+	__ATTR(range, 0664, attr_get_range, attr_set_range),
+	__ATTR(enable, 0664, attr_get_enable, attr_set_enable),
+	__ATTR(int1_config, 0664, attr_get_intconfig1, attr_set_intconfig1),
+	__ATTR(int1_duration, 0664, attr_get_duration1, attr_set_duration1),
+	__ATTR(int1_threshold, 0664, attr_get_thresh1, attr_set_thresh1),
 	__ATTR(int1_source, 0444, attr_get_source1, NULL),
-	__ATTR(click_config, 0666, attr_get_click_cfg, attr_set_click_cfg),
+	__ATTR(click_config, 0664, attr_get_click_cfg, attr_set_click_cfg),
 	__ATTR(click_source, 0444, attr_get_click_source, NULL),
-	__ATTR(click_threshold, 0666, attr_get_click_ths, attr_set_click_ths),
-	__ATTR(click_timelimit, 0666, attr_get_click_tlim,
+	__ATTR(click_threshold, 0664, attr_get_click_ths, attr_set_click_ths),
+	__ATTR(click_timelimit, 0664, attr_get_click_tlim,
 			attr_set_click_tlim),
-	__ATTR(click_timelatency, 0666, attr_get_click_tlat,
+	__ATTR(click_timelatency, 0664, attr_get_click_tlat,
 							attr_set_click_tlat),
-	__ATTR(click_timewindow, 0666, attr_get_click_tw, attr_set_click_tw),
+	__ATTR(click_timewindow, 0664, attr_get_click_tw, attr_set_click_tw),
 
 #ifdef DEBUG
-	__ATTR(reg_value, 0666, attr_reg_get, attr_reg_set),
-	__ATTR(reg_addr, 0222, NULL, attr_addr_set),
+	__ATTR(reg_value, 0664, attr_reg_get, attr_reg_set),
+	__ATTR(reg_addr, 0220, NULL, attr_addr_set),
 #endif
 };
 

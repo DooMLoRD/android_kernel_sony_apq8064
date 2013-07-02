@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -180,6 +180,10 @@ static struct pm8xxx_gpio_init pm8917_gpios[] __initdata = {
 
 /* Initial PM8917 MPP configurations */
 static struct pm8xxx_mpp_init pm8917_mpps[] __initdata = {
+	PM8917_MPP_INIT(PM8XXX_AMUX_MPP_3, A_INPUT,
+				PM8XXX_MPP_AIN_AMUX_CH8, DIN_TO_INT),
+	/* Configure MPP01 for USB ID detection */
+	PM8917_MPP_INIT(1, D_INPUT, PM8921_MPP_DIG_LEVEL_S4, DIN_TO_INT),
 };
 
 void __init msm8930_pm8038_gpio_mpp_init(void)
@@ -323,7 +327,7 @@ static struct pm8921_charger_platform_data pm8921_chg_pdata __devinitdata = {
 	.resume_charge_percent	= 99,
 	.term_current		= CHG_TERM_MA,
 	.cool_temp		= 10,
-	.warm_temp		= 40,
+	.warm_temp		= 45,
 	.temp_check_period	= 1,
 	.max_bat_chg_current	= 1100,
 	.cool_bat_chg_current	= 350,
@@ -334,6 +338,12 @@ static struct pm8921_charger_platform_data pm8921_chg_pdata __devinitdata = {
 	.thermal_levels		= ARRAY_SIZE(pm8921_therm_mitigation),
 	.led_src_config		= LED_SRC_VPH_PWR,
 	.rconn_mohm		= 18,
+};
+
+static struct pm8xxx_vibrator_platform_data pm8038_vib_pdata = {
+	.initial_vibrate_ms = 500,
+	.level_mV = 3000,
+	.max_timeout_ms = 15000,
 };
 
 #define PM8038_WLED_MAX_CURRENT		25
@@ -472,6 +482,11 @@ static struct pm8921_bms_platform_data pm8921_bms_pdata __devinitdata = {
 	.rconn_mohm			= 18,
 	.normal_voltage_calc_ms		= 20000,
 	.low_voltage_calc_ms		= 1000,
+	.alarm_low_mv			= 3400,
+	.alarm_high_mv			= 4000,
+	.high_ocv_correction_limit_uv	= 50,
+	.low_ocv_correction_limit_uv	= 100,
+	.hold_soc_est			= 3,
 };
 
 static struct pm8038_platform_data pm8038_platform_data __devinitdata = {
@@ -581,6 +596,9 @@ void __init msm8930_init_pmic(void)
 			pm8921_bms_pdata.battery_type = BATT_PALLADIUM;
 		else if (machine_is_msm8930_cdp())
 			pm8921_chg_pdata.has_dc_supply = true;
+		if (machine_is_msm8930_evt())
+			pm8038_platform_data.vibrator_pdata =
+				&pm8038_vib_pdata;
 	} else {
 		/* PM8917 configuration */
 		pmic_reset_irq = PM8917_IRQ_BASE + PM8921_RESOUT_IRQ;

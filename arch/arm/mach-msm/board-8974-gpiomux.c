@@ -17,7 +17,7 @@
 #include <mach/gpio.h>
 #include <mach/gpiomux.h>
 
-#define KS8851_IRQ_GPIO 94
+#define KS8851_IRQ_GPIO 90
 
 static struct gpiomux_setting gpio_uart_config = {
 	.func = GPIOMUX_FUNC_2,
@@ -26,35 +26,23 @@ static struct gpiomux_setting gpio_uart_config = {
 	.dir = GPIOMUX_OUT_HIGH,
 };
 
-static struct gpiomux_setting slimbus = {
-	.func = GPIOMUX_FUNC_1,
-	.drv = GPIOMUX_DRV_8MA,
-	.pull = GPIOMUX_PULL_KEEPER,
-};
-
 #if defined(CONFIG_KS8851) || defined(CONFIG_KS8851_MODULE)
 static struct gpiomux_setting gpio_eth_config = {
-	.pull = GPIOMUX_PULL_UP,
-	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_NONE,
+	.drv = GPIOMUX_DRV_8MA,
 	.func = GPIOMUX_FUNC_GPIO,
 };
 
-static struct gpiomux_setting gpio_spi_cs2_config = {
+static struct gpiomux_setting gpio_spi_cs_config = {
 	.func = GPIOMUX_FUNC_4,
-	.drv = GPIOMUX_DRV_6MA,
-	.pull = GPIOMUX_PULL_DOWN,
+	.drv = GPIOMUX_DRV_12MA,
+	.pull = GPIOMUX_PULL_NONE,
 };
 
 static struct gpiomux_setting gpio_spi_config = {
 	.func = GPIOMUX_FUNC_1,
 	.drv = GPIOMUX_DRV_12MA,
 	.pull = GPIOMUX_PULL_NONE,
-};
-
-static struct gpiomux_setting gpio_spi_cs1_config = {
-	.func = GPIOMUX_FUNC_GPIO,
-	.drv = GPIOMUX_DRV_6MA,
-	.pull = GPIOMUX_PULL_UP,
 };
 
 static struct msm_gpiomux_config msm_eth_configs[] = {
@@ -66,30 +54,12 @@ static struct msm_gpiomux_config msm_eth_configs[] = {
 	},
 };
 #endif
-
-static struct gpiomux_setting wcnss_5wire_suspend_cfg = {
-	.func = GPIOMUX_FUNC_GPIO,
-	.drv  = GPIOMUX_DRV_2MA,
-	.pull = GPIOMUX_PULL_UP,
-};
-
-static struct gpiomux_setting wcnss_5wire_active_cfg = {
-	.func = GPIOMUX_FUNC_1,
-	.drv  = GPIOMUX_DRV_6MA,
-	.pull = GPIOMUX_PULL_DOWN,
-};
-
 static struct gpiomux_setting gpio_i2c_config = {
 	.func = GPIOMUX_FUNC_3,
 	.drv = GPIOMUX_DRV_8MA,
 	.pull = GPIOMUX_PULL_NONE,
 };
 
-static struct gpiomux_setting lcd_en_act_cfg = {
-	.func = GPIOMUX_FUNC_GPIO,
-	.drv = GPIOMUX_DRV_8MA,
-	.pull = GPIOMUX_PULL_NONE,
-};
 
 static struct gpiomux_setting lcd_en_sus_cfg = {
 	.func = GPIOMUX_FUNC_GPIO,
@@ -145,56 +115,6 @@ static struct msm_gpiomux_config msm_touch_configs[] __initdata = {
 	},
 
 };
-
-static struct gpiomux_setting hdmi_suspend_cfg = {
-	.func = GPIOMUX_FUNC_GPIO,
-	.drv = GPIOMUX_DRV_2MA,
-	.pull = GPIOMUX_PULL_DOWN,
-};
-
-static struct gpiomux_setting hdmi_active_1_cfg = {
-	.func = GPIOMUX_FUNC_1,
-	.drv = GPIOMUX_DRV_2MA,
-	.pull = GPIOMUX_PULL_UP,
-};
-
-static struct gpiomux_setting hdmi_active_2_cfg = {
-	.func = GPIOMUX_FUNC_1,
-	.drv = GPIOMUX_DRV_16MA,
-	.pull = GPIOMUX_PULL_DOWN,
-};
-
-static struct msm_gpiomux_config msm_hdmi_configs[] __initdata = {
-	{
-		.gpio = 31,
-		.settings = {
-			[GPIOMUX_ACTIVE]    = &hdmi_active_1_cfg,
-			[GPIOMUX_SUSPENDED] = &hdmi_suspend_cfg,
-		},
-	},
-	{
-		.gpio = 32,
-		.settings = {
-			[GPIOMUX_ACTIVE]    = &hdmi_active_1_cfg,
-			[GPIOMUX_SUSPENDED] = &hdmi_suspend_cfg,
-		},
-	},
-	{
-		.gpio = 33,
-		.settings = {
-			[GPIOMUX_ACTIVE]    = &hdmi_active_1_cfg,
-			[GPIOMUX_SUSPENDED] = &hdmi_suspend_cfg,
-		},
-	},
-	{
-		.gpio = 34,
-		.settings = {
-			[GPIOMUX_ACTIVE]    = &hdmi_active_2_cfg,
-			[GPIOMUX_SUSPENDED] = &hdmi_suspend_cfg,
-		},
-	},
-};
-
 static struct msm_gpiomux_config msm_blsp_configs[] __initdata = {
 #if defined(CONFIG_KS8851) || defined(CONFIG_KS8851_MODULE)
 	{
@@ -216,37 +136,12 @@ static struct msm_gpiomux_config msm_blsp_configs[] __initdata = {
 		},
 	},
 	{
-		.gpio      = 9,		/* BLSP1 QUP SPI_CS2A_N */
+		.gpio      = 9,		/* BLSP1 QUP SPI_CS_N */
 		.settings = {
-			[GPIOMUX_SUSPENDED] = &gpio_spi_cs2_config,
-		},
-	},
-	{
-		.gpio      = 8,		/* BLSP1 QUP SPI_CS1_N */
-		.settings = {
-			[GPIOMUX_SUSPENDED] = &gpio_spi_cs1_config,
+			[GPIOMUX_SUSPENDED] = &gpio_spi_cs_config,
 		},
 	},
 #endif
-	{
-		.gpio = 58,
-		.settings = {
-			[GPIOMUX_ACTIVE]    = &lcd_en_act_cfg,
-			[GPIOMUX_SUSPENDED] = &lcd_en_sus_cfg,
-		},
-	},
-	{
-		.gpio      = 6,		/* BLSP1 QUP2 I2C_DAT */
-		.settings = {
-			[GPIOMUX_SUSPENDED] = &gpio_i2c_config,
-		},
-	},
-	{
-		.gpio      = 7,		/* BLSP1 QUP2 I2C_CLK */
-		.settings = {
-			[GPIOMUX_SUSPENDED] = &gpio_i2c_config,
-		},
-	},
 	{
 		.gpio      = 83,		/* BLSP11 QUP I2C_DAT */
 		.settings = {
@@ -436,43 +331,6 @@ static struct msm_gpiomux_config msm_sensor_configs[] __initdata = {
 		},
 	},
 };
-static struct msm_gpiomux_config wcnss_5wire_interface[] = {
-	{
-		.gpio = 36,
-		.settings = {
-			[GPIOMUX_ACTIVE]    = &wcnss_5wire_active_cfg,
-			[GPIOMUX_SUSPENDED] = &wcnss_5wire_suspend_cfg,
-		},
-	},
-	{
-		.gpio = 37,
-		.settings = {
-			[GPIOMUX_ACTIVE]    = &wcnss_5wire_active_cfg,
-			[GPIOMUX_SUSPENDED] = &wcnss_5wire_suspend_cfg,
-		},
-	},
-	{
-		.gpio = 38,
-		.settings = {
-			[GPIOMUX_ACTIVE]    = &wcnss_5wire_active_cfg,
-			[GPIOMUX_SUSPENDED] = &wcnss_5wire_suspend_cfg,
-		},
-	},
-	{
-		.gpio = 39,
-		.settings = {
-			[GPIOMUX_ACTIVE]    = &wcnss_5wire_active_cfg,
-			[GPIOMUX_SUSPENDED] = &wcnss_5wire_suspend_cfg,
-		},
-	},
-	{
-		.gpio = 40,
-		.settings = {
-			[GPIOMUX_ACTIVE]    = &wcnss_5wire_active_cfg,
-			[GPIOMUX_SUSPENDED] = &wcnss_5wire_suspend_cfg,
-		},
-	},
-};
 
 static struct msm_gpiomux_config msm_taiko_config[] __initdata = {
 	{
@@ -497,8 +355,6 @@ void __init msm_8974_init_gpiomux(void)
 	msm_gpiomux_install(msm_eth_configs, ARRAY_SIZE(msm_eth_configs));
 #endif
 	msm_gpiomux_install(msm_blsp_configs, ARRAY_SIZE(msm_blsp_configs));
-	msm_gpiomux_install(wcnss_5wire_interface,
-				ARRAY_SIZE(wcnss_5wire_interface));
 
 	msm_gpiomux_install(msm8974_slimbus_config,
 			ARRAY_SIZE(msm8974_slimbus_config));
@@ -508,6 +364,4 @@ void __init msm_8974_init_gpiomux(void)
 	msm_gpiomux_install(msm_sensor_configs, ARRAY_SIZE(msm_sensor_configs));
 
 	msm_gpiomux_install(msm_taiko_config, ARRAY_SIZE(msm_taiko_config));
-
-	msm_gpiomux_install(msm_hdmi_configs, ARRAY_SIZE(msm_hdmi_configs));
 }

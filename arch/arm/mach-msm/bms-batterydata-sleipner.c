@@ -1,5 +1,5 @@
 /* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
- * Copyright (C) 2012 Sony Mobile Communications AB.
+ * Copyright (C) 2012-2013 Sony Mobile Communications AB.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -103,7 +103,7 @@ static struct pc_temp_ocv_lut  pc_temp_ocv = {
 			{3771, 3771, 3773, 3773, 3771},
 			{3764, 3764, 3765, 3761, 3755},
 			{3751, 3751, 3748, 3739, 3732},
-			{3733, 3733, 3701, 3701, 3701},
+			{3733, 3733, 3726, 3701, 3701},
 			{3705, 3705, 3704, 3695, 3689},
 			{3666, 3666, 3672, 3666, 3662},
 			{3659, 3659, 3666, 3661, 3658},
@@ -119,7 +119,11 @@ static struct pc_temp_ocv_lut  pc_temp_ocv = {
 	},
 };
 
+#ifdef CONFIG_PM8921_SONY_BMS_CHARGER
 struct bms_battery_data pm8921_battery_data __devinitdata = {
+#else
+struct bms_battery_data  oem_batt_data __devinitdata = {
+#endif
 	.fcc			= 2350,
 	.fcc_temp_lut		= &fcc_temp,
 	.fcc_sf_lut		= &fcc_sf,

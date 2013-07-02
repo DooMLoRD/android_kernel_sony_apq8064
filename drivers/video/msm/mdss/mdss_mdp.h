@@ -40,11 +40,6 @@
 #define MAX_DOWNSCALE_RATIO	4
 #define MAX_UPSCALE_RATIO	20
 
-#define C3_ALPHA	3	/* alpha */
-#define C2_R_Cr		2	/* R/Cr */
-#define C1_B_Cb		1	/* B/Cb */
-#define C0_G_Y		0	/* G/luma */
-
 #ifdef MDSS_MDP_DEBUG_REG
 static inline void mdss_mdp_reg_write(u32 addr, u32 val)
 {
@@ -107,9 +102,6 @@ enum mdss_mdp_csc_type {
 	MDSS_MDP_MAX_CSC
 };
 
-struct mdss_mdp_ctl;
-typedef void (*mdp_vsync_handler_t)(struct mdss_mdp_ctl *, ktime_t);
-
 struct mdss_mdp_ctl {
 	u32 num;
 	u32 ref_cnt;
@@ -141,7 +133,6 @@ struct mdss_mdp_ctl {
 	int (*stop_fnc) (struct mdss_mdp_ctl *ctl);
 	int (*prepare_fnc) (struct mdss_mdp_ctl *ctl, void *arg);
 	int (*display_fnc) (struct mdss_mdp_ctl *ctl, void *arg);
-	int (*set_vsync_handler) (struct mdss_mdp_ctl *, mdp_vsync_handler_t);
 
 	void *priv_data;
 };
@@ -182,8 +173,23 @@ struct mdss_mdp_format_params {
 	u8 bpp;
 	u8 alpha_enable;	/*  source has alpha */
 
-	u8 bits[MAX_PLANES];
-	u8 element[MAX_PLANES];
+	/*
+	 * number of bits for source component,
+	 * 0 = 1 bit, 1 = 2 bits, 2 = 6 bits, 3 = 8 bits
+	 */
+	u8 a_bit;	/* component 3, alpha */
+	u8 r_bit;	/* component 2, R_Cr */
+	u8 b_bit;	/* component 1, B_Cb */
+	u8 g_bit;	/* component 0, G_lumz */
+
+	/*
+	 * unpack pattern
+	 * A = C3, R = C2, B = C1, G = C0
+	 */
+	u8 element3;
+	u8 element2;
+	u8 element1;
+	u8 element0;
 };
 
 struct mdss_mdp_plane_sizes {
@@ -200,6 +206,7 @@ struct mdss_mdp_img_data {
 	int p_need;
 	struct file *srcp_file;
 	struct ion_handle *srcp_ihdl;
+	struct ion_client *iclient;
 };
 
 struct mdss_mdp_data {
@@ -239,9 +246,6 @@ struct mdss_mdp_pipe {
 	u32 params_changed;
 
 	unsigned long smp[MAX_PLANES];
-
-	struct mdss_mdp_data buffers[2];
-	struct list_head list;
 };
 
 struct mdss_mdp_writeback_arg {
@@ -278,7 +282,6 @@ void mdss_mdp_clk_ctrl(int enable, int isr);
 void mdss_mdp_footswitch_ctrl(int on);
 
 int mdss_mdp_overlay_init(struct msm_fb_data_type *mfd);
-int mdss_mdp_overlay_release_all(struct msm_fb_data_type *mfd);
 int mdss_mdp_video_start(struct mdss_mdp_ctl *ctl);
 int mdss_mdp_writeback_start(struct mdss_mdp_ctl *ctl);
 
@@ -304,6 +307,7 @@ int mdss_mdp_pipe_lock(struct mdss_mdp_pipe *pipe);
 void mdss_mdp_pipe_unlock(struct mdss_mdp_pipe *pipe);
 
 int mdss_mdp_pipe_destroy(struct mdss_mdp_pipe *pipe);
+int mdss_mdp_pipe_release_all(struct msm_fb_data_type *mfd);
 int mdss_mdp_pipe_queue_data(struct mdss_mdp_pipe *pipe,
 			     struct mdss_mdp_data *src_data);
 
@@ -313,7 +317,8 @@ int mdss_mdp_get_plane_sizes(u32 format, u32 w, u32 h,
 			     struct mdss_mdp_plane_sizes *ps);
 struct mdss_mdp_format_params *mdss_mdp_get_format_params(u32 format);
 int mdss_mdp_put_img(struct mdss_mdp_img_data *data);
-int mdss_mdp_get_img(struct msmfb_data *img, struct mdss_mdp_img_data *data);
+int mdss_mdp_get_img(struct ion_client *iclient, struct msmfb_data *img,
+		     struct mdss_mdp_img_data *data);
 
 int mdss_mdp_wb_kickoff(struct mdss_mdp_ctl *ctl);
 int mdss_mdp_wb_ioctl_handler(struct msm_fb_data_type *mfd, u32 cmd, void *arg);

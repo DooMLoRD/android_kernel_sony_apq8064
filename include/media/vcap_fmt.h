@@ -27,8 +27,7 @@
 #define VCAP_VP_REG_W_ERR_EVENT 8
 #define VCAP_VP_IN_HEIGHT_ERR_EVENT 9
 #define VCAP_VP_IN_WIDTH_ERR_EVENT 10
-#define VCAP_VC_UNEXPECT_BUF_DONE 11
-#define VCAP_MAX_NOTIFY_EVENT 12
+#define VCAP_MAX_NOTIFY_EVENT 11
 
 enum hal_vcap_mode {
 	HAL_VCAP_MODE_PRO = 0,
@@ -81,7 +80,6 @@ struct nr_param {
 #define VCAPIOC_NR_S_PARAMS _IOWR('V', (BASE_VIDIOC_PRIVATE+0), struct nr_param)
 
 #define VCAPIOC_NR_G_PARAMS _IOWR('V', (BASE_VIDIOC_PRIVATE+1), struct nr_param)
-#define VCAPIOC_S_NUM_VC_BUF _IOWR('V', (BASE_VIDIOC_PRIVATE+2), int)
 
 struct v4l2_format_vc_ext {
 	enum hal_vcap_mode     mode;

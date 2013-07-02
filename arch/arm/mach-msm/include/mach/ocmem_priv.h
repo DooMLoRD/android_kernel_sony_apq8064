@@ -10,8 +10,8 @@
  * GNU General Public License for more details.
  */
 
-#ifndef _ARCH_ARM_MACH_MSM_OCMEM_PRIV_H
-#define _ARCH_ARM_MACH_MSM_OCMEM_PRIV_H
+#ifndef _ARCH_ARM_MACH_MSM_OCMEM_CORE_H
+#define _ARCH_ARM_MACH_MSM_OCMEM_CORE_H
 
 /** All interfaces in this header should only be used by OCMEM driver
  *  Client drivers should use wrappers available in ocmem.h
@@ -36,29 +36,6 @@ struct ocmem_zone_ops {
 	int (*free) (struct ocmem_zone *, unsigned long, unsigned long);
 };
 
-/* OCMEM Zone specific counters */
-/* Must be in sync with zstat_names */
-enum ocmem_zstat_item {
-	NR_REQUESTS = 0x0,
-	NR_SYNC_ALLOCATIONS,
-	NR_RANGE_ALLOCATIONS,
-	NR_ASYNC_ALLOCATIONS,
-	NR_ALLOCATION_FAILS,
-	NR_GROWTHS,
-	NR_FREES,
-	NR_SHRINKS,
-	NR_MAPS,
-	NR_MAP_FAILS,
-	NR_UNMAPS,
-	NR_UNMAP_FAILS,
-	NR_TRANSFERS_TO_OCMEM,
-	NR_TRANSFERS_TO_DDR,
-	NR_TRANSFER_FAILS,
-	NR_EVICTIONS,
-	NR_RESTORES,
-	NR_OCMEM_ZSTAT_ITEMS,
-};
-
 struct ocmem_zone {
 	bool active;
 	int owner;
@@ -70,7 +47,6 @@ struct ocmem_zone {
 	unsigned long z_head;
 	unsigned long z_tail;
 	unsigned long z_free;
-	atomic_long_t z_stat[NR_OCMEM_ZSTAT_ITEMS];
 	struct gen_pool *z_pool;
 	struct ocmem_zone_ops *z_ops;
 };
@@ -102,13 +78,11 @@ struct ocmem_plat_data {
 	unsigned long base;
 	struct clk *core_clk;
 	struct clk *iface_clk;
-	struct clk *br_clk;
 	struct ocmem_partition *parts;
 	int nr_parts;
 	void __iomem *reg_base;
 	void __iomem *br_base;
 	void __iomem *dm_base;
-	struct dentry *debug_node;
 	unsigned nr_regions;
 	unsigned nr_macros;
 	unsigned nr_ports;
@@ -164,15 +138,50 @@ struct ocmem_handle {
 	struct ocmem_req *req;
 };
 
-struct ocmem_buf *handle_to_buffer(struct ocmem_handle *);
-struct ocmem_handle *buffer_to_handle(struct ocmem_buf *);
-struct ocmem_req *handle_to_req(struct ocmem_handle *);
-struct ocmem_handle *req_to_handle(struct ocmem_req *);
-int ocmem_read(void *);
-int ocmem_write(unsigned long, void *);
-void inc_ocmem_stat(struct ocmem_zone *, enum ocmem_zstat_item);
-unsigned long get_ocmem_stat(struct ocmem_zone *z,
-				enum ocmem_zstat_item item);
+static inline struct ocmem_buf *handle_to_buffer(struct ocmem_handle *handle)
+{
+	if (handle)
+		return &handle->buffer;
+	else
+		return NULL;
+}
+
+static inline struct ocmem_handle *buffer_to_handle(struct ocmem_buf *buffer)
+{
+	if (buffer)
+		return container_of(buffer, struct ocmem_handle, buffer);
+	else
+		return NULL;
+}
+
+static inline struct ocmem_req *handle_to_req(struct ocmem_handle *handle)
+{
+	if (handle)
+		return handle->req;
+	else
+		return NULL;
+}
+
+static inline struct ocmem_handle *req_to_handle(struct ocmem_req *req)
+{
+	if (req && req->buffer)
+		return container_of(req->buffer, struct ocmem_handle, buffer);
+	else
+		return NULL;
+}
+
+/* Simple wrappers which will have debug features added later */
+static inline int ocmem_read(void *at)
+{
+	return readl_relaxed(at);
+}
+
+static inline int ocmem_write(unsigned long val, void *at)
+{
+	writel_relaxed(val, at);
+	return 0;
+}
+
 struct ocmem_zone *get_zone(unsigned);
 int zone_active(int);
 unsigned long offset_to_phys(unsigned long);
@@ -188,7 +197,7 @@ const char *get_name(int);
 int check_id(int);
 int dispatch_notification(int, enum ocmem_notif_type, struct ocmem_buf *);
 
-int ocmem_sched_init(struct platform_device *);
+int ocmem_sched_init(void);
 int ocmem_rdm_init(struct platform_device *);
 int ocmem_core_init(struct platform_device *);
 int process_allocate(int, struct ocmem_handle *, unsigned long, unsigned long,
@@ -206,7 +215,6 @@ int ocmem_memory_off(int, unsigned long, unsigned long);
 int ocmem_memory_on(int, unsigned long, unsigned long);
 int ocmem_enable_core_clock(void);
 int ocmem_enable_iface_clock(void);
-int ocmem_enable_br_clock(void);
 void ocmem_disable_core_clock(void);
 void ocmem_disable_iface_clock(void);
 void ocmem_disable_br_clock(void);

@@ -15,7 +15,6 @@
 #include <linux/list.h>
 #include <linux/interrupt.h>
 #include <linux/platform_device.h>
-#include <linux/clk.h>
 #include <linux/io.h>
 #include <linux/stat.h>
 #include <linux/module.h>
@@ -24,7 +23,6 @@
 #include <mach/usb_bam.h>
 #include <mach/sps.h>
 #include <linux/workqueue.h>
-#include <linux/dma-mapping.h>
 
 #define USB_SUMMING_THRESHOLD 512
 #define CONNECTIONS_NUM	4
@@ -55,22 +53,26 @@ struct usb_bam_connect_info {
 static struct usb_bam_connect_info usb_bam_connections[CONNECTIONS_NUM];
 static struct usb_bam_pipe_connect ***msm_usb_bam_connections_info;
 static struct usb_bam_pipe_connect *bam_connection_arr;
-void __iomem *qscratch_ram1_reg;
-struct clk *mem_clk;
-struct clk *mem_iface_clk;
+
+static bool device_tree_enabled;
+
+static inline int bam_offset(struct msm_usb_bam_platform_data *pdata)
+{
+	return pdata->usb_active_bam * CONNECTIONS_NUM * 2;
+}
 
 static int connect_pipe(u8 conn_idx, enum usb_bam_pipe_dir pipe_dir,
 						u32 *usb_pipe_idx)
 {
-	int ret, ram1_value;
+	int ret;
 	struct sps_pipe **pipe = &sps_pipes[conn_idx][pipe_dir];
 	struct sps_connect *connection =
 		&sps_connections[conn_idx][pipe_dir];
 	struct msm_usb_bam_platform_data *pdata =
 		usb_bam_pdev->dev.platform_data;
 	struct usb_bam_pipe_connect *pipe_connection =
-				&msm_usb_bam_connections_info
-				[pdata->usb_active_bam][conn_idx][pipe_dir];
+		(struct usb_bam_pipe_connect *)(pdata->connections +
+			 bam_offset(pdata) + (2*conn_idx+pipe_dir));
 
 	*pipe = sps_alloc_endpoint();
 	if (*pipe == NULL) {
@@ -81,13 +83,13 @@ static int connect_pipe(u8 conn_idx, enum usb_bam_pipe_dir pipe_dir,
 	ret = sps_get_config(*pipe, connection);
 	if (ret) {
 		pr_err("%s: tx get config failed %d\n", __func__, ret);
-		goto free_sps_endpoint;
+		goto get_config_failed;
 	}
 
 	ret = sps_phy2h(pipe_connection->src_phy_addr, &(connection->source));
 	if (ret) {
 		pr_err("%s: sps_phy2h failed (src BAM) %d\n", __func__, ret);
-		goto free_sps_endpoint;
+		goto get_config_failed;
 	}
 
 	connection->src_pipe_index = pipe_connection->src_pipe_index;
@@ -95,7 +97,7 @@ static int connect_pipe(u8 conn_idx, enum usb_bam_pipe_dir pipe_dir,
 					&(connection->destination));
 	if (ret) {
 		pr_err("%s: sps_phy2h failed (dst BAM) %d\n", __func__, ret);
-		goto free_sps_endpoint;
+		goto get_config_failed;
 	}
 	connection->dest_pipe_index = pipe_connection->dst_pipe_index;
 
@@ -107,9 +109,7 @@ static int connect_pipe(u8 conn_idx, enum usb_bam_pipe_dir pipe_dir,
 		*usb_pipe_idx = connection->dest_pipe_index;
 	}
 
-	/* If BAM is using dedicated SPS pipe memory, get it */
-	if (pipe_connection->mem_type == SPS_PIPE_MEM) {
-		pr_debug("%s: USB BAM using SPS pipe memory\n", __func__);
+	if (!device_tree_enabled) {
 		ret = sps_setup_bam2bam_fifo(
 				&data_mem_buf[conn_idx][pipe_dir],
 				pipe_connection->data_fifo_base_offset,
@@ -117,7 +117,7 @@ static int connect_pipe(u8 conn_idx, enum usb_bam_pipe_dir pipe_dir,
 		if (ret) {
 			pr_err("%s: data fifo setup failure %d\n", __func__,
 				ret);
-			goto free_sps_endpoint;
+			goto fifo_setup_error;
 		}
 
 		ret = sps_setup_bam2bam_fifo(
@@ -127,33 +127,9 @@ static int connect_pipe(u8 conn_idx, enum usb_bam_pipe_dir pipe_dir,
 		if (ret) {
 			pr_err("%s: desc. fifo setup failure %d\n", __func__,
 				ret);
-			goto free_sps_endpoint;
+			goto fifo_setup_error;
 		}
-	} else if (pipe_connection->mem_type == USB_PRIVATE_MEM) {
-		pr_debug("%s: USB BAM using private memory\n", __func__);
-
-		if (IS_ERR(mem_clk) || IS_ERR(mem_iface_clk)) {
-			pr_err("%s: Failed to enable USB mem_clk\n", __func__);
-			ret = IS_ERR(mem_clk);
-			goto free_sps_endpoint;
-		}
-
-		clk_prepare_enable(mem_clk);
-		clk_prepare_enable(mem_iface_clk);
-
-		/*
-		 * Enable USB PRIVATE RAM to be used for BAM FIFOs
-		 * HSUSB: Only RAM13 is used for BAM FIFOs
-		 * SSUSB: RAM11, 12, 13 are used for BAM FIFOs
-		 */
-		if (pdata->usb_active_bam == HSUSB_BAM)
-			ram1_value = 0x4;
-		else
-			ram1_value = 0x7;
-
-		pr_debug("Writing 0x%x to QSCRATCH_RAM1\n", ram1_value);
-		writel_relaxed(ram1_value, qscratch_ram1_reg);
-
+	} else {
 		data_mem_buf[conn_idx][pipe_dir].phys_base =
 			pipe_connection->data_fifo_base_offset +
 				pdata->usb_base_address;
@@ -175,28 +151,6 @@ static int connect_pipe(u8 conn_idx, enum usb_bam_pipe_dir pipe_dir,
 				desc_mem_buf[conn_idx][pipe_dir].size);
 		memset(desc_mem_buf[conn_idx][pipe_dir].base, 0,
 			desc_mem_buf[conn_idx][pipe_dir].size);
-	} else {
-		pr_debug("%s: USB BAM using system memory\n", __func__);
-		/* BAM would use system memory, allocate FIFOs */
-		data_mem_buf[conn_idx][pipe_dir].size =
-					pipe_connection->data_fifo_size;
-		data_mem_buf[conn_idx][pipe_dir].base =
-			dma_alloc_coherent(&usb_bam_pdev->dev,
-				    pipe_connection->data_fifo_size,
-				    &data_mem_buf[conn_idx][pipe_dir].phys_base,
-				    0);
-		memset(data_mem_buf[conn_idx][pipe_dir].base, 0,
-					pipe_connection->data_fifo_size);
-
-		desc_mem_buf[conn_idx][pipe_dir].size =
-					pipe_connection->desc_fifo_size;
-		desc_mem_buf[conn_idx][pipe_dir].base =
-			dma_alloc_coherent(&usb_bam_pdev->dev,
-				    pipe_connection->desc_fifo_size,
-				    &desc_mem_buf[conn_idx][pipe_dir].phys_base,
-				    0);
-		memset(desc_mem_buf[conn_idx][pipe_dir].base, 0,
-					pipe_connection->desc_fifo_size);
 	}
 
 	connection->data = data_mem_buf[conn_idx][pipe_dir];
@@ -213,7 +167,8 @@ static int connect_pipe(u8 conn_idx, enum usb_bam_pipe_dir pipe_dir,
 
 error:
 	sps_disconnect(*pipe);
-free_sps_endpoint:
+fifo_setup_error:
+get_config_failed:
 	sps_free_endpoint(*pipe);
 	return ret;
 }
@@ -222,32 +177,12 @@ free_sps_endpoint:
 static int disconnect_pipe(u8 connection_idx, enum usb_bam_pipe_dir pipe_dir,
 						u32 *usb_pipe_idx)
 {
-	struct msm_usb_bam_platform_data *pdata =
-				usb_bam_pdev->dev.platform_data;
-	struct usb_bam_pipe_connect *pipe_connection =
-			&msm_usb_bam_connections_info
-			[pdata->usb_active_bam][connection_idx][pipe_dir];
 	struct sps_pipe *pipe = sps_pipes[connection_idx][pipe_dir];
 	struct sps_connect *connection =
 		&sps_connections[connection_idx][pipe_dir];
 
 	sps_disconnect(pipe);
 	sps_free_endpoint(pipe);
-
-	if (pipe_connection->mem_type == SYSTEM_MEM) {
-		pr_debug("%s: Freeing system memory used by PIPE\n", __func__);
-		dma_free_coherent(&usb_bam_pdev->dev, connection->data.size,
-			  connection->data.base, connection->data.phys_base);
-		dma_free_coherent(&usb_bam_pdev->dev, connection->desc.size,
-			  connection->desc.base, connection->desc.phys_base);
-	} else if (pipe_connection->mem_type == USB_PRIVATE_MEM) {
-		pr_debug("Freeing USB private memory used by BAM PIPE\n");
-		writel_relaxed(0x0, qscratch_ram1_reg);
-		iounmap(connection->data.base);
-		iounmap(connection->desc.base);
-		clk_disable_unprepare(mem_clk);
-		clk_disable_unprepare(mem_iface_clk);
-	}
 
 	connection->options &= ~SPS_O_AUTO_ENABLE;
 	return 0;
@@ -393,7 +328,7 @@ int usb_bam_disconnect_pipe(u8 idx)
 }
 
 static int update_connections_info(struct device_node *node, int bam,
-	int conn_num, int dir, enum usb_pipe_mem_type mem_type)
+	int conn_num, int dir)
 {
 	u32 rc;
 	char *key = NULL;
@@ -402,8 +337,6 @@ static int update_connections_info(struct device_node *node, int bam,
 	struct usb_bam_pipe_connect *pipe_connection;
 
 	pipe_connection = &msm_usb_bam_connections_info[bam][conn_num][dir];
-
-	pipe_connection->mem_type = mem_type;
 
 	key = "qcom,src-bam-physical-address";
 	rc = of_property_read_u32(node, key, &val);
@@ -461,49 +394,18 @@ err:
 	return -EFAULT;
 }
 
-static int usb_bam_update_conn_array_index(struct platform_device *pdev,
-		void *buff, int bam_max, int conn_max, int pipe_dirs)
-{
-	int bam_num, conn_num;
-	struct usb_bam_pipe_connect *bam_connection_arr = buff;
-
-	msm_usb_bam_connections_info = devm_kzalloc(&pdev->dev,
-		bam_max * sizeof(struct usb_bam_pipe_connect **),
-		GFP_KERNEL);
-
-	if (!msm_usb_bam_connections_info)
-		return -ENOMEM;
-
-	for (bam_num = 0; bam_num < bam_max; bam_num++) {
-		msm_usb_bam_connections_info[bam_num] =
-			devm_kzalloc(&pdev->dev, conn_max *
-			sizeof(struct usb_bam_pipe_connect *),
-			GFP_KERNEL);
-		if (!msm_usb_bam_connections_info[bam_num])
-			return -ENOMEM;
-
-		for (conn_num = 0; conn_num < conn_max; conn_num++)
-			msm_usb_bam_connections_info[bam_num][conn_num] =
-				bam_connection_arr +
-				(bam_num * conn_max * pipe_dirs) +
-				(conn_num * pipe_dirs);
-	}
-
-	return 0;
-}
-
 static struct msm_usb_bam_platform_data *usb_bam_dt_to_pdata(
 	struct platform_device *pdev)
 {
 	struct msm_usb_bam_platform_data *pdata;
 	struct device_node *node = pdev->dev.of_node;
+	u32 i, j;
 	int conn_num, bam;
 	u8 dir;
 	u8 ncolumns = 2;
 	int bam_amount, rc = 0;
 	u32 pipe_entry = 0;
 	char *key = NULL;
-	enum usb_pipe_mem_type mem_type;
 
 	pdata = devm_kzalloc(&pdev->dev, sizeof(*pdata), GFP_KERNEL);
 	if (!pdata) {
@@ -539,9 +441,6 @@ static struct msm_usb_bam_platform_data *usb_bam_dt_to_pdata(
 		return NULL;
 	}
 
-	pdata->ignore_core_reset_ack = of_property_read_bool(node,
-					"qcom,ignore-core-reset-ack");
-
 	for_each_child_of_node(pdev->dev.of_node, node)
 		pipe_entry++;
 
@@ -552,78 +451,78 @@ static struct msm_usb_bam_platform_data *usb_bam_dt_to_pdata(
 	conn_num = pipe_entry / 2;
 	bam_amount = pdata->total_bam_num;
 
-	if (conn_num <= 0 || conn_num >= pdata->usb_bam_num_pipes)
-		goto err;
+	if (conn_num > 0 && conn_num < pdata->usb_bam_num_pipes) {
+		/* alloc msm_usb_bam_connections_info */
+		bam_connection_arr = devm_kzalloc(&pdev->dev, bam_amount *
+			conn_num * ncolumns *
+			sizeof(struct usb_bam_pipe_connect), GFP_KERNEL);
 
-
-	/* alloc msm_usb_bam_connections_info */
-	bam_connection_arr = devm_kzalloc(&pdev->dev, bam_amount *
-		conn_num * ncolumns *
-		sizeof(struct usb_bam_pipe_connect), GFP_KERNEL);
-
-	if (!bam_connection_arr)
-		goto err;
-
-	rc = usb_bam_update_conn_array_index(pdev, bam_connection_arr,
-					bam_amount, conn_num, ncolumns);
-	if (rc)
-		goto err;
-
-	/* retrieve device tree parameters */
-	for_each_child_of_node(pdev->dev.of_node, node) {
-		const char *str;
-
-		key = "qcom,usb-bam-type";
-		rc = of_property_read_u32(node, key, &bam);
-		if (rc)
+		if (!bam_connection_arr)
 			goto err;
 
-		key = "qcom,usb-bam-mem-type";
-		rc = of_property_read_u32(node, key, &mem_type);
-		if (rc)
+		msm_usb_bam_connections_info = devm_kzalloc(&pdev->dev,
+			bam_amount * sizeof(struct usb_bam_pipe_connect **),
+			GFP_KERNEL);
+
+		if (!msm_usb_bam_connections_info)
 			goto err;
 
-		rc = of_property_read_string(node, "label", &str);
-		if (rc) {
-			pr_err("Cannot read string\n");
-			goto err;
+		for (j = 0; j < bam_amount; j++) {
+			msm_usb_bam_connections_info[j] =
+				devm_kzalloc(&pdev->dev, conn_num *
+				sizeof(struct usb_bam_pipe_connect *),
+				GFP_KERNEL);
+			for (i = 0; i < conn_num; i++)
+				msm_usb_bam_connections_info[j][i] =
+					bam_connection_arr +
+					(j * conn_num * ncolumns) +
+					(i * ncolumns);
 		}
 
-		if (strstr(str, "usb-to-peri"))
-			dir = USB_TO_PEER_PERIPHERAL;
-		else if (strstr(str, "peri-to-usb"))
-			dir = PEER_PERIPHERAL_TO_USB;
-		else
-			goto err;
+		/* retrieve device tree parameters */
+		for_each_child_of_node(pdev->dev.of_node, node) {
+			const char *str;
 
-		/* Check if connection type is suported */
-		if (!strcmp(str, "usb-to-peri-qdss-dwc3") ||
-			!strcmp(str, "peri-to-usb-qdss-dwc3") ||
-			!strcmp(str, "usb-to-peri-qdss-hsusb") ||
-			!strcmp(str, "peri-to-usb-qdss-hsusb"))
-				conn_num = 0;
-		else
-			goto err;
+			key = "qcom,usb-bam-type";
+			rc = of_property_read_u32(node, key, &bam);
+			if (rc)
+				goto err;
 
-		rc = update_connections_info(node, bam, conn_num,
-						dir, mem_type);
-		if (rc)
-			goto err;
+			rc = of_property_read_string(node, "label", &str);
+			if (rc) {
+				pr_err("Cannot read string\n");
+				goto err;
+			}
+
+			if (strstr(str, "usb-to-peri"))
+				dir = USB_TO_PEER_PERIPHERAL;
+			else if (strstr(str, "peri-to-usb"))
+				dir = PEER_PERIPHERAL_TO_USB;
+			else
+				goto err;
+
+			if (!strcmp(str, "usb-to-peri-qdss-dwc3") ||
+				!strcmp(str, "peri-to-usb-qdss-dwc3"))
+					conn_num = 0;
+			else
+				goto err;
+
+			rc = update_connections_info(node, bam, conn_num, dir);
+			if (rc)
+				goto err;
+		}
+
+		pdata->connections = &msm_usb_bam_connections_info[0][0][0];
+
+	} else {
+		goto err;
 	}
-
-	pdata->connections = &msm_usb_bam_connections_info[0][0][0];
 
 	return pdata;
 err:
 	pr_err("%s: failed\n", __func__);
 	return NULL;
 }
-
-static char *bam_enable_strings[3] = {
-	[SSUSB_BAM] = "ssusb",
-	[HSUSB_BAM] = "hsusb",
-	[HSIC_BAM]  = "hsic",
-};
 
 static int usb_bam_init(void)
 {
@@ -632,53 +531,26 @@ static int usb_bam_init(void)
 	void *usb_virt_addr;
 	struct msm_usb_bam_platform_data *pdata =
 		usb_bam_pdev->dev.platform_data;
-	struct usb_bam_pipe_connect *pipe_connection =
-		&msm_usb_bam_connections_info[pdata->usb_active_bam][0][0];
-	struct resource *res, *ram_resource;
+	struct resource *res;
 	int irq;
 
-	res = platform_get_resource_byname(usb_bam_pdev, IORESOURCE_MEM,
-				bam_enable_strings[pdata->usb_active_bam]);
+	res = platform_get_resource(usb_bam_pdev, IORESOURCE_MEM,
+		pdata->usb_active_bam);
 	if (!res) {
 		dev_err(&usb_bam_pdev->dev, "Unable to get memory resource\n");
 		return -ENODEV;
 	}
 
-	irq = platform_get_irq_byname(usb_bam_pdev,
-				bam_enable_strings[pdata->usb_active_bam]);
+	irq = platform_get_irq(usb_bam_pdev, pdata->usb_active_bam);
 	if (irq < 0) {
 		dev_err(&usb_bam_pdev->dev, "Unable to get IRQ resource\n");
 		return irq;
 	}
 
-	usb_virt_addr = devm_ioremap(&usb_bam_pdev->dev, res->start,
-							 resource_size(res));
+	usb_virt_addr = ioremap(res->start, resource_size(res));
 	if (!usb_virt_addr) {
 		pr_err("%s: ioremap failed\n", __func__);
 		return -ENOMEM;
-	}
-
-	/* Check if USB3 pipe memory needs to be enabled */
-	if (pipe_connection->mem_type == USB_PRIVATE_MEM) {
-		pr_debug("%s: Enabling USB private memory for: %s\n", __func__,
-				bam_enable_strings[pdata->usb_active_bam]);
-
-		ram_resource = platform_get_resource_byname(usb_bam_pdev,
-					 IORESOURCE_MEM, "qscratch_ram1_reg");
-		if (!res) {
-			dev_err(&usb_bam_pdev->dev, "Unable to get qscratch\n");
-			ret = -ENODEV;
-			goto free_bam_regs;
-		}
-
-		qscratch_ram1_reg = devm_ioremap(&usb_bam_pdev->dev,
-						ram_resource->start,
-						resource_size(ram_resource));
-		if (!qscratch_ram1_reg) {
-			pr_err("%s: ioremap failed for qscratch\n", __func__);
-			ret = -ENOMEM;
-			goto free_bam_regs;
-		}
 	}
 	usb_props.phys_addr = res->start;
 	usb_props.virt_addr = usb_virt_addr;
@@ -687,29 +559,20 @@ static int usb_bam_init(void)
 	usb_props.summing_threshold = USB_SUMMING_THRESHOLD;
 	usb_props.event_threshold = 512;
 	usb_props.num_pipes = pdata->usb_bam_num_pipes;
-	/*
-	 * HSUSB and HSIC Cores don't support RESET ACK signal to BAMs
-	 * Hence, let BAM to ignore acknowledge from USB while resetting PIPE
-	 */
-	if (pdata->ignore_core_reset_ack && pdata->usb_active_bam != SSUSB_BAM)
-		usb_props.options = SPS_BAM_NO_EXT_P_RST;
 
 	ret = sps_register_bam_device(&usb_props, &h_usb);
 	if (ret < 0) {
 		pr_err("%s: register bam error %d\n", __func__, ret);
-		ret = -EFAULT;
-		goto free_qscratch_reg;
+		return -EFAULT;
 	}
 
 	return 0;
-
-free_qscratch_reg:
-	iounmap(qscratch_ram1_reg);
-free_bam_regs:
-	iounmap(usb_virt_addr);
-
-	return ret;
 }
+
+static char *bam_enable_strings[2] = {
+	[HSUSB_BAM] = "hsusb",
+	[HSIC_BAM]  = "hsic",
+};
 
 static ssize_t
 usb_bam_show_enable(struct device *dev, struct device_attribute *attr,
@@ -773,16 +636,9 @@ static int usb_bam_probe(struct platform_device *pdev)
 			usb_bam_wake_work);
 	}
 
-	mem_clk = devm_clk_get(&pdev->dev, "mem_clk");
-	if (IS_ERR(mem_clk))
-		dev_dbg(&pdev->dev, "failed to get mem_clock\n");
-
-	mem_iface_clk = devm_clk_get(&pdev->dev, "mem_iface_clk");
-	if (IS_ERR(mem_iface_clk))
-		dev_dbg(&pdev->dev, "failed to get mem_iface_clock\n");
-
 	if (pdev->dev.of_node) {
 		dev_dbg(&pdev->dev, "device tree enabled\n");
+		device_tree_enabled = 1;
 		pdata = usb_bam_dt_to_pdata(pdev);
 		if (!pdata)
 			return -ENOMEM;
@@ -792,12 +648,7 @@ static int usb_bam_probe(struct platform_device *pdev)
 		return -ENODEV;
 	} else {
 		pdata = pdev->dev.platform_data;
-		ret = usb_bam_update_conn_array_index(pdev, pdata->connections,
-				MAX_BAMS, CONNECTIONS_NUM, 2);
-		if (ret) {
-			pr_err("usb_bam_update_conn_array_index failed\n");
-			return ret;
-		}
+		device_tree_enabled = 0;
 	}
 	usb_bam_pdev = pdev;
 

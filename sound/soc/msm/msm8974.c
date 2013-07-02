@@ -13,11 +13,11 @@
 #include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/gpio.h>
-#include <linux/of_gpio.h>
-#include <linux/platform_device.h>
-#include <linux/slab.h>
 #include <linux/mfd/pm8xxx/pm8921.h>
-#include <linux/qpnp/clkdiv.h>
+#include <linux/platform_device.h>
+#include <linux/gpio.h>
+#include <linux/mfd/pm8xxx/pm8921.h>
+#include <linux/slab.h>
 #include <sound/core.h>
 #include <sound/soc.h>
 #include <sound/soc-dapm.h>
@@ -28,7 +28,7 @@
 #include <qdsp6v2/msm-pcm-routing-v2.h>
 #include "../codecs/wcd9320.h"
 
-#define DRV_NAME "msm8974-asoc-taiko"
+/* 8974 machine driver */
 
 #define PM8921_GPIO_BASE		NR_GPIO_IRQS
 #define PM8921_GPIO_PM_TO_SYS(pm_gpio)  (pm_gpio - 1 + PM8921_GPIO_BASE)
@@ -57,11 +57,6 @@
 #define TABLA_MBHC_DEF_BUTTONS 8
 #define TABLA_MBHC_DEF_RLOADS 5
 
-struct msm8974_asoc_mach_data {
-	int mclk_gpio;
-	u32 mclk_freq;
-};
-
 /* Shared channel numbers for Slimbus ports that connect APQ to MDM. */
 enum {
 	SLIM_1_RX_1 = 145, /* BT-SCO and USB TX */
@@ -81,6 +76,7 @@ static int msm_slim_0_rx_ch = 1;
 static int msm_slim_0_tx_ch = 1;
 
 static int msm_btsco_rate = BTSCO_RATE_8KHZ;
+static int msm_headset_gpios_configured;
 
 static struct snd_soc_jack hs_jack;
 static struct snd_soc_jack button_jack;
@@ -316,67 +312,16 @@ static int msm_spkramp_event(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
-static int msm8974_enable_codec_ext_clk(struct snd_soc_codec *codec, int enable,
-					bool dapm)
-{
-	int ret = 0;
-	pr_debug("%s: enable = %d clk_users = %d\n",
-		__func__, enable, clk_users);
-
-	mutex_lock(&cdc_mclk_mutex);
-	if (enable) {
-		if (!codec_clk) {
-			dev_err(codec->dev, "%s: did not get Taiko MCLK\n",
-				__func__);
-			return -EINVAL;
-		}
-
-		clk_users++;
-		if (clk_users != 1)
-			return ret;
-
-		ret = qpnp_clkdiv_enable(codec_clk);
-		if (ret) {
-			dev_err(codec->dev, "%s: Error enabling taiko MCLK\n",
-			       __func__);
-			return -ENODEV;
-		}
-		taiko_mclk_enable(codec, 1, dapm);
-	} else {
-		if (clk_users > 0) {
-			clk_users--;
-			if (clk_users == 0) {
-				taiko_mclk_enable(codec, 0, dapm);
-				qpnp_clkdiv_disable(codec_clk);
-			}
-		} else {
-			pr_err("%s: Error releasing Tabla MCLK\n", __func__);
-			ret = -EINVAL;
-		}
-	}
-	mutex_unlock(&cdc_mclk_mutex);
-	return ret;
-}
-
-static int msm8974_mclk_event(struct snd_soc_dapm_widget *w,
+static int msm_mclk_event(struct snd_soc_dapm_widget *w,
 		struct snd_kcontrol *kcontrol, int event)
 {
-	pr_debug("%s: event = %d\n", __func__, event);
-
-	switch (event) {
-	case SND_SOC_DAPM_PRE_PMU:
-		return msm8974_enable_codec_ext_clk(w->codec, 1, true);
-	case SND_SOC_DAPM_POST_PMD:
-		return msm8974_enable_codec_ext_clk(w->codec, 0, true);
-	}
-
 	return 0;
 }
 
-static const struct snd_soc_dapm_widget msm8974_dapm_widgets[] = {
+static const struct snd_soc_dapm_widget msm_dapm_widgets[] = {
 
 	SND_SOC_DAPM_SUPPLY("MCLK",  SND_SOC_NOPM, 0, 0,
-	msm8974_mclk_event, SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
+	msm_mclk_event, SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 
 	SND_SOC_DAPM_SPK("Ext Spk Bottom Pos", msm_spkramp_event),
 	SND_SOC_DAPM_SPK("Ext Spk Bottom Neg", msm_spkramp_event),
@@ -386,6 +331,7 @@ static const struct snd_soc_dapm_widget msm8974_dapm_widgets[] = {
 
 	SND_SOC_DAPM_MIC("Handset Mic", NULL),
 	SND_SOC_DAPM_MIC("Headset Mic", NULL),
+	SND_SOC_DAPM_MIC("Digital Mic1", NULL),
 	SND_SOC_DAPM_MIC("ANCRight Headset Mic", NULL),
 	SND_SOC_DAPM_MIC("ANCLeft Headset Mic", NULL),
 
@@ -395,6 +341,92 @@ static const struct snd_soc_dapm_widget msm8974_dapm_widgets[] = {
 	SND_SOC_DAPM_MIC("Digital Mic4", NULL),
 	SND_SOC_DAPM_MIC("Digital Mic5", NULL),
 	SND_SOC_DAPM_MIC("Digital Mic6", NULL),
+
+};
+
+static const struct snd_soc_dapm_route common_audio_map[] = {
+
+	{"RX_BIAS", NULL, "MCLK"},
+	{"LDO_H", NULL, "MCLK"},
+
+	/* Speaker path */
+	{"Ext Spk Bottom Pos", NULL, "LINEOUT1"},
+	{"Ext Spk Bottom Neg", NULL, "LINEOUT3"},
+
+	{"Ext Spk Top Pos", NULL, "LINEOUT2"},
+	{"Ext Spk Top Neg", NULL, "LINEOUT4"},
+
+	/* Microphone path */
+	{"AMIC1", NULL, "MIC BIAS1 Internal1"},
+	{"MIC BIAS1 Internal1", NULL, "Handset Mic"},
+
+	{"AMIC2", NULL, "MIC BIAS2 External"},
+	{"MIC BIAS2 External", NULL, "Headset Mic"},
+
+	/**
+	 * AMIC3 and AMIC4 inputs are connected to ANC microphones
+	 * These mics are biased differently on CDP and FLUID
+	 * routing entries below are based on bias arrangement
+	 * on FLUID.
+	 */
+	{"AMIC3", NULL, "MIC BIAS3 Internal1"},
+	{"MIC BIAS3 Internal1", NULL, "ANCRight Headset Mic"},
+
+	{"AMIC4", NULL, "MIC BIAS1 Internal2"},
+	{"MIC BIAS1 Internal2", NULL, "ANCLeft Headset Mic"},
+
+	{"HEADPHONE", NULL, "LDO_H"},
+
+	/**
+	 * The digital Mic routes are setup considering
+	 * fluid as default device.
+	 */
+
+	/**
+	 * Digital Mic1. Front Bottom left Digital Mic on Fluid and MTP.
+	 * Digital Mic GM5 on CDP mainboard.
+	 * Conncted to DMIC2 Input on Tabla codec.
+	 */
+	{"DMIC2", NULL, "MIC BIAS1 External"},
+	{"MIC BIAS1 External", NULL, "Digital Mic1"},
+
+	/**
+	 * Digital Mic2. Front Bottom right Digital Mic on Fluid and MTP.
+	 * Digital Mic GM6 on CDP mainboard.
+	 * Conncted to DMIC1 Input on Tabla codec.
+	 */
+	{"DMIC1", NULL, "MIC BIAS1 External"},
+	{"MIC BIAS1 External", NULL, "Digital Mic2"},
+
+	/**
+	 * Digital Mic3. Back Bottom Digital Mic on Fluid.
+	 * Digital Mic GM1 on CDP mainboard.
+	 * Conncted to DMIC4 Input on Tabla codec.
+	 */
+	{"DMIC4", NULL, "MIC BIAS3 External"},
+	{"MIC BIAS3 External", NULL, "Digital Mic3"},
+
+	/**
+	 * Digital Mic4. Back top Digital Mic on Fluid.
+	 * Digital Mic GM2 on CDP mainboard.
+	 * Conncted to DMIC3 Input on Tabla codec.
+	 */
+	{"DMIC3", NULL, "MIC BIAS3 External"},
+	{"MIC BIAS3 External", NULL, "Digital Mic4"},
+
+	/**
+	 * Digital Mic5. Front top Digital Mic on Fluid.
+	 * Digital Mic GM3 on CDP mainboard.
+	 * Conncted to DMIC5 Input on Tabla codec.
+	 */
+	{"DMIC5", NULL, "MIC BIAS4 External"},
+	{"MIC BIAS4 External", NULL, "Digital Mic5"},
+
+	/* Tabla digital Mic6 - back bottom digital Mic on Liquid and
+	 * bottom mic on CDP. FLUID/MTP do not have dmic6 installed.
+	 */
+	{"DMIC6", NULL, "MIC BIAS4 External"},
+	{"MIC BIAS4 External", NULL, "Digital Mic6"},
 };
 
 static const char *const spk_function[] = {"Off", "On"};
@@ -646,8 +678,11 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	if (err < 0)
 		return err;
 
-	snd_soc_dapm_new_controls(dapm, msm8974_dapm_widgets,
-				ARRAY_SIZE(msm8974_dapm_widgets));
+	snd_soc_dapm_new_controls(dapm, msm_dapm_widgets,
+				ARRAY_SIZE(msm_dapm_widgets));
+
+	snd_soc_dapm_add_routes(dapm, common_audio_map,
+		ARRAY_SIZE(common_audio_map));
 
 	snd_soc_dapm_enable_pin(dapm, "Ext Spk Bottom Pos");
 	snd_soc_dapm_enable_pin(dapm, "Ext Spk Bottom Neg");
@@ -762,7 +797,7 @@ static struct snd_soc_ops msm8974_be_ops = {
 };
 
 /* Digital audio interface glue - connects codec <---> CPU */
-static struct snd_soc_dai_link msm8974_dai[] = {
+static struct snd_soc_dai_link msm_dai[] = {
 	/* FrontEnd DAI Links */
 	{
 		.name = "MSM8974 Media1",
@@ -793,22 +828,6 @@ static struct snd_soc_dai_link msm8974_dai[] = {
 		/* this dainlink has playback support */
 		.ignore_pmdown_time = 1,
 		.be_id = MSM_FRONTEND_DAI_VOIP,
-	},
-	{
-		.name = "Circuit-Switch Voice",
-		.stream_name = "CS-Voice",
-		.cpu_dai_name   = "CS-VOICE",
-		.platform_name  = "msm-pcm-voice",
-		.dynamic = 1,
-		.codec_dai_name = "snd-soc-dummy-dai",
-		.codec_name = "snd-soc-dummy",
-		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
-			SND_SOC_DPCM_TRIGGER_POST},
-		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
-		.ignore_suspend = 1,
-		/* this dainlink has playback support */
-		.ignore_pmdown_time = 1,
-		.be_id = MSM_FRONTEND_DAI_CS_VOICE,
 	},
 	{
 		.name = "MSM8974 LPA",
@@ -927,111 +946,42 @@ static struct snd_soc_dai_link msm8974_dai[] = {
 	},
 };
 
-struct snd_soc_card snd_soc_card_msm8974 = {
+static struct snd_soc_card snd_soc_card_msm = {
 	.name		= "msm8974-taiko-snd-card",
-	.dai_link	= msm8974_dai,
-	.num_links	= ARRAY_SIZE(msm8974_dai),
+	.dai_link	= msm_dai,
+	.num_links	= ARRAY_SIZE(msm_dai),
 };
 
-static int msm8974_prepare_codec_mclk(struct snd_soc_card *card)
+static struct platform_device *msm_snd_device;
+
+static void msm_free_headset_mic_gpios(void)
 {
-	struct msm8974_asoc_mach_data *pdata = snd_soc_card_get_drvdata(card);
-	int ret;
-	if (pdata->mclk_gpio) {
-		ret = gpio_request(pdata->mclk_gpio, "TAIKO_CODEC_PMIC_MCLK");
-		if (ret) {
-			dev_err(card->dev,
-				"%s: Failed to request taiko mclk gpio %d\n",
-				__func__, pdata->mclk_gpio);
-			return ret;
-		}
+	if (msm_headset_gpios_configured) {
+		gpio_free(PM8921_GPIO_PM_TO_SYS(23));
+		gpio_free(PM8921_GPIO_PM_TO_SYS(35));
 	}
-
-	codec_clk = qpnp_clkdiv_get(card->dev, "taiko-mclk");
-	if (IS_ERR(codec_clk)) {
-		dev_err(card->dev,
-			"%s: Failed to request taiko mclk from pmic %ld\n",
-			__func__, PTR_ERR(codec_clk));
-		return -ENODEV ;
-	}
-
-	ret = qpnp_clkdiv_config(codec_clk, Q_CLKDIV_XO_DIV_2);
-	if (ret) {
-		dev_err(card->dev, "%s: Failed to set taiko mclk to %u\n",
-			__func__, pdata->mclk_gpio);
-			return ret;
-	}
-	return 0;
 }
 
-static __devinit int msm8974_asoc_machine_probe(struct platform_device *pdev)
+static int __init msm_audio_init(void)
 {
-	struct snd_soc_card *card = &snd_soc_card_msm8974;
-	struct msm8974_asoc_mach_data *pdata;
-	int ret;
+	int ret = 0;
 
-	if (!pdev->dev.of_node) {
-		dev_err(&pdev->dev, "No platform supplied from device tree\n");
-		return -EINVAL;
+	mutex_init(&cdc_mclk_mutex);
+	if (!machine_is_msm8974_sim()) {
+		pr_info("%s: Not msm8974 machine type\n", __func__);
+		return -ENODEV;
+	}
+	msm_snd_device = platform_device_alloc("soc-audio", 0);
+	if (!msm_snd_device) {
+		pr_err("Platform device allocation failed\n");
+		return -ENOMEM;
 	}
 
-	pdata = devm_kzalloc(&pdev->dev,
-			sizeof(struct msm8974_asoc_mach_data), GFP_KERNEL);
-	if (!pdata) {
-		dev_err(&pdev->dev, "Can't allocate msm8974_asoc_mach_data\n");
-		ret = -ENOMEM;
-		goto err;
-	}
-
-	card->dev = &pdev->dev;
-	platform_set_drvdata(pdev, card);
-	snd_soc_card_set_drvdata(card, pdata);
-
-	ret = snd_soc_of_parse_card_name(card, "qcom,model");
-	if (ret)
-		goto err;
-
-	ret = snd_soc_of_parse_audio_routing(card,
-			"qcom,audio-routing");
-	if (ret)
-		goto err;
-
-	ret = of_property_read_u32(pdev->dev.of_node,
-			"qcom,taiko-mclk-clk-freq", &pdata->mclk_freq);
+	platform_set_drvdata(msm_snd_device, &snd_soc_card_msm);
+	ret = platform_device_add(msm_snd_device);
 	if (ret) {
-		dev_err(&pdev->dev, "Looking up %s property in node %s failed",
-			"qcom,taiko-mclk-clk-freq",
-			pdev->dev.of_node->full_name);
-		goto err;
-	}
-
-	if (pdata->mclk_freq != 9600000) {
-		dev_err(&pdev->dev, "unsupported taiko mclk freq %u\n",
-			pdata->mclk_freq);
-		ret = -EINVAL;
-		goto err;
-	}
-
-	pdata->mclk_gpio = of_get_named_gpio(pdev->dev.of_node,
-				"qcom,cdc-mclk-gpios", 0);
-	if (pdata->mclk_gpio < 0) {
-		dev_err(&pdev->dev,
-			"Looking up %s property in node %s failed %d\n",
-			"qcom, cdc-mclk-gpios", pdev->dev.of_node->full_name,
-			pdata->mclk_gpio);
-		ret = -ENODEV;
-		goto err;
-	}
-
-	ret = msm8974_prepare_codec_mclk(card);
-	if (ret)
-		goto err;
-
-	ret = snd_soc_register_card(card);
-	if (ret) {
-		dev_err(&pdev->dev, "snd_soc_register_card failed (%d)\n",
-			ret);
-		goto err;
+		platform_device_put(msm_snd_device);
+		return ret;
 	}
 	mutex_init(&cdc_mclk_mutex);
 	atomic_set(&auxpcm_rsc_ref, 0);
@@ -1040,37 +990,20 @@ static __devinit int msm8974_asoc_machine_probe(struct platform_device *pdev)
 err:
 	devm_kfree(&pdev->dev, pdata);
 	return ret;
-}
 
-static int __devexit msm8974_asoc_machine_remove(struct platform_device *pdev)
+}
+module_init(msm_audio_init);
+
+static void __exit msm_audio_exit(void)
 {
-	struct snd_soc_card *card = platform_get_drvdata(pdev);
-	struct msm8974_asoc_mach_data *pdata = snd_soc_card_get_drvdata(card);
-
-	gpio_free(pdata->mclk_gpio);
-	snd_soc_unregister_card(card);
-
-	return 0;
+	if (!machine_is_msm8974_sim()) {
+		pr_err("%s: Not the right machine type\n", __func__);
+		return ;
+	}
+	msm_free_headset_mic_gpios();
+	platform_device_unregister(msm_snd_device);
 }
-
-static const struct of_device_id msm8974_asoc_machine_of_match[]  = {
-	{ .compatible = "qcom,msm8974-audio-taiko", },
-	{},
-};
-
-static struct platform_driver msm8974_asoc_machine_driver = {
-	.driver = {
-		.name = DRV_NAME,
-		.owner = THIS_MODULE,
-		.pm = &snd_soc_pm_ops,
-		.of_match_table = msm8974_asoc_machine_of_match,
-	},
-	.probe = msm8974_asoc_machine_probe,
-	.remove = __devexit_p(msm8974_asoc_machine_remove),
-};
-module_platform_driver(msm8974_asoc_machine_driver);
+module_exit(msm_audio_exit);
 
 MODULE_DESCRIPTION("ALSA SoC msm");
 MODULE_LICENSE("GPL v2");
-MODULE_ALIAS("platform:" DRV_NAME);
-MODULE_DEVICE_TABLE(of, msm8974_asoc_machine_of_match);

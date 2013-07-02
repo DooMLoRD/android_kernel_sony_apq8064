@@ -13,12 +13,7 @@
 #include <linux/module.h>
 #include <linux/interrupt.h>
 #include <linux/of.h>
-#include <linux/of_gpio.h>
-#include <linux/gpio.h>
-#include <linux/qpnp/pin.h>
-#include <linux/delay.h>
 #include <linux/slab.h>
-#include <linux/leds.h>
 
 #include "mdss_dsi.h"
 
@@ -33,77 +28,6 @@ static int num_of_on_cmds;
 static int num_of_off_cmds;
 static char *on_cmds, *off_cmds;
 
-DEFINE_LED_TRIGGER(bl_led_trigger);
-
-static struct mdss_dsi_phy_ctrl phy_params;
-
-static int rst_gpio;
-static int disp_en;
-
-struct qpnp_pin_cfg param = {
-	.mode = QPNP_PIN_MODE_DIG_OUT,
-	.output_type = QPNP_PIN_OUT_BUF_OPEN_DRAIN_NMOS,
-	.invert = QPNP_PIN_INVERT_ENABLE,
-	.pull = QPNP_PIN_MPP_PULL_UP_30KOHM,
-	.vin_sel = QPNP_PIN_VIN3,
-	.out_strength = QPNP_PIN_OUT_STRENGTH_HIGH,
-	.select = QPNP_PIN_SEL_DTEST3,
-	.master_en = QPNP_PIN_MASTER_ENABLE,
-	.aout_ref = QPNP_PIN_AOUT_0V625,
-	.ain_route = QPNP_PIN_AIN_AMUX_CH7,
-	.cs_out = QPNP_PIN_CS_OUT_20MA,
-};
-
-void mdss_dsi_panel_reset(int enable)
-{
-	if (!disp_en)
-		pr_debug("%s:%d, reset line not configured\n",
-			   __func__, __LINE__);
-
-	if (!rst_gpio)
-		pr_debug("%s:%d, reset line not configured\n",
-			   __func__, __LINE__);
-
-	if (enable) {
-		gpio_set_value(disp_en, 1);
-		gpio_set_value(rst_gpio, 1);
-		usleep(10);
-		gpio_set_value(rst_gpio, 0);
-		usleep(200);
-		gpio_set_value(rst_gpio, 1);
-	} else {
-		gpio_set_value(rst_gpio, 0);
-		gpio_set_value(disp_en, 0);
-	}
-}
-
-static void mdss_dsi_panel_bl_ctrl(struct mdss_panel_data *pdata,
-							u32 bl_level)
-{
-	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
-
-	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
-				panel_data);
-	if (!ctrl_pdata) {
-		pr_err("%s: Invalid input data\n", __func__);
-		return;
-	}
-
-	if (ctrl_pdata->bl_ctrl) {
-		switch (ctrl_pdata->bl_ctrl) {
-		case BL_WLED:
-			led_trigger_event(bl_led_trigger, bl_level);
-			break;
-
-		default:
-			pr_err("%s: Unknown bl_ctrl configuration\n",
-				__func__);
-			break;
-		}
-	} else
-		pr_err("%s:%d, bl_ctrl not configured", __func__, __LINE__);
-}
-
 static int mdss_dsi_panel_on(struct mdss_panel_data *pdata)
 {
 	struct mipi_panel_info *mipi;
@@ -112,8 +36,6 @@ static int mdss_dsi_panel_on(struct mdss_panel_data *pdata)
 
 	pr_debug("%s:%d, debug info (mode) : %d\n", __func__, __LINE__,
 		 mipi->mode);
-
-	mdss_dsi_panel_reset(1);
 
 	if (mipi->mode == DSI_VIDEO_MODE) {
 		mdss_dsi_cmds_tx(pdata, &dsi_panel_tx_buf, dsi_panel_on_cmds,
@@ -142,21 +64,17 @@ static int mdss_dsi_panel_off(struct mdss_panel_data *pdata)
 		return -EINVAL;
 	}
 
-	mdss_dsi_panel_reset(0);
-
 	return 0;
 }
 
 static int mdss_panel_parse_dt(struct platform_device *pdev,
-			       struct mdss_panel_common_pdata *panel_data,
-			       char *bl_ctrl)
+			    struct mdss_panel_common_pdata *panel_data)
 {
 	struct device_node *np = pdev->dev.of_node;
 	u32 res[6], tmp;
 	int rc, i, len;
 	int cmd_plen, data_offset;
 	const char *data;
-	static const char *bl_ctrl_type;
 
 	rc = of_property_read_u32_array(np, "qcom,mdss-pan-res", res, 2);
 	if (rc) {
@@ -166,59 +84,6 @@ static int mdss_panel_parse_dt(struct platform_device *pdev,
 	}
 	panel_data->panel_info.xres = (!rc ? res[0] : 640);
 	panel_data->panel_info.yres = (!rc ? res[1] : 480);
-
-	rc = of_property_read_u32_array(np, "qcom,mdss-pan-active-res", res, 2);
-	if (rc == 0) {
-		panel_data->panel_info.lcdc.xres_pad =
-			panel_data->panel_info.xres - res[0];
-		panel_data->panel_info.lcdc.yres_pad =
-			panel_data->panel_info.yres - res[1];
-	}
-
-	disp_en = of_get_named_gpio(np, "qcom,enable-gpio", 0);
-	if (!gpio_is_valid(disp_en)) {
-		pr_err("%s:%d, Disp_en gpio not specified\n",
-						__func__, __LINE__);
-		return -ENODEV;
-	}
-
-	rc = gpio_request(disp_en, "disp_enable");
-	if (rc) {
-		pr_err("request reset gpio failed, rc=%d\n",
-			rc);
-		gpio_free(disp_en);
-		return -ENODEV;
-	}
-	rc = gpio_direction_output(disp_en, 1);
-	if (rc) {
-		pr_err("set_direction for disp_en gpio failed, rc=%d\n",
-			rc);
-		gpio_free(disp_en);
-		return -ENODEV;
-	}
-
-	rst_gpio = of_get_named_gpio(np, "qcom,rst-gpio", 0);
-	if (!gpio_is_valid(rst_gpio)) {
-		pr_err("%s:%d, reset gpio not specified\n",
-						__func__, __LINE__);
-	} else {
-	  rc = qpnp_pin_config(rst_gpio, &param);
-		if (rc) {
-			pr_err("request reset gpio failed, rc=%d\n",
-				rc);
-			gpio_free(disp_en);
-			return rc;
-		}
-
-		rc = gpio_request(rst_gpio, "disp_rst_n");
-		if (rc) {
-			pr_err("request reset gpio failed, rc=%d\n",
-				rc);
-			gpio_free(rst_gpio);
-			gpio_free(disp_en);
-			return -ENODEV;
-		}
-	}
 
 	rc = of_property_read_u32(np, "qcom,mdss-pan-bpp", &tmp);
 	if (rc) {
@@ -240,14 +105,6 @@ static int mdss_panel_parse_dt(struct platform_device *pdev,
 	rc = of_property_read_u32(np,
 		"qcom,mdss-pan-underflow-clr", &tmp);
 	panel_data->panel_info.lcdc.underflow_clr = (!rc ? tmp : 0xff);
-
-	bl_ctrl_type = of_get_property(pdev->dev.of_node,
-				  "qcom,mdss-pan-bl-ctrl", NULL);
-	if (!strncmp(bl_ctrl_type, "bl_ctrl_wled", 12)) {
-		led_trigger_register_simple("bkl-trigger", &bl_led_trigger);
-		pr_debug("%s: SUCCESS-> WLED TRIGGER register\n", __func__);
-		*bl_ctrl = BL_WLED;
-	}
 
 	rc = of_property_read_u32_array(np,
 		"qcom,mdss-pan-bl-levels", res, 2);
@@ -326,53 +183,6 @@ static int mdss_panel_parse_dt(struct platform_device *pdev,
 
 	rc = of_property_read_u32(np, "qcom,mdss-pan-dsi-frame-rate", &tmp);
 	panel_data->panel_info.mipi.frame_rate = (!rc ? tmp : 60);
-
-	data = of_get_property(np, "qcom,panel-phy-regulatorSettings", &len);
-	if ((!data) || (len != 8)) {
-		pr_err("%s:%d, Unable to read Phy regulator settings",
-		       __func__, __LINE__);
-		goto error;
-	}
-	for (i = 0; i < len; i++)
-		phy_params.regulator[i] = data[i];
-
-	data = of_get_property(np, "qcom,panel-phy-timingSettings", &len);
-	if ((!data) || (len != 12)) {
-		pr_err("%s:%d, Unable to read Phy timing settings",
-		       __func__, __LINE__);
-		goto error;
-	}
-	for (i = 0; i < len; i++)
-		phy_params.timing[i] = data[i];
-
-	data = of_get_property(np, "qcom,panel-phy-strengthCtrl", &len);
-	if ((!data) || (len != 2)) {
-		pr_err("%s:%d, Unable to read Phy Strength ctrl settings",
-		       __func__, __LINE__);
-		goto error;
-	}
-	phy_params.strength[0] = data[0];
-	phy_params.strength[1] = data[1];
-
-	data = of_get_property(np, "qcom,panel-phy-bistCtrl", &len);
-	if ((!data) || (len != 6)) {
-		pr_err("%s:%d, Unable to read Phy Bist Ctrl settings",
-		       __func__, __LINE__);
-		goto error;
-	}
-	for (i = 0; i < len; i++)
-		phy_params.bistCtrl[i] = data[i];
-
-	data = of_get_property(np, "qcom,panel-phy-laneConfig", &len);
-	if ((!data) || (len != 45)) {
-		pr_err("%s:%d, Unable to read Phy lane configure settings",
-		       __func__, __LINE__);
-		goto error;
-	}
-	for (i = 0; i < len; i++)
-		phy_params.laneCfg[i] = data[i];
-
-	panel_data->panel_info.mipi.dsi_phy_db = &phy_params;
 
 	data = of_get_property(np, "qcom,panel-on-cmds", &len);
 	if (!data) {
@@ -478,10 +288,6 @@ error:
 	kfree(dsi_panel_off_cmds);
 	kfree(on_cmds);
 	kfree(off_cmds);
-	if (rst_gpio)
-		gpio_free(rst_gpio);
-	if (disp_en)
-		gpio_free(disp_en);
 
 	return -EINVAL;
 }
@@ -489,9 +295,8 @@ error:
 static int __devinit mdss_dsi_panel_probe(struct platform_device *pdev)
 {
 	int rc = 0;
-	static struct mdss_panel_common_pdata vendor_pdata;
+	struct mdss_panel_common_pdata *vendor_pdata = NULL;
 	static const char *panel_name;
-	char bl_ctrl = UNKNOWN_CTRL;
 
 	if (pdev->dev.parent == NULL) {
 		pr_err("%s: parent device missing\n", __func__);
@@ -509,15 +314,21 @@ static int __devinit mdss_dsi_panel_probe(struct platform_device *pdev)
 	else
 		pr_info("%s: Panel Name = %s\n", __func__, panel_name);
 
-	rc = mdss_panel_parse_dt(pdev, &vendor_pdata, &bl_ctrl);
-	if (rc)
+	vendor_pdata = devm_kzalloc(&pdev->dev,
+			sizeof(*vendor_pdata), GFP_KERNEL);
+	if (!vendor_pdata)
+		return -ENOMEM;
+
+	rc = mdss_panel_parse_dt(pdev, vendor_pdata);
+	if (rc) {
+		devm_kfree(&pdev->dev, vendor_pdata);
+		vendor_pdata = NULL;
 		return rc;
+	}
+	vendor_pdata->on = mdss_dsi_panel_on;
+	vendor_pdata->off = mdss_dsi_panel_off;
 
-	vendor_pdata.on = mdss_dsi_panel_on;
-	vendor_pdata.off = mdss_dsi_panel_off;
-	vendor_pdata.bl_fnc = mdss_dsi_panel_bl_ctrl;
-
-	rc = dsi_panel_device_register(pdev, &vendor_pdata, bl_ctrl);
+	rc = dsi_panel_device_register(pdev, vendor_pdata);
 	if (rc)
 		return rc;
 
@@ -539,8 +350,8 @@ static struct platform_driver this_driver = {
 
 static int __init mdss_dsi_panel_init(void)
 {
-	mdss_dsi_buf_alloc(&dsi_panel_tx_buf, ALIGN(DSI_BUF_SIZE, SZ_4K));
-	mdss_dsi_buf_alloc(&dsi_panel_rx_buf, ALIGN(DSI_BUF_SIZE, SZ_4K));
+	mdss_dsi_buf_alloc(&dsi_panel_tx_buf, DSI_BUF_SIZE);
+	mdss_dsi_buf_alloc(&dsi_panel_rx_buf, DSI_BUF_SIZE);
 
 	return platform_driver_register(&this_driver);
 }

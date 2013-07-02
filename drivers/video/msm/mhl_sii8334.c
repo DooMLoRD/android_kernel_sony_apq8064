@@ -1247,6 +1247,11 @@ static int mhl_sii_remove(struct i2c_client *client)
 	return 0;
 }
 
+static void mhl_sii_shutdown(struct i2c_client *client)
+{
+	mhl_device_shutdown(mhl_state->mhl_dev);
+}
+
 #ifdef CONFIG_PM
 static int mhl_sii_i2c_suspend(struct device *dev)
 {
@@ -1297,6 +1302,7 @@ static struct i2c_driver mhl_sii_i2c_driver = {
 	},
 	.probe = mhl_sii_probe,
 	.remove = mhl_sii_remove,
+	.shutdown = mhl_sii_shutdown,
 	.id_table = mhl_sii_id,
 };
 

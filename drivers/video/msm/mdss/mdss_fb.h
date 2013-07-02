@@ -14,7 +14,7 @@
 #ifndef MDSS_FB_H
 #define MDSS_FB_H
 
-#include <linux/ion.h>
+#include <linux/msm_ion.h>
 #include <linux/list.h>
 #include <linux/msm_mdp.h>
 #include <linux/types.h>
@@ -69,17 +69,16 @@ struct msm_fb_data_type {
 	int (*kickoff_fnc) (struct mdss_mdp_ctl *ctl);
 	int (*ioctl_handler) (struct msm_fb_data_type *mfd, u32 cmd, void *arg);
 	void (*dma_fnc) (struct msm_fb_data_type *mfd);
-	int (*cursor_update) (struct msm_fb_data_type *mfd,
+	int (*cursor_update) (struct fb_info *info,
 			      struct fb_cursor *cursor);
-	int (*lut_update) (struct msm_fb_data_type *mfd, struct fb_cmap *cmap);
-	int (*do_histogram) (struct msm_fb_data_type *mfd,
+	int (*lut_update) (struct fb_info *info,
+			   struct fb_cmap *cmap);
+	int (*do_histogram) (struct fb_info *info,
 			     struct mdp_histogram *hist);
 
 	struct ion_handle *ihdl;
-	unsigned long iova;
 	void *cursor_buf;
-	unsigned long cursor_buf_phys;
-	unsigned long cursor_buf_iova;
+	void *cursor_buf_phys;
 
 	u32 bl_level;
 	struct mutex lock;
@@ -91,10 +90,10 @@ struct msm_fb_data_type {
 	u32 var_pixclock;
 
 	u32 mdp_fb_page_protection;
+	struct ion_client *iclient;
 
 	struct mdss_mdp_ctl *ctl;
 	struct mdss_mdp_wb *wb;
-	struct list_head overlay_list;
 };
 
 int mdss_fb_get_phys_info(unsigned long *start, unsigned long *len, int fb_num);

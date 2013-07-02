@@ -34,7 +34,6 @@
 #include <linux/regulator/consumer.h>
 
 #include <mach/rpm-regulator.h>
-#include <mach/msm_bus.h>
 
 #include "dwc3_otg.h"
 #include "core.h"
@@ -104,12 +103,10 @@
  */
 #define QSCRATCH_REG_OFFSET	(0x000F8800)
 #define QSCRATCH_GENERAL_CFG	(QSCRATCH_REG_OFFSET + 0x08)
-#define HS_PHY_CTRL_REG		(QSCRATCH_REG_OFFSET + 0x10)
 #define CHARGING_DET_CTRL_REG	(QSCRATCH_REG_OFFSET + 0x18)
 #define CHARGING_DET_OUTPUT_REG	(QSCRATCH_REG_OFFSET + 0x1C)
 #define ALT_INTERRUPT_EN_REG	(QSCRATCH_REG_OFFSET + 0x20)
 #define HS_PHY_IRQ_STAT_REG	(QSCRATCH_REG_OFFSET + 0x24)
-#define SS_PHY_CTRL_REG		(QSCRATCH_REG_OFFSET + 0x30)
 
 struct dwc3_msm_req_complete {
 	struct list_head list_item;
@@ -127,11 +124,7 @@ struct dwc3_msm {
 	u8 ep_num_mapping[DBM_MAX_EPS];
 	const struct usb_ep_ops *original_ep_ops[DWC3_ENDPOINTS_NUM];
 	struct list_head req_complete_list;
-	struct clk		*ref_clk;
 	struct clk		*core_clk;
-	struct clk		*iface_clk;
-	struct clk		*sleep_clk;
-	struct clk		*hsphy_sleep_clk;
 	struct regulator	*hsusb_3p3;
 	struct regulator	*hsusb_1p8;
 	struct regulator	*hsusb_vddcx;
@@ -150,8 +143,6 @@ struct dwc3_msm {
 	struct delayed_work	chg_work;
 	enum usb_chg_state	chg_state;
 	u8			dcd_retries;
-	u32			bus_perf_client;
-	struct msm_bus_scale_pdata	*bus_scale_table;
 };
 
 #define USB_HSPHY_3P3_VOL_MIN		3050000 /* uV */
@@ -1229,8 +1220,6 @@ static void dwc3_start_chg_det(struct dwc3_charger *charger, bool start)
 
 static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 {
-	int ret;
-
 	dev_dbg(mdwc->dev, "%s: entering lpm\n", __func__);
 
 	if (atomic_read(&mdwc->in_lpm)) {
@@ -1238,19 +1227,10 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 		return 0;
 	}
 
-	clk_disable_unprepare(mdwc->iface_clk);
 	clk_disable_unprepare(mdwc->core_clk);
-	clk_disable_unprepare(mdwc->ref_clk);
 	dwc3_hsusb_ldo_enable(0);
 	dwc3_ssusb_ldo_enable(0);
 	wake_unlock(&mdwc->wlock);
-
-	if (mdwc->bus_perf_client) {
-		ret = msm_bus_scale_client_update_request(
-						mdwc->bus_perf_client, 0);
-		if (ret)
-			dev_err(mdwc->dev, "Failed to reset bus bw vote\n");
-	}
 
 	atomic_set(&mdwc->in_lpm, 1);
 	dev_info(mdwc->dev, "DWC3 in low power mode\n");
@@ -1260,8 +1240,6 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 
 static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 {
-	int ret;
-
 	dev_dbg(mdwc->dev, "%s: exiting lpm\n", __func__);
 
 	if (!atomic_read(&mdwc->in_lpm)) {
@@ -1269,17 +1247,8 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 		return 0;
 	}
 
-	if (mdwc->bus_perf_client) {
-		ret = msm_bus_scale_client_update_request(
-						mdwc->bus_perf_client, 1);
-		if (ret)
-			dev_err(mdwc->dev, "Failed to vote for bus scaling\n");
-	}
-
 	wake_lock(&mdwc->wlock);
-	clk_prepare_enable(mdwc->ref_clk);
 	clk_prepare_enable(mdwc->core_clk);
-	clk_prepare_enable(mdwc->iface_clk);
 	dwc3_hsusb_ldo_enable(1);
 	dwc3_ssusb_ldo_enable(1);
 
@@ -1409,7 +1378,6 @@ static int __devinit dwc3_msm_probe(struct platform_device *pdev)
 	struct platform_device *dwc3;
 	struct dwc3_msm *msm;
 	struct resource *res;
-	void __iomem *tcsr;
 	int ret = 0;
 
 	msm = devm_kzalloc(&pdev->dev, sizeof(*msm), GFP_KERNEL);
@@ -1438,38 +1406,6 @@ static int __devinit dwc3_msm_probe(struct platform_device *pdev)
 	clk_set_rate(msm->core_clk, 125000000);
 	clk_prepare_enable(msm->core_clk);
 
-	msm->iface_clk = devm_clk_get(&pdev->dev, "iface_clk");
-	if (IS_ERR(msm->iface_clk)) {
-		dev_err(&pdev->dev, "failed to get iface_clk\n");
-		ret = PTR_ERR(msm->iface_clk);
-		goto disable_core_clk;
-	}
-	clk_prepare_enable(msm->iface_clk);
-
-	msm->sleep_clk = devm_clk_get(&pdev->dev, "sleep_clk");
-	if (IS_ERR(msm->sleep_clk)) {
-		dev_err(&pdev->dev, "failed to get sleep_clk\n");
-		ret = PTR_ERR(msm->sleep_clk);
-		goto disable_iface_clk;
-	}
-	clk_prepare_enable(msm->sleep_clk);
-
-	msm->hsphy_sleep_clk = devm_clk_get(&pdev->dev, "sleep_a_clk");
-	if (IS_ERR(msm->hsphy_sleep_clk)) {
-		dev_err(&pdev->dev, "failed to get sleep_a_clk\n");
-		ret = PTR_ERR(msm->hsphy_sleep_clk);
-		goto disable_sleep_clk;
-	}
-	clk_prepare_enable(msm->hsphy_sleep_clk);
-
-	msm->ref_clk = devm_clk_get(&pdev->dev, "ref_clk");
-	if (IS_ERR(msm->ref_clk)) {
-		dev_err(&pdev->dev, "failed to get ref_clk\n");
-		ret = PTR_ERR(msm->ref_clk);
-		goto disable_sleep_a_clk;
-	}
-	clk_prepare_enable(msm->ref_clk);
-
 	/* SS PHY */
 	msm->ss_vdd_type = VDDCX_CORNER;
 	msm->ssusb_vddcx = devm_regulator_get(&pdev->dev, "ssusb_vdd_dig");
@@ -1479,7 +1415,7 @@ static int __devinit dwc3_msm_probe(struct platform_device *pdev)
 		if (IS_ERR(msm->ssusb_vddcx)) {
 			dev_err(&pdev->dev, "unable to get ssusb vddcx\n");
 			ret = PTR_ERR(msm->ssusb_vddcx);
-			goto disable_ref_clk;
+			goto disable_core_clk;
 		}
 		msm->ss_vdd_type = VDDCX;
 		dev_dbg(&pdev->dev, "ss_vdd_type: VDDCX\n");
@@ -1488,7 +1424,7 @@ static int __devinit dwc3_msm_probe(struct platform_device *pdev)
 	ret = dwc3_ssusb_config_vddcx(1);
 	if (ret) {
 		dev_err(&pdev->dev, "ssusb vddcx configuration failed\n");
-		goto disable_ref_clk;
+		goto disable_core_clk;
 	}
 
 	ret = regulator_enable(context->ssusb_vddcx);
@@ -1548,25 +1484,6 @@ static int __devinit dwc3_msm_probe(struct platform_device *pdev)
 		goto free_hs_ldo_init;
 	}
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
-	if (!res) {
-		dev_dbg(&pdev->dev, "missing TCSR memory resource\n");
-	} else {
-		tcsr = devm_ioremap_nocache(&pdev->dev, res->start,
-			resource_size(res));
-		if (!tcsr) {
-			dev_dbg(&pdev->dev, "tcsr ioremap failed\n");
-		} else {
-			/* Enable USB3 on the primary USB port. */
-			writel_relaxed(0x1, tcsr);
-			/*
-			 * Ensure that TCSR write is completed before
-			 * USB registers initialization.
-			 */
-			mb();
-		}
-	}
-
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res) {
 		dev_err(&pdev->dev, "missing memory base resource\n");
@@ -1596,28 +1513,8 @@ static int __devinit dwc3_msm_probe(struct platform_device *pdev)
 	msm->resource_size = resource_size(res);
 	msm->dwc3 = dwc3;
 
-	/* SSPHY Initialization: Use ref_clk from pads and set its parameters */
-	dwc3_msm_write_reg(msm->base, SS_PHY_CTRL_REG, 0x10210002);
-	msleep(30);
-	/* Assert SSPHY reset */
-	dwc3_msm_write_reg(msm->base, SS_PHY_CTRL_REG, 0x10210082);
-	usleep_range(2000, 2200);
-	/* De-assert SSPHY reset - power and ref_clock must be ON */
-	dwc3_msm_write_reg(msm->base, SS_PHY_CTRL_REG, 0x10210002);
-	usleep_range(2000, 2200);
-	/* Ref clock must be stable now, enable ref clock for HS mode */
-	dwc3_msm_write_reg(msm->base, SS_PHY_CTRL_REG, 0x10210102);
-	usleep_range(2000, 2200);
-	/*
-	 * HSPHY Initialization: Enable UTMI clock and clamp enable HVINTs,
-	 * and disable RETENTION (power-on default is ENABLED)
-	 */
-	dwc3_msm_write_reg(msm->base, HS_PHY_CTRL_REG, 0x5220bb2);
-	usleep_range(2000, 2200);
-	/* Disable (bypass) VBUS filter */
-	dwc3_msm_write_reg(msm->base, QSCRATCH_GENERAL_CFG, 0x38);
-
 	pm_runtime_set_active(msm->dev);
+	pm_runtime_enable(msm->dev);
 
 	if (of_property_read_u32(node, "qcom,dwc-usb3-msm-dbm-eps",
 				 &msm->dbm_num_eps)) {
@@ -1646,18 +1543,6 @@ static int __devinit dwc3_msm_probe(struct platform_device *pdev)
 	if (ret) {
 		dev_err(&pdev->dev, "failed to register dwc3 device\n");
 		goto put_pdev;
-	}
-
-	msm->bus_scale_table = msm_bus_cl_get_pdata(pdev);
-	if (!msm->bus_scale_table) {
-		dev_err(&pdev->dev, "bus scaling is disabled\n");
-	} else {
-		msm->bus_perf_client =
-			msm_bus_scale_register_client(msm->bus_scale_table);
-		ret = msm_bus_scale_client_update_request(
-						msm->bus_perf_client, 1);
-		if (ret)
-			dev_err(&pdev->dev, "Failed to vote for bus scaling\n");
 	}
 
 	/* Reset the DBM */
@@ -1715,14 +1600,6 @@ disable_ss_vddcx:
 	regulator_disable(context->ssusb_vddcx);
 unconfig_ss_vddcx:
 	dwc3_ssusb_config_vddcx(0);
-disable_ref_clk:
-	clk_disable_unprepare(msm->ref_clk);
-disable_sleep_a_clk:
-	clk_disable_unprepare(msm->hsphy_sleep_clk);
-disable_sleep_clk:
-	clk_disable_unprepare(msm->sleep_clk);
-disable_iface_clk:
-	clk_disable_unprepare(msm->iface_clk);
 disable_core_clk:
 	clk_disable_unprepare(msm->core_clk);
 
@@ -1752,10 +1629,6 @@ static int __devexit dwc3_msm_remove(struct platform_device *pdev)
 	regulator_disable(msm->ssusb_vddcx);
 	dwc3_ssusb_config_vddcx(0);
 	clk_disable_unprepare(msm->core_clk);
-	clk_disable_unprepare(msm->iface_clk);
-	clk_disable_unprepare(msm->sleep_clk);
-	clk_disable_unprepare(msm->hsphy_sleep_clk);
-	clk_disable_unprepare(msm->ref_clk);
 
 	return 0;
 }

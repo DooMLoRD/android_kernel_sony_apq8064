@@ -85,7 +85,7 @@ static struct msm_panel_info *get_panel_info(void)
 	pinfo.lcdc.v_front_porch = 23;
 	pinfo.lcdc.v_pulse_width = 2;
 	pinfo.lcdc.border_clr = 0;	/* blk */
-	pinfo.lcdc.underflow_clr = 0xff;	/* blue */
+	pinfo.lcdc.underflow_clr = 0x0;	/* black */
 	pinfo.lcdc.hsync_skew = 0;
 	pinfo.bl_max = 15;
 	pinfo.bl_min = 1;

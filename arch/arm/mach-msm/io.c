@@ -301,7 +301,6 @@ static struct map_desc msm_8974_io_desc[] __initdata = {
 	MSM_CHIP_DEVICE(APCS_GCC, MSM8974),
 	MSM_CHIP_DEVICE(TLMM, MSM8974),
 	MSM_CHIP_DEVICE(MPM2_PSHOLD, MSM8974),
-	MSM_CHIP_DEVICE(IMEM, MSM8974),
 	{
 		.virtual =  (unsigned long) MSM_SHARED_RAM_BASE,
 		.length =   MSM_SHARED_RAM_SIZE,
@@ -310,7 +309,6 @@ static struct map_desc msm_8974_io_desc[] __initdata = {
 #ifdef CONFIG_DEBUG_MSM8974_UART
 	MSM_DEVICE(DEBUG_UART),
 #endif
-	MSM_CHIP_DEVICE(DBG_IMEM, MSM8974),
 };
 
 void __init msm_map_8974_io(void)
@@ -478,51 +476,3 @@ void __init msm_map_msm9625_io(void)
 	msm_map_io(msm9625_io_desc, ARRAY_SIZE(msm9625_io_desc));
 }
 #endif /* CONFIG_ARCH_MSM9625 */
-
-#ifdef CONFIG_ARCH_MPQ8092
-static struct map_desc mpq8092_io_desc[] __initdata = {
-	MSM_CHIP_DEVICE(QGIC_DIST, MPQ8092),
-	MSM_CHIP_DEVICE(QGIC_CPU, MPQ8092),
-	MSM_CHIP_DEVICE(APCS_GCC, MPQ8092),
-	MSM_CHIP_DEVICE(TLMM, MPQ8092),
-	{
-		.virtual =  (unsigned long) MSM_SHARED_RAM_BASE,
-		.length =   MSM_SHARED_RAM_SIZE,
-		.type =     MT_DEVICE,
-	},
-#ifdef CONFIG_DEBUG_MPQ8092_UART
-	MSM_DEVICE(DEBUG_UART),
-#endif
-};
-
-void __init msm_map_mpq8092_io(void)
-{
-	msm_shared_ram_phys = MSM8974_MSM_SHARED_RAM_PHYS;
-	msm_map_io(mpq8092_io_desc, ARRAY_SIZE(mpq8092_io_desc));
-}
-#endif /* CONFIG_ARCH_MPQ8092 */
-
-#ifdef CONFIG_ARCH_MSM8226
-static struct map_desc msm_8226_io_desc[] __initdata = {
-	MSM_CHIP_DEVICE(QGIC_DIST, MSM8226),
-	MSM_CHIP_DEVICE(QGIC_CPU, MSM8226),
-	MSM_CHIP_DEVICE(APCS_GCC, MSM8226),
-	MSM_CHIP_DEVICE(TLMM, MSM8226),
-	MSM_CHIP_DEVICE(IMEM, MSM8226),
-	{
-		.virtual =  (unsigned long) MSM_SHARED_RAM_BASE,
-		.length =   MSM_SHARED_RAM_SIZE,
-		.type =     MT_DEVICE,
-	},
-#ifdef CONFIG_DEBUG_MPQ8226_UART
-	MSM_DEVICE(DEBUG_UART),
-#endif
-};
-
-
-void __init msm_map_msm8226_io(void)
-{
-	msm_shared_ram_phys = MSM8226_MSM_SHARED_RAM_PHYS;
-	msm_map_io(msm_8226_io_desc, ARRAY_SIZE(msm_8226_io_desc));
-}
-#endif /* CONFIG_ARCH_MSM8226 */

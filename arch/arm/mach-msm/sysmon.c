@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -38,21 +38,24 @@ enum transports {
 
 struct sysmon_subsys {
 	struct mutex		lock;
+	bool			probed;
 	struct smd_channel	*chan;
 	bool			chan_open;
 	struct completion	resp_ready;
 	char			rx_buf[RX_BUF_SIZE];
 	enum transports		transport;
 	struct device		*dev;
+	enum hsic_sysmon_device_id hsic_id;
 };
 
 static struct sysmon_subsys subsys[SYSMON_NUM_SS] = {
-	[SYSMON_SS_MODEM].transport     = TRANSPORT_SMD,
-	[SYSMON_SS_LPASS].transport     = TRANSPORT_SMD,
-	[SYSMON_SS_WCNSS].transport     = TRANSPORT_SMD,
-	[SYSMON_SS_DSPS].transport      = TRANSPORT_SMD,
-	[SYSMON_SS_Q6FW].transport      = TRANSPORT_SMD,
-	[SYSMON_SS_EXT_MODEM].transport = TRANSPORT_HSIC,
+	[SYSMON_SS_MODEM].transport      = TRANSPORT_SMD,
+	[SYSMON_SS_LPASS].transport      = TRANSPORT_SMD,
+	[SYSMON_SS_WCNSS].transport      = TRANSPORT_SMD,
+	[SYSMON_SS_DSPS].transport       = TRANSPORT_SMD,
+	[SYSMON_SS_Q6FW].transport       = TRANSPORT_SMD,
+	[SYSMON_SS_EXT_MODEM].transport  = TRANSPORT_HSIC,
+	[SYSMON_SS_EXT_MODEM2].transport = TRANSPORT_HSIC,
 };
 
 static const char *notif_name[SUBSYS_NOTIF_TYPE_COUNT] = {
@@ -88,11 +91,10 @@ static int sysmon_send_hsic(struct sysmon_subsys *ss, const char *tx_buf,
 	size_t actual_len = 0;
 
 	pr_debug("Sending HSIC message: %s\n", tx_buf);
-	ret = hsic_sysmon_write(HSIC_SYSMON_DEV_EXT_MODEM,
-				tx_buf, len, TIMEOUT_MS);
+	ret = hsic_sysmon_write(ss->hsic_id, tx_buf, len, TIMEOUT_MS);
 	if (ret)
 		return ret;
-	ret = hsic_sysmon_read(HSIC_SYSMON_DEV_EXT_MODEM, ss->rx_buf,
+	ret = hsic_sysmon_read(ss->hsic_id, ss->rx_buf,
 			       ARRAY_SIZE(ss->rx_buf), &actual_len, TIMEOUT_MS);
 
 	if (ARRAY_SIZE(ss->rx_buf) > actual_len)
@@ -232,6 +234,12 @@ int sysmon_get_reason(enum subsys_id dest_ss, char *buf, size_t len)
 	    buf == NULL || len == 0)
 		return -EINVAL;
 
+	if ((!ss->chan_open) && (dest_ss != SYSMON_SS_EXT_MODEM))
+		return -ENODEV;
+
+	if (!ss->probed)
+		return -ENODEV;
+
 	mutex_lock(&ss->lock);
 	ret = sysmon_send_msg(ss, tx_buf, ARRAY_SIZE(tx_buf));
 	if (ret)
@@ -279,6 +287,7 @@ static int sysmon_probe(struct platform_device *pdev)
 
 	ss = &subsys[pdev->id];
 	mutex_init(&ss->lock);
+	ss->probed = true;
 
 	switch (ss->transport) {
 	case TRANSPORT_SMD:
@@ -298,7 +307,9 @@ static int sysmon_probe(struct platform_device *pdev)
 		if (pdev->id < SMD_NUM_TYPE)
 			return -EINVAL;
 
-		ret = hsic_sysmon_open(HSIC_SYSMON_DEV_EXT_MODEM);
+		ss->hsic_id = HSIC_SYSMON_DEV_EXT_MODEM +
+				(pdev->id - SYSMON_SS_EXT_MODEM);
+		ret = hsic_sysmon_open(ss->hsic_id);
 		if (ret) {
 			pr_err("HSIC open failed\n");
 			return ret;
@@ -324,7 +335,7 @@ static int __devexit sysmon_remove(struct platform_device *pdev)
 		smd_close(ss->chan);
 		break;
 	case TRANSPORT_HSIC:
-		hsic_sysmon_close(HSIC_SYSMON_DEV_EXT_MODEM);
+		hsic_sysmon_close(ss->hsic_id);
 		break;
 	}
 	mutex_unlock(&ss->lock);

@@ -37,11 +37,6 @@
 #include "hdmi_msm.h"
 #include "mhl_i2c_utils.h"
 
-#define MSC_START_BIT_MSC_CMD		        (0x01 << 0)
-#define MSC_START_BIT_VS_CMD		        (0x01 << 1)
-#define MSC_START_BIT_READ_REG		        (0x01 << 2)
-#define MSC_START_BIT_WRITE_REG		        (0x01 << 3)
-#define MSC_START_BIT_WRITE_BURST	        (0x01 << 4)
 
 static struct i2c_device_id mhl_sii_i2c_id[] = {
 	{ MHL_DRIVER_NAME, 0 },
@@ -50,7 +45,6 @@ static struct i2c_device_id mhl_sii_i2c_id[] = {
 
 struct mhl_msm_state_t *mhl_msm_state;
 spinlock_t mhl_state_lock;
-struct workqueue_struct *msc_send_workqueue;
 
 static int mhl_i2c_probe(struct i2c_client *client,\
 	const struct i2c_device_id *id);
@@ -61,7 +55,6 @@ static void switch_mode(enum mhl_st_type to_mode);
 static irqreturn_t mhl_tx_isr(int irq, void *dev_id);
 void (*notify_usb_online)(int online);
 static void mhl_drive_hpd(uint8_t to_state);
-static int mhl_send_msc_command(struct msc_command_struct *req);
 
 static struct i2c_driver mhl_sii_i2c_driver = {
 	.driver = {
@@ -230,6 +223,12 @@ static int mhl_sii_gpio_setup(int on)
 
 	return 0;
 }
+
+bool mhl_is_connected(void)
+{
+	return true;
+}
+
 
 /*  USB_HANDSHAKING FUNCTIONS */
 
@@ -531,62 +530,34 @@ static int mhl_chip_init(void)
 static int mhl_i2c_probe(struct i2c_client *client,
 	const struct i2c_device_id *id)
 {
-	int ret;
-	struct msm_mhl_platform_data *tmp = client->dev.platform_data;
-	if (!tmp->mhl_enabled) {
-		ret = -ENODEV;
-		pr_warn("MHL feautre left disabled\n");
-		goto probe_early_exit;
-	}
+	int ret = -ENODEV;
 	mhl_msm_state->mhl_data = kzalloc(sizeof(struct msm_mhl_platform_data),
 		GFP_KERNEL);
 	if (!(mhl_msm_state->mhl_data)) {
 		ret = -ENOMEM;
 		pr_err("MHL I2C Probe failed - no mem\n");
-		goto probe_early_exit;
+		goto probe_exit;
 	}
 	mhl_msm_state->i2c_client = client;
+
 	spin_lock_init(&mhl_state_lock);
+
 	i2c_set_clientdata(client, mhl_msm_state);
 	mhl_msm_state->mhl_data = client->dev.platform_data;
 	pr_debug("MHL: mhl_msm_state->mhl_data->irq=[%d]\n",
 		mhl_msm_state->mhl_data->irq);
-	msc_send_workqueue = create_workqueue("mhl_msc_cmd_queue");
 
-	mhl_msm_state->cur_state = POWER_STATE_D0_MHL;
 	/* Init GPIO stuff here */
 	ret = mhl_sii_gpio_setup(1);
-	if (ret) {
+	if (ret == -1) {
 		pr_err("MHL: mhl_gpio_init has failed\n");
 		ret = -ENODEV;
-		goto probe_early_exit;
-	}
-	mhl_sii_power_on();
-	/* MHL SII 8334 chip specific init */
-	mhl_chip_init();
-	init_completion(&mhl_msm_state->rgnd_done);
-	/* Request IRQ stuff here */
-	pr_debug("MHL: mhl_msm_state->mhl_data->irq=[%d]\n",
-		mhl_msm_state->mhl_data->irq);
-	ret = request_threaded_irq(mhl_msm_state->mhl_data->irq, NULL,
-				   &mhl_tx_isr,
-				 IRQF_TRIGGER_LOW | IRQF_ONESHOT,
-				 "mhl_tx_isr", mhl_msm_state);
-	if (ret) {
-		pr_err("request_threaded_irq failed, status: %d\n",
-			ret);
 		goto probe_exit;
-	} else {
-		pr_debug("request_threaded_irq succeeded\n");
 	}
 
-	INIT_WORK(&mhl_msm_state->mhl_msc_send_work, mhl_msc_send_work);
-	INIT_LIST_HEAD(&mhl_msm_state->list_cmd);
-	mhl_msm_state->msc_command_put_work = list_cmd_put;
-	mhl_msm_state->msc_command_get_work = list_cmd_get;
-	init_completion(&mhl_msm_state->msc_cmd_done);
+	mhl_sii_power_on();
 
-	pr_debug("i2c probe successful\n");
+	pr_debug("I2C PROBE successful\n");
 	return 0;
 
 probe_exit:
@@ -596,7 +567,6 @@ probe_exit:
 		kfree(mhl_msm_state->mhl_data);
 		mhl_msm_state->mhl_data = NULL;
 	}
-probe_early_exit:
 	return ret;
 }
 
@@ -607,46 +577,6 @@ static int mhl_i2c_remove(struct i2c_client *client)
 	kfree(mhl_msm_state->mhl_data);
 	return 0;
 }
-
-static void list_cmd_put(struct msc_command_struct *cmd)
-{
-	struct msc_cmd_envelope *new_cmd;
-	new_cmd = vmalloc(sizeof(struct msc_cmd_envelope));
-	memcpy(&new_cmd->msc_cmd_msg, cmd,
-		sizeof(struct msc_command_struct));
-	/* Need to check for queue getting filled up */
-	list_add_tail(&new_cmd->msc_queue_envelope, &mhl_msm_state->list_cmd);
-}
-
-struct msc_command_struct *list_cmd_get(void)
-{
-	struct msc_cmd_envelope *cmd_env =
-		list_first_entry(&mhl_msm_state->list_cmd,
-			struct msc_cmd_envelope, msc_queue_envelope);
-	list_del(&cmd_env->msc_queue_envelope);
-	return &cmd_env->msc_cmd_msg;
-}
-
-static void mhl_msc_send_work(struct work_struct *work)
-{
-	int ret;
-	/*
-	 * Remove item from the queue
-	 * and schedule it
-	 */
-	struct msc_command_struct *req;
-	while (!list_empty(&mhl_msm_state->list_cmd)) {
-		req = mhl_msm_state->msc_command_get_work();
-		ret = mhl_send_msc_command(req);
-		if (ret == -EAGAIN)
-			pr_err("MHL: Queue still busy!!\n");
-		else {
-			vfree(req);
-			pr_debug("MESSAGE SENT!!!!\n");
-		}
-	}
-}
-
 
 static int __init mhl_msm_init(void)
 {
@@ -659,6 +589,7 @@ static int __init mhl_msm_init(void)
 		ret = -ENOMEM;
 		goto init_exit;
 	}
+
 	mhl_msm_state->i2c_client = NULL;
 	ret = i2c_add_driver(&mhl_sii_i2c_driver);
 	if (ret) {
@@ -667,7 +598,6 @@ static int __init mhl_msm_init(void)
 		goto init_exit;
 	} else {
 		if (mhl_msm_state->i2c_client == NULL) {
-			i2c_del_driver(&mhl_sii_i2c_driver);
 			pr_err("MHL: I2C driver add failed\n");
 			ret = -ENODEV;
 			goto init_exit;
@@ -675,24 +605,36 @@ static int __init mhl_msm_init(void)
 		pr_info("MHL: I2C driver added\n");
 	}
 
+	/* Request IRQ stuff here */
+	pr_debug("MHL: mhl_msm_state->mhl_data->irq=[%d]\n",
+		mhl_msm_state->mhl_data->irq);
+	ret = request_threaded_irq(mhl_msm_state->mhl_data->irq, NULL,
+				   &mhl_tx_isr,
+				 IRQF_TRIGGER_LOW | IRQF_ONESHOT,
+				 "mhl_tx_isr", mhl_msm_state);
+	if (ret != 0) {
+		pr_err("request_threaded_irq failed, status: %d\n",
+			ret);
+		ret = -EACCES; /* Error code???? */
+		goto init_exit;
+	} else
+		pr_debug("request_threaded_irq succeeded\n");
+
+	mhl_msm_state->cur_state = POWER_STATE_D0_MHL;
+
+	/* MHL SII 8334 chip specific init */
+	mhl_chip_init();
+	init_completion(&mhl_msm_state->rgnd_done);
 	return 0;
+
 init_exit:
 	pr_err("Exiting from the init with err\n");
+	i2c_del_driver(&mhl_sii_i2c_driver);
 	if (!mhl_msm_state) {
 		kfree(mhl_msm_state);
 		mhl_msm_state = NULL;
 	 }
 	 return ret;
-}
-
-static void mhl_msc_sched_work(struct msc_command_struct *req)
-{
-	/*
-	 * Put an item to the queue
-	 * and schedule work
-	 */
-	mhl_msm_state->msc_command_put_work(req);
-	queue_work(msc_send_workqueue, &mhl_msm_state->mhl_msc_send_work);
 }
 
 static void switch_mode(enum mhl_st_type to_mode)
@@ -724,8 +666,7 @@ static void switch_mode(enum mhl_st_type to_mode)
 			mhl_i2c_reg_write(TX_PAGE_3, 0x0030, 0xD0);
 			msleep(50);
 			mhl_i2c_reg_modify(TX_PAGE_3, 0x0010,
-				BIT1 | BIT0, 0x00);
-			mhl_i2c_reg_modify(TX_PAGE_3, 0x003D, BIT0, 0x00);
+				BIT1 | BIT0, BIT1);
 			spin_lock_irqsave(&mhl_state_lock, flags);
 			mhl_msm_state->cur_state = POWER_STATE_D3;
 			spin_unlock_irqrestore(&mhl_state_lock, flags);
@@ -800,7 +741,7 @@ static void mhl_msm_connection(void)
 	 * Need to re-enable here
 	 */
 	val = mhl_i2c_reg_read(TX_PAGE_3, 0x10);
-	mhl_i2c_reg_write(TX_PAGE_3, 0x10, val | BIT0);
+	mhl_i2c_reg_write(TX_PAGE_3, 0x10, val | BIT(0));
 
 	return;
 }
@@ -842,6 +783,9 @@ static int  mhl_msm_read_rgnd_int(void)
 	if (0x02 == rgnd_imp) {
 		pr_debug("MHL: MHL DEVICE!!!\n");
 		mhl_i2c_reg_modify(TX_PAGE_3, 0x0018, BIT0, BIT0);
+		/*
+		 * Handling the MHL event in driver
+		 */
 		mhl_msm_state->mhl_mode = TRUE;
 		if (notify_usb_online)
 			notify_usb_online(1);
@@ -978,7 +922,8 @@ static void int_5_isr(void)
 	uint8_t intr_5_stat;
 
 	/*
-	 * Clear INT 5
+	 * Clear INT 5 ??
+	 * Probably need to revisit this later
 	 * INTR5 is related to FIFO underflow/overflow reset
 	 * which is handled in 8334 by auto FIFO reset
 	 */
@@ -1014,455 +959,16 @@ static void int_1_isr(void)
 	return;
 }
 
-static void mhl_cbus_process_errors(u8 int_status)
-{
-	u8 abort_reason = 0;
-	if (int_status & BIT2) {
-		abort_reason = mhl_i2c_reg_read(TX_PAGE_CBUS, 0x0B);
-		pr_debug("%s: CBUS DDC Abort Reason(0x%02x)\n",
-			__func__, abort_reason);
-	}
-	if (int_status & BIT5) {
-		abort_reason = mhl_i2c_reg_read(TX_PAGE_CBUS, 0x0D);
-		pr_debug("%s: CBUS MSC Requestor Abort Reason(0x%02x)\n",
-			__func__, abort_reason);
-		mhl_i2c_reg_write(TX_PAGE_CBUS, 0x0D, 0xFF);
-	}
-	if (int_status & BIT6) {
-		abort_reason = mhl_i2c_reg_read(TX_PAGE_CBUS, 0x0E);
-		pr_debug("%s: CBUS MSC Responder Abort Reason(0x%02x)\n",
-			__func__, abort_reason);
-		mhl_i2c_reg_write(TX_PAGE_CBUS, 0x0E, 0xFF);
-	}
-}
-
-static int mhl_msc_command_done(struct msc_command_struct *req)
-{
-	switch (req->command) {
-	case MHL_WRITE_STAT:
-		if (req->offset == MHL_STATUS_REG_LINK_MODE) {
-			if (req->payload.data[0]
-				& MHL_STATUS_PATH_ENABLED) {
-				/* Enable TMDS output */
-				mhl_i2c_reg_modify(TX_PAGE_L0, 0x0080,
-								BIT4, BIT4);
-			} else
-				/* Disable TMDS output */
-				mhl_i2c_reg_modify(TX_PAGE_L0, 0x0080,
-								BIT4, BIT4);
-		}
-		break;
-	case MHL_READ_DEVCAP:
-		mhl_msm_state->devcap_state |= BIT(req->offset);
-		switch (req->offset) {
-		case MHL_DEV_CATEGORY_OFFSET:
-			if (req->retval & MHL_DEV_CATEGORY_POW_BIT) {
-				/*
-				 * Enable charging
-				 */
-			} else {
-				/*
-				 * Disable charging
-				 */
-			}
-			break;
-		case DEVCAP_OFFSET_MHL_VERSION:
-		case DEVCAP_OFFSET_INT_STAT_SIZE:
-			break;
-		}
-
-		break;
-	}
-	return 0;
-}
-
-static int mhl_send_msc_command(struct msc_command_struct *req)
-{
-	int timeout;
-	u8 start_bit = 0x00;
-	u8 *burst_data;
-	int i;
-
-	if (mhl_msm_state->cur_state != POWER_STATE_D0_MHL) {
-		pr_debug("%s: power_state:%02x CBUS(0x0A):%02x\n",
-		__func__,
-		mhl_msm_state->cur_state, mhl_i2c_reg_read(TX_PAGE_CBUS, 0x0A));
-		return -EFAULT;
-	}
-
-	if (!req)
-		return -EFAULT;
-
-	pr_debug("%s: command=0x%02x offset=0x%02x %02x %02x",
-		__func__,
-		req->command,
-		req->offset,
-		req->payload.data[0],
-		req->payload.data[1]);
-
-	mhl_i2c_reg_write(TX_PAGE_CBUS, 0x13, req->offset);
-	mhl_i2c_reg_write(TX_PAGE_CBUS, 0x14, req->payload.data[0]);
-
-	switch (req->command) {
-	case MHL_SET_INT:
-	case MHL_WRITE_STAT:
-		start_bit = MSC_START_BIT_WRITE_REG;
-		break;
-	case MHL_READ_DEVCAP:
-		start_bit = MSC_START_BIT_READ_REG;
-		break;
-	case MHL_GET_STATE:
-	case MHL_GET_VENDOR_ID:
-	case MHL_SET_HPD:
-	case MHL_CLR_HPD:
-	case MHL_GET_SC1_ERRORCODE:
-	case MHL_GET_DDC_ERRORCODE:
-	case MHL_GET_MSC_ERRORCODE:
-	case MHL_GET_SC3_ERRORCODE:
-		start_bit = MSC_START_BIT_MSC_CMD;
-		mhl_i2c_reg_write(TX_PAGE_CBUS, 0x13, req->command);
-		break;
-	case MHL_MSC_MSG:
-		start_bit = MSC_START_BIT_VS_CMD;
-		mhl_i2c_reg_write(TX_PAGE_CBUS, 0x15, req->payload.data[1]);
-		mhl_i2c_reg_write(TX_PAGE_CBUS, 0x13, req->command);
-		break;
-	case MHL_WRITE_BURST:
-		start_bit = MSC_START_BIT_WRITE_BURST;
-		mhl_i2c_reg_write(TX_PAGE_CBUS, 0x20, req->length - 1);
-		if (!(req->payload.burst_data)) {
-			pr_err("%s: burst data is null!\n", __func__);
-			goto cbus_send_fail;
-		}
-		burst_data = req->payload.burst_data;
-		for (i = 0; i < req->length; i++, burst_data++)
-			mhl_i2c_reg_write(TX_PAGE_CBUS, 0xC0 + i, *burst_data);
-		break;
-	default:
-		pr_err("%s: unknown command! (%02x)\n",
-			__func__, req->command);
-		goto cbus_send_fail;
-	}
-
-	INIT_COMPLETION(mhl_msm_state->msc_cmd_done);
-	mhl_i2c_reg_write(TX_PAGE_CBUS, 0x12, start_bit);
-	timeout = wait_for_completion_interruptible_timeout
-		(&mhl_msm_state->msc_cmd_done, HZ);
-	if (!timeout) {
-		pr_err("%s: cbus_command_send timed out!\n", __func__);
-		goto cbus_send_fail;
-	}
-
-	switch (req->command) {
-	case MHL_READ_DEVCAP:
-		/* devcap */
-		req->retval = mhl_i2c_reg_read(TX_PAGE_CBUS, 0x16);
-		pr_debug("Read CBUS[0x16]=[%02x]\n", req->retval);
-		break;
-	case MHL_MSC_MSG:
-		/* check if MSC_MSG NACKed */
-		if (mhl_i2c_reg_read(TX_PAGE_CBUS, 0x20) & BIT6)
-			return -EAGAIN;
-	default:
-		req->retval = 0;
-		break;
-	}
-	mhl_msc_command_done(req);
-	pr_debug("%s: msc cmd done\n", __func__);
-	return 0;
-
-cbus_send_fail:
-	return -EFAULT;
-}
-
-static int mhl_msc_send_set_int(u8 offset, u8 mask)
-{
-	struct msc_command_struct req;
-	req.command = MHL_SET_INT;
-	req.offset = offset;
-	req.payload.data[0] = mask;
-	mhl_msc_sched_work(&req);
-	return 0;
-}
-
-static int mhl_msc_send_write_stat(u8 offset, u8 value)
-{
-	struct msc_command_struct req;
-	req.command = MHL_WRITE_STAT;
-	req.offset = offset;
-	req.payload.data[0] = value;
-	mhl_msc_sched_work(&req);
-	return 0;
-}
-
-static int mhl_msc_send_msc_msg(u8 sub_cmd, u8 cmd_data)
-{
-	struct msc_command_struct req;
-	req.command = MHL_MSC_MSG;
-	req.payload.data[0] = sub_cmd;
-	req.payload.data[1] = cmd_data;
-	mhl_msc_sched_work(&req);
-	return 0;
-}
-
-static int mhl_msc_read_devcap(u8 offset)
-{
-	struct msc_command_struct req;
-	if (offset < 0 || offset > 15)
-		return -EFAULT;
-	req.command = MHL_READ_DEVCAP;
-	req.offset = offset;
-	req.payload.data[0] = 0;
-	mhl_msc_sched_work(&req);
-	return 0;
-}
-
-static int mhl_msc_read_devcap_all(void)
-{
-	int offset;
-	int ret;
-
-	for (offset = 0; offset < DEVCAP_SIZE; offset++) {
-		ret = mhl_msc_read_devcap(offset);
-		msleep(200);
-		if (ret == -EFAULT) {
-			pr_err("%s: queue busy!\n", __func__);
-			return -EBUSY;
-		}
-	}
-
-	return 0;
-}
-
-/* supported RCP key code */
-static const u8 rcp_key_code_tbl[] = {
-	0, 0, 0, 0, 0, 0, 0, 0,		/* 0x00~0x07 */
-	0, 0, 0, 0, 0, 0, 0, 0,		/* 0x08~0x0f */
-	0, 0, 0, 0, 0, 0, 0, 0,		/* 0x10~0x17 */
-	0, 0, 0, 0, 0, 0, 0, 0,		/* 0x18~0x1f */
-	0, 0, 0, 0, 0, 0, 0, 0,		/* 0x20~0x27 */
-	0, 0, 0, 0, 0, 0, 0, 0,		/* 0x28~0x2f */
-	0, 0, 0, 0, 0, 0, 0, 0,		/* 0x30~0x37 */
-	0, 0, 0, 0, 0, 0, 0, 0,		/* 0x38~0x3f */
-	0, 0, 0, 0, 0, 0, 0, 0,		/* 0x40~0x47 */
-	0, 0, 0, 0, 0, 0, 0, 0,		/* 0x48~0x4f */
-	0, 0, 0, 0, 0, 0, 0, 0,		/* 0x50~0x57 */
-	0, 0, 0, 0, 0, 0, 0, 0,		/* 0x58~0x5f */
-	0, 0, 0, 0, 0, 0, 0, 0,		/* 0x60~0x67 */
-	0, 0, 0, 0, 0, 0, 0, 0,		/* 0x68~0x6f */
-	0, 0, 0, 0, 0, 0, 0, 0,		/* 0x70~0x77 */
-	0, 0, 0, 0, 0, 0, 0, 0		/* 0x78~0x7f */
-};
-
-static int mhl_rcp_recv(u8 key_code)
-{
-	int rc;
-	if (rcp_key_code_tbl[(key_code & 0x7f)]) {
-		/*
-		 * TODO: Take action for the RCP cmd
-		 */
-
-		/* send ack to rcp cmd*/
-		rc = mhl_msc_send_msc_msg(
-			MHL_MSC_MSG_RCPK,
-			key_code);
-	} else {
-		/* send rcp error */
-		rc = mhl_msc_send_msc_msg(
-			MHL_MSC_MSG_RCPE,
-			MHL_RCPE_UNSUPPORTED_KEY_CODE);
-		if (rc)
-			return rc;
-		/* send rcpk after rcpe send */
-		rc = mhl_msc_send_msc_msg(
-			MHL_MSC_MSG_RCPK,
-			key_code);
-	}
-	return rc;
-}
-
-static int mhl_rap_action(u8 action_code)
-{
-	switch (action_code) {
-	case MHL_RAP_CONTENT_ON:
-		/*
-		 * Enable TMDS on TMDS_CCTRL
-		 */
-		mhl_i2c_reg_modify(TX_PAGE_L0, 0x0080, BIT4, BIT4);
-		break;
-	case MHL_RAP_CONTENT_OFF:
-		/*
-		 * Disable TMDS on TMDS_CCTRL
-		 */
-		mhl_i2c_reg_modify(TX_PAGE_L0, 0x0080, BIT4, 0x00);
-		break;
-	default:
-		break;
-	}
-	return 0;
-}
-
-static int mhl_rap_recv(u8 action_code)
-{
-	u8 error_code;
-
-	switch (action_code) {
-	/*case MHL_RAP_POLL:*/
-	case MHL_RAP_CONTENT_ON:
-	case MHL_RAP_CONTENT_OFF:
-		mhl_rap_action(action_code);
-		error_code = MHL_RAPK_NO_ERROR;
-		/* notify userspace */
-		break;
-	default:
-		error_code = MHL_RAPK_UNRECOGNIZED_ACTION_CODE;
-		break;
-	}
-	/* prior send rapk */
-	return mhl_msc_send_msc_msg(
-		MHL_MSC_MSG_RAPK,
-		error_code);
-}
-
-static int mhl_msc_recv_msc_msg(u8 sub_cmd, u8 cmd_data)
-{
-	int rc = 0;
-	switch (sub_cmd) {
-	case MHL_MSC_MSG_RCP:
-		pr_debug("MHL: receive RCP(0x%02x)\n", cmd_data);
-		rc = mhl_rcp_recv(cmd_data);
-		break;
-	case MHL_MSC_MSG_RCPK:
-		pr_debug("MHL: receive RCPK(0x%02x)\n", cmd_data);
-		break;
-	case MHL_MSC_MSG_RCPE:
-		pr_debug("MHL: receive RCPE(0x%02x)\n", cmd_data);
-		break;
-	case MHL_MSC_MSG_RAP:
-		pr_debug("MHL: receive RAP(0x%02x)\n", cmd_data);
-		rc = mhl_rap_recv(cmd_data);
-		break;
-	case MHL_MSC_MSG_RAPK:
-		pr_debug("MHL: receive RAPK(0x%02x)\n", cmd_data);
-		break;
-	default:
-		break;
-	}
-	return rc;
-}
-
-static int mhl_msc_recv_set_int(u8 offset, u8 set_int)
-{
-	if (offset >= 2)
-		return -EFAULT;
-
-	switch (offset) {
-	case 0:
-		/* DCAP_CHG */
-		if (set_int & MHL_INT_DCAP_CHG) {
-			/* peer dcap has changed */
-			if (mhl_msc_read_devcap_all() == -EBUSY) {
-				pr_err("READ DEVCAP FAILED to send successfully\n");
-				break;
-			}
-		}
-		/* DSCR_CHG */
-		if (set_int & MHL_INT_DSCR_CHG)
-			;
-		/* REQ_WRT */
-		if (set_int & MHL_INT_REQ_WRT) {
-			/* SET_INT: GRT_WRT */
-			mhl_msc_send_set_int(
-				MHL_RCHANGE_INT,
-				MHL_INT_GRT_WRT);
-		}
-		/* GRT_WRT */
-		if (set_int & MHL_INT_GRT_WRT)
-			;
-		break;
-	case 1:
-		/* EDID_CHG */
-		if (set_int & MHL_INT_EDID_CHG) {
-			/* peer EDID has changed.
-			 * toggle HPD to read EDID again
-			 * In 8x30 FLUID  HDMI HPD line
-			 * is not connected
-			 * with MHL 8334 transmitter
-			 */
-		}
-	}
-	return 0;
-}
-
-static int mhl_msc_recv_write_stat(u8 offset, u8 value)
-{
-	if (offset >= 2)
-		return -EFAULT;
-
-	switch (offset) {
-	case 0:
-		/* DCAP_RDY */
-		/*
-		 * Connected Device bits changed and DEVCAP READY
-		 */
-		pr_debug("MHL: value [0x%02x]\n", value);
-		pr_debug("MHL: offset [0x%02x]\n", offset);
-		pr_debug("MHL: devcap state [0x%02x]\n",
-			mhl_msm_state->devcap_state);
-		pr_debug("MHL: MHL_STATUS_DCAP_RDY [0x%02x]\n",
-			MHL_STATUS_DCAP_RDY);
-		if (((value ^ mhl_msm_state->devcap_state) &
-			MHL_STATUS_DCAP_RDY)) {
-			if (value & MHL_STATUS_DCAP_RDY) {
-				if (mhl_msc_read_devcap_all() == -EBUSY) {
-					pr_err("READ DEVCAP FAILED to send successfully\n");
-					break;
-				}
-			} else {
-				/* peer dcap turned not ready */
-				/*
-				 * Clear DEVCAP READY state
-				 */
-			}
-		}
-		break;
-	case 1:
-		/* PATH_EN */
-		/*
-		 * Connected Device bits changed and PATH ENABLED
-		 */
-		if ((value ^ mhl_msm_state->path_en_state)
-			& MHL_STATUS_PATH_ENABLED) {
-			if (value & MHL_STATUS_PATH_ENABLED) {
-				mhl_msm_state->path_en_state
-					|= (MHL_STATUS_PATH_ENABLED |
-					MHL_STATUS_CLK_MODE_NORMAL);
-				mhl_msc_send_write_stat(
-					MHL_STATUS_REG_LINK_MODE,
-					mhl_msm_state->path_en_state);
-			} else {
-				mhl_msm_state->path_en_state
-					&= ~(MHL_STATUS_PATH_ENABLED |
-					MHL_STATUS_CLK_MODE_NORMAL);
-				mhl_msc_send_write_stat(
-					MHL_STATUS_REG_LINK_MODE,
-					mhl_msm_state->path_en_state);
-			}
-		}
-		break;
-	}
-	mhl_msm_state->path_en_state = value;
-	return 0;
-}
-
-
-/* MSC, RCP, RAP messages - mandatory for compliance */
+/*
+ * RCP, RAP messages - mandatory for compliance
+ *
+ */
 static void mhl_cbus_isr(void)
 {
 	uint8_t regval;
 	int req_done = FALSE;
-	uint8_t sub_cmd = 0x0;
-	uint8_t cmd_data = 0x0;
+	uint8_t sub_cmd;
+	uint8_t cmd_data;
 	int msc_msg_recved = FALSE;
 	int rc = -1;
 
@@ -1470,27 +976,21 @@ static void mhl_cbus_isr(void)
 	if (regval == 0xff)
 		return;
 
-	/*
-	 * clear all interrupts that were raised
-	 * even if we did not process
-	 */
+	/* clear all interrupts that were raised even if we did not process */
 	if (regval)
 		mhl_i2c_reg_write(TX_PAGE_CBUS, 0x08, regval);
 
 	pr_debug("%s: CBUS_INT = %02x\n", __func__, regval);
 
 	/* MSC_MSG (RCP/RAP) */
-	if (regval & BIT3) {
+	if (regval & BIT(3)) {
 		sub_cmd = mhl_i2c_reg_read(TX_PAGE_CBUS, 0x18);
 		cmd_data = mhl_i2c_reg_read(TX_PAGE_CBUS, 0x19);
 		msc_msg_recved = TRUE;
 	}
-	/* MSC_MT_ABRT/MSC_MR_ABRT/DDC_ABORT */
-	if (regval & (BIT6 | BIT5 | BIT2))
-		mhl_cbus_process_errors(regval);
 
 	/* MSC_REQ_DONE */
-	if (regval & BIT4)
+	if (regval & BIT(4))
 		req_done = TRUE;
 
 	/* Now look for interrupts on CBUS_MSC_INT2 */
@@ -1504,15 +1004,11 @@ static void mhl_cbus_isr(void)
 	pr_debug("%s: CBUS_MSC_INT2 = %02x\n", __func__, regval);
 
 	/* received SET_INT */
-	if (regval & BIT2) {
+	if (regval & BIT(2)) {
 		uint8_t intr;
 		intr = mhl_i2c_reg_read(TX_PAGE_CBUS, 0xA0);
-		mhl_msc_recv_set_int(0, intr);
-
 		pr_debug("%s: MHL_INT_0 = %02x\n", __func__, intr);
 		intr = mhl_i2c_reg_read(TX_PAGE_CBUS, 0xA1);
-		mhl_msc_recv_set_int(1, intr);
-
 		pr_debug("%s: MHL_INT_1 = %02x\n", __func__, intr);
 		mhl_i2c_reg_write(TX_PAGE_CBUS, 0xA0, 0xFF);
 		mhl_i2c_reg_write(TX_PAGE_CBUS, 0xA1, 0xFF);
@@ -1521,14 +1017,11 @@ static void mhl_cbus_isr(void)
 	}
 
 	/* received WRITE_STAT */
-	if (regval & BIT3) {
+	if (regval & BIT(3)) {
 		uint8_t stat;
 		stat = mhl_i2c_reg_read(TX_PAGE_CBUS, 0xB0);
-		mhl_msc_recv_write_stat(0, stat);
-
 		pr_debug("%s: MHL_STATUS_0 = %02x\n", __func__, stat);
 		stat = mhl_i2c_reg_read(TX_PAGE_CBUS, 0xB1);
-		mhl_msc_recv_write_stat(1, stat);
 		pr_debug("%s: MHL_STATUS_1 = %02x\n", __func__, stat);
 
 		mhl_i2c_reg_write(TX_PAGE_CBUS, 0xB0, 0xFF);
@@ -1540,13 +1033,9 @@ static void mhl_cbus_isr(void)
 	/* received MSC_MSG */
 	if (msc_msg_recved) {
 		/*mhl msc recv msc msg*/
-		rc = mhl_msc_recv_msc_msg(sub_cmd, cmd_data);
 		if (rc)
 			pr_err("MHL: mhl msc recv msc msg failed(%d)!\n", rc);
 	}
-	/* complete last command */
-	if (req_done)
-		complete_all(&mhl_msm_state->msc_cmd_done);
 
 	return;
 }

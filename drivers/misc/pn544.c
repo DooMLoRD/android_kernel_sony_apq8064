@@ -1,6 +1,6 @@
 /* drivers/misc/pn544.c
  *
- * Copyright (C) 2012 Sony Mobile Communications AB.
+ * Copyright (C) 2012-2013 Sony Mobile Communications AB.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2, as
@@ -27,9 +27,10 @@
 #include <linux/list.h>
 #include <linux/pn544.h>
 
-#define PN544_WAKE_LOCK_TIMEOUT	(HZ * 5)
+#define PN544_WAKE_LOCK_TIMEOUT	(HZ)
 #define MAX_FIRMDL_FRAME_SIZE	(3 + 512)
 #define MAX_NORMAL_FRAME_SIZE	(1 + 32)
+#define MAX_I2C_RETRY_COUNT	5
 
 struct pn544_dev {
 	struct list_head		node;
@@ -102,9 +103,9 @@ static int pn544_dev_update_frame(struct pn544_dev *d, size_t size)
 	maxlen = fwdl ? MAX_FIRMDL_FRAME_SIZE : MAX_NORMAL_FRAME_SIZE;
 retry:
 	ret = i2c_master_recv(d->i2c_client, d->res, offset);
-	if (ret == -ENODEV || ret == -ENOTCONN) {
+	if (ret == -ENODEV || ret == -ENOTCONN || ret == -EIO) {
 		retry_count++;
-		if (retry_count > 5)
+		if (retry_count > MAX_I2C_RETRY_COUNT)
 			goto exit;
 		usleep_range(10000, 10000);
 		dev_err(d->dev, "%s: i2c read err %d, but retry %d\n",
@@ -132,7 +133,7 @@ retry:
 		goto exit;
 	}
 
-	len = fwdl ? (d->res[1] << 8 | d->res[2]) : d->res[0];
+	len = d->res[0];
 	if (len == 0) {
 		dev_dbg(d->dev, "%s: parameters length zero\n", __func__);
 		d->res_size = offset;
@@ -145,7 +146,19 @@ retry:
 	}
 
 	dev_dbg(d->dev, "%s: parameters length %d\n", __func__, len);
+	retry_count = 0;
+
+retry_read:
 	ret = i2c_master_recv(d->i2c_client, d->res + offset, len);
+	if (ret == -EIO) {
+		retry_count++;
+		if (retry_count > MAX_I2C_RETRY_COUNT)
+			goto exit;
+		dev_err(d->dev, "%s: i2c read err %d, but retry %d\n",
+			__func__, ret, retry_count);
+		goto retry_read;
+	}
+
 	if (ret != len) {
 		dev_err(d->dev, "%s: i2c read err %d\n", __func__, ret);
 		if (ret > 0)
@@ -271,7 +284,7 @@ retry:
 	ret = i2c_master_send(d->i2c_client, d->cmd, size);
 	if (ret == -ENODEV || ret == -ENOTCONN) {
 		retry_count++;
-		if (retry_count > 5)
+		if (retry_count > MAX_I2C_RETRY_COUNT)
 			goto exit;
 		usleep_range(10000, 10000);
 		dev_err(d->dev, "%s: i2c write err %d, but retry %d\n",

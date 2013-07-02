@@ -1,7 +1,7 @@
 /*
  *  Video for Linux Two header file
  *
- *  Copyright (C) 1999-2007,2013 the contributors
+ *  Copyright (C) 1999-2007 the contributors
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -1803,14 +1803,9 @@ enum v4l2_mpeg_vidc_video_h264_au_delimiter {
 	V4L2_MPEG_VIDC_VIDEO_H264_AU_DELIMITER_DISABLED = 0,
 	V4L2_MPEG_VIDC_VIDEO_H264_AU_DELIMITER_ENABLED = 1
 };
-#define V4L2_CID_MPEG_VIDC_VIDEO_SYNC_FRAME_DECODE \
-		(V4L2_CID_MPEG_MSM_VIDC_BASE + 23)
-enum v4l2_mpeg_vidc_video_sync_frame_decode {
-	V4L2_MPEG_VIDC_VIDEO_SYNC_FRAME_DECODE_DISABLE = 0,
-	V4L2_MPEG_VIDC_VIDEO_SYNC_FRAME_DECODE_ENABLE = 1
-};
+
 #define V4L2_CID_MPEG_VIDC_VIDEO_H264_VUI_TIMING_INFO \
-		(V4L2_CID_MPEG_MSM_VIDC_BASE + 24)
+		(V4L2_CID_MPEG_MSM_VIDC_BASE + 23)
 enum v4l2_mpeg_vidc_video_h264_vui_timing_info {
 	V4L2_MPEG_VIDC_VIDEO_H264_VUI_TIMING_INFO_DISABLED = 0,
 	V4L2_MPEG_VIDC_VIDEO_H264_VUI_TIMING_INFO_ENABLED = 1
@@ -2093,7 +2088,6 @@ struct v4l2_enc_idx {
 #define V4L2_ENC_CMD_STOP       (1)
 #define V4L2_ENC_CMD_PAUSE      (2)
 #define V4L2_ENC_CMD_RESUME     (3)
-#define V4L2_ENC_QCOM_CMD_FLUSH  (4)
 
 /* Flags for V4L2_ENC_CMD_STOP */
 #define V4L2_ENC_CMD_STOP_AT_GOP_END    (1 << 0)
@@ -2130,9 +2124,6 @@ struct v4l2_encoder_cmd {
 /* Flags for V4L2_DEC_QCOM_CMD_FLUSH */
 #define V4L2_DEC_QCOM_CMD_FLUSH_OUTPUT  (1 << 0)
 #define V4L2_DEC_QCOM_CMD_FLUSH_CAPTURE (1 << 1)
-
-#define V4L2_QCOM_CMD_FLUSH_OUTPUT  (1 << 0)
-#define V4L2_QCOM_CMD_FLUSH_CAPTURE (1 << 1)
 
 /* Play format requirements (returned by the driver): */
 

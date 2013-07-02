@@ -2,7 +2,7 @@
 #define _MSM_KGSL_H
 
 #define KGSL_VERSION_MAJOR        3
-#define KGSL_VERSION_MINOR        11
+#define KGSL_VERSION_MINOR        14
 
 /*context flags */
 #define KGSL_CONTEXT_SAVE_GMEM		0x00000001
@@ -12,11 +12,48 @@
 #define KGSL_CONTEXT_PREAMBLE		0x00000010
 #define KGSL_CONTEXT_TRASH_STATE	0x00000020
 #define KGSL_CONTEXT_PER_CONTEXT_TS	0x00000040
+#define KGSL_CONTEXT_USER_GENERATED_TS	0x00000080
+#define KGSL_CONTEXT_NO_FAULT_TOLERANCE 0x00000200
+
 
 #define KGSL_CONTEXT_INVALID 0xffffffff
 
 /* Memory allocayion flags */
 #define KGSL_MEMFLAGS_GPUREADONLY	0x01000000
+
+#define KGSL_MEMTYPE_MASK		0x0000FF00
+#define KGSL_MEMTYPE_SHIFT		8
+
+/* Memory types for which allocations are made */
+#define KGSL_MEMTYPE_OBJECTANY			0
+#define KGSL_MEMTYPE_FRAMEBUFFER		1
+#define KGSL_MEMTYPE_RENDERBUFFER		2
+#define KGSL_MEMTYPE_ARRAYBUFFER		3
+#define KGSL_MEMTYPE_ELEMENTARRAYBUFFER		4
+#define KGSL_MEMTYPE_VERTEXARRAYBUFFER		5
+#define KGSL_MEMTYPE_TEXTURE			6
+#define KGSL_MEMTYPE_SURFACE			7
+#define KGSL_MEMTYPE_EGL_SURFACE		8
+#define KGSL_MEMTYPE_GL				9
+#define KGSL_MEMTYPE_CL				10
+#define KGSL_MEMTYPE_CL_BUFFER_MAP		11
+#define KGSL_MEMTYPE_CL_BUFFER_NOMAP		12
+#define KGSL_MEMTYPE_CL_IMAGE_MAP		13
+#define KGSL_MEMTYPE_CL_IMAGE_NOMAP		14
+#define KGSL_MEMTYPE_CL_KERNEL_STACK		15
+#define KGSL_MEMTYPE_COMMAND			16
+#define KGSL_MEMTYPE_2D				17
+#define KGSL_MEMTYPE_EGL_IMAGE			18
+#define KGSL_MEMTYPE_EGL_SHADOW			19
+#define KGSL_MEMTYPE_MULTISAMPLE		20
+#define KGSL_MEMTYPE_KERNEL			255
+
+/*
+ * Alignment hint, passed as the power of 2 exponent.
+ * i.e 4k (2^12) would be 12, 64k (2^16)would be 16.
+ */
+#define KGSL_MEMALIGN_MASK		0x00FF0000
+#define KGSL_MEMALIGN_SHIFT		16
 
 /* generic flag values */
 #define KGSL_FLAGS_NORMALMODE  0x00000000
@@ -38,6 +75,9 @@
 #define KGSL_CLK_MEM	0x00000008
 #define KGSL_CLK_MEM_IFACE 0x00000010
 #define KGSL_CLK_AXI	0x00000020
+
+/* Server Side Sync Timeout in milliseconds */
+#define KGSL_SYNCOBJ_SERVER_TIMEOUT 2000
 
 /*
  * Reset status values for context
@@ -125,6 +165,31 @@ enum kgsl_property_type {
 	KGSL_PROP_VERSION         = 0x00000008,
 	KGSL_PROP_GPU_RESET_STAT  = 0x00000009,
 	KGSL_PROP_PWRCTRL         = 0x0000000E,
+	KGSL_PROP_FAULT_TOLERANCE = 0x00000011,
+};
+
+/* Fault Tolerance policy flags */
+#define  KGSL_FT_DISABLE                  0x00000001
+#define  KGSL_FT_REPLAY                   0x00000002
+#define  KGSL_FT_SKIPIB                   0x00000004
+#define  KGSL_FT_SKIPFRAME                0x00000008
+#define  KGSL_FT_DEFAULT_POLICY           (KGSL_FT_REPLAY + KGSL_FT_SKIPIB)
+
+/* Pagefault policy flags */
+#define KGSL_FT_PAGEFAULT_INT_ENABLE         0x00000001
+#define KGSL_FT_PAGEFAULT_GPUHALT_ENABLE     0x00000002
+#define KGSL_FT_PAGEFAULT_LOG_ONE_PER_PAGE   0x00000004
+#define KGSL_FT_PAGEFAULT_LOG_ONE_PER_INT    0x00000008
+#define KGSL_FT_PAGEFAULT_DEFAULT_POLICY     (KGSL_FT_PAGEFAULT_INT_ENABLE + \
+					KGSL_FT_PAGEFAULT_LOG_ONE_PER_PAGE)
+
+/* Fault tolerance config */
+struct kgsl_ft_config {
+	unsigned int ft_policy;    /* Fault Tolerance policy flags */
+	unsigned int ft_pf_policy; /* Pagefault policy flags */
+	unsigned int ft_pm_dump;   /* KGSL enable postmortem dump */
+	unsigned int ft_detect_ms;
+	unsigned int ft_dos_timeout_ms;
 };
 
 struct kgsl_shadowprop {
@@ -278,8 +343,7 @@ struct kgsl_map_user_mem {
 	unsigned int offset;
 	unsigned int hostptr;   /*input param */
 	enum kgsl_user_mem_type memtype;
-	unsigned int reserved;	/* May be required to add
-				params for another mem type */
+	unsigned int flags;
 };
 
 #define IOCTL_KGSL_MAP_USER_MEM \
@@ -367,6 +431,12 @@ struct kgsl_bind_gmem_shadow {
     _IOW(KGSL_IOC_TYPE, 0x22, struct kgsl_bind_gmem_shadow)
 
 /* add a block of memory into the GPU address space */
+
+/*
+ * IOCTL_KGSL_SHAREDMEM_FROM_VMALLOC deprecated 09/2012
+ * use IOCTL_KGSL_GPUMEM_ALLOC instead
+ */
+
 struct kgsl_sharedmem_from_vmalloc {
 	unsigned int gpuaddr;	/*output param */
 	unsigned int hostptr;
@@ -426,7 +496,8 @@ struct kgsl_cff_syncmem {
 
 /*
  * A timestamp event allows the user space to register an action following an
- * expired timestamp.
+ * expired timestamp. Note IOCTL_KGSL_TIMESTAMP_EVENT has been redefined to
+ * _IOWR to support fences which need to return a fd for the priv parameter.
  */
 
 struct kgsl_timestamp_event {
@@ -437,7 +508,7 @@ struct kgsl_timestamp_event {
 	size_t len;              /* Size of the event specific blob */
 };
 
-#define IOCTL_KGSL_TIMESTAMP_EVENT \
+#define IOCTL_KGSL_TIMESTAMP_EVENT_OLD \
 	_IOW(KGSL_IOC_TYPE, 0x31, struct kgsl_timestamp_event)
 
 /* A genlock timestamp event releases an existing lock on timestamp expire */
@@ -448,6 +519,14 @@ struct kgsl_timestamp_event_genlock {
 	int handle; /* Handle of the genlock lock to release */
 };
 
+/* A fence timestamp event releases an existing lock on timestamp expire */
+
+#define KGSL_TIMESTAMP_EVENT_FENCE 2
+
+struct kgsl_timestamp_event_fence {
+	int fence_fd; /* Fence to signal */
+};
+
 /*
  * Set a property within the kernel.  Uses the same structure as
  * IOCTL_KGSL_GETPROPERTY
@@ -455,6 +534,9 @@ struct kgsl_timestamp_event_genlock {
 
 #define IOCTL_KGSL_SETPROPERTY \
 	_IOW(KGSL_IOC_TYPE, 0x32, struct kgsl_device_getproperty)
+
+#define IOCTL_KGSL_TIMESTAMP_EVENT \
+	_IOWR(KGSL_IOC_TYPE, 0x33, struct kgsl_timestamp_event)
 
 #ifdef __KERNEL__
 #ifdef CONFIG_MSM_KGSL_DRM

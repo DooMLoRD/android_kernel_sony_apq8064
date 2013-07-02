@@ -1313,7 +1313,6 @@ static ssize_t mipi_dsi_panel_nvm_store(struct device *dev,
 {
 	struct mipi_dsi_data *dsi_data = dev_get_drvdata(dev);
 	struct msm_fb_data_type *mfd = dsi_data->nvrw_private;
-	struct msm_fb_panel_data *pdata;
 	int rc;
 	enum power_state old_state = PANEL_OFF;
 
@@ -1394,10 +1393,11 @@ release_exit:
 	mfd->nvrw_prohibit_draw = false;
 
 	if (dsi_data->nvrw_panel_detective) {
-		pdata = (struct msm_fb_panel_data *)mfd->pdev->
-						dev.platform_data;
-		pdata->off(mfd->pdev);
-		pdata->on(mfd->pdev);
+		struct fb_info *fbi = mfd->fbi;
+		if (fbi && fbi->fbops && fbi->fbops->fb_blank) {
+			fbi->fbops->fb_blank(FB_BLANK_POWERDOWN, fbi);
+			fbi->fbops->fb_blank(FB_BLANK_UNBLANK, fbi);
+		}
 	}
 exit:
 	return count;

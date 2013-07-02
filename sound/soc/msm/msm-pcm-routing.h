@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -33,17 +33,17 @@
 #define LPASS_BE_INCALL_RECORD_TX "INCALL_RECORD_RX"
 #define LPASS_BE_SEC_I2S_RX "SECONDARY_I2S_RX"
 
-#define LPASS_BE_MI2S_RX "MI2S_RX"
-#define LPASS_BE_MI2S_TX "MI2S_TX"
-#define LPASS_BE_STUB_RX "STUB_RX"
-#define LPASS_BE_STUB_TX "STUB_TX"
-#define LPASS_BE_SLIMBUS_1_RX "SLIMBUS_1_RX"
-#define LPASS_BE_SLIMBUS_1_TX "SLIMBUS_1_TX"
-#define LPASS_BE_STUB_1_TX "STUB_1_TX"
-#define LPASS_BE_SLIMBUS_3_RX "SLIMBUS_3_RX"
-#define LPASS_BE_SLIMBUS_3_TX "SLIMBUS_3_TX"
-#define LPASS_BE_SLIMBUS_4_RX "SLIMBUS_4_RX"
-#define LPASS_BE_SLIMBUS_4_TX "SLIMBUS_4_TX"
+#define LPASS_BE_MI2S_RX "(Backend) MI2S_RX"
+#define LPASS_BE_MI2S_TX "(Backend) MI2S_TX"
+#define LPASS_BE_STUB_RX "(Backend) STUB_RX"
+#define LPASS_BE_STUB_TX "(Backend) STUB_TX"
+#define LPASS_BE_SLIMBUS_1_RX "(Backend) SLIMBUS_1_RX"
+#define LPASS_BE_SLIMBUS_1_TX "(Backend) SLIMBUS_1_TX"
+#define LPASS_BE_STUB_1_TX "(Backend) STUB_1_TX"
+#define LPASS_BE_SLIMBUS_3_RX "(Backend) SLIMBUS_3_RX"
+#define LPASS_BE_SLIMBUS_3_TX "(Backend) SLIMBUS_3_TX"
+#define LPASS_BE_SLIMBUS_4_RX "(Backend) SLIMBUS_4_RX"
+#define LPASS_BE_SLIMBUS_4_TX "(Backend) SLIMBUS_4_TX"
 
 /* For multimedia front-ends, asm session is allocated dynamically.
  * Hence, asm session/multimedia front-end mapping has to be maintained.
@@ -66,7 +66,9 @@ enum {
 	MSM_FRONTEND_DAI_AFE_TX,
 	MSM_FRONTEND_DAI_VOICE_STUB,
 	MSM_FRONTEND_DAI_VOLTE,
-	MSM_FRONTEND_DAI_SGLTE,
+	MSM_FRONTEND_DAI_VOICE2,
+	MSM_FRONTEND_DAI_VOLTE_STUB,
+	MSM_FRONTEND_DAI_VOICE2_STUB,
 	MSM_FRONTEND_DAI_MAX,
 };
 
