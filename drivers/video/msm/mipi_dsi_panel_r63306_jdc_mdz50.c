@@ -122,7 +122,7 @@ static char ddb_wri_ctl[1 + NVRW_NUM_E6_PARAM] = {
 	0xE6, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
 };
 static char vcomdc_set[1 + NVRW_NUM_DE_PARAM] = {
-	0xDE, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	0xDE, 0x10, 0x80, 0x11, 0x0E, 0x00, 0x00, 0x00,
 	0x00, 0x00, 0x00, 0x00, 0x00
 };
 
@@ -213,6 +213,55 @@ static struct dsi_cmd_desc display_init_cmd_seq[] = {
 		sizeof(set_address_mode), set_address_mode},
 	{DTYPE_GEN_WRITE2, 1, 0, 0, 0,
 		sizeof(mcap), mcap},
+};
+
+static struct dsi_cmd_desc display_def_sets_cmd_seq[] = {
+	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(test_mode1), test_mode1},
+	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(dev_code), dev_code},
+	{DTYPE_GEN_WRITE2, 1, 0, 0, 0,
+		sizeof(auto_cmd_refresh), auto_cmd_refresh},
+	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(pix_fmt), pix_fmt},
+	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(dsi_ctl), dsi_ctl},
+	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(pfm_pwm_ctl), pfm_pwm_ctl},
+	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(panel_driving), panel_driving},
+	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(dsp_h_timming), dsp_h_timming},
+	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(src_output), src_output},
+	{DTYPE_GEN_LWRITE, 1, 0, 0, 0,
+		sizeof(gate_drv_if_ctl), gate_drv_if_ctl},
+	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(ltps_if_ctrl), ltps_if_ctrl},
+	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(pbctrl_ctl), pbctrl_ctl},
+	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(dsp_rgb_sw_odr), dsp_rgb_sw_odr},
+	{DTYPE_GEN_WRITE2, 1, 0, 0, 0, sizeof(ltps_if_ctl), ltps_if_ctl},
+	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(pow_set1), pow_set1},
+	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(pow_set2), pow_set2},
+	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(pow_internal), pow_internal},
+	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(vol_set), vol_set},
+	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(vcomdc_set), vcomdc_set},
+	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(nvm_ld_ctl), nvm_ld_ctl},
+	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(reg_wri_ctl), reg_wri_ctl},
+	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(gamma_ctrl), gamma_ctrl},
+	{DTYPE_GEN_LWRITE, 1, 0, 0, 0,
+		sizeof(gamma_ctrl_set_r_pos), gamma_ctrl_set_r_pos},
+	{DTYPE_GEN_LWRITE, 1, 0, 0, 0,
+		sizeof(gamma_ctrl_set_r_neg), gamma_ctrl_set_r_neg},
+	{DTYPE_GEN_LWRITE, 1, 0, 0, 0,
+		sizeof(gamma_ctrl_set_g_pos), gamma_ctrl_set_g_pos},
+	{DTYPE_GEN_LWRITE, 1, 0, 0, 0,
+		sizeof(gamma_ctrl_set_g_neg), gamma_ctrl_set_g_neg},
+	{DTYPE_GEN_LWRITE, 1, 0, 0, 0,
+		sizeof(gamma_ctrl_set_b_pos), gamma_ctrl_set_b_pos},
+	{DTYPE_GEN_LWRITE, 1, 0, 0, 0,
+		sizeof(gamma_ctrl_set_b_neg), gamma_ctrl_set_b_neg},
+	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(test_mode7), test_mode7},
+	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(test_mode8), test_mode8},
+	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(test_mode9), test_mode9},
+	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(test_mode10), test_mode10},
+	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(test_mode11), test_mode11},
+	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(test_mode12), test_mode12},
+	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(test_mode13), test_mode13},
+	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(test_mode14), test_mode14},
+	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(test_mode15), test_mode15},
+	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(test_mode16), test_mode16},
 };
 
 static struct dsi_cmd_desc display_on_cmd_seq[] = {
@@ -335,6 +384,8 @@ static struct dsi_cmd_desc nvm_terminate_cmd_seq[] = {
 static const struct panel_cmd display_init_cmds[] = {
 	{CMD_DSI, {.dsi_payload = {display_init_cmd_seq,
 				ARRAY_SIZE(display_init_cmd_seq)} } },
+	{CMD_DSI, {.dsi_payload = {display_def_sets_cmd_seq,
+				ARRAY_SIZE(display_def_sets_cmd_seq)} } },
 	{CMD_END, {} },
 };
 

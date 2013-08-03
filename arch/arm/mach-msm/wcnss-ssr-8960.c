@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  * Copyright (C) 2012 Sony Mobile Communications AB.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -54,6 +54,8 @@ static void smsm_state_cb_hdlr(void *data, uint32_t old_state,
 
 	pr_err("%s: smsm state changed\n", MODULE_NAME);
 
+	wcnss_riva_dump_pmic_regs();
+
 	if (!(new_state & SMSM_RESET))
 		return;
 
@@ -66,7 +68,6 @@ static void smsm_state_cb_hdlr(void *data, uint32_t old_state,
 	if (!enable_riva_ssr)
 		panic(MODULE_NAME ": SMSM reset request received from Riva");
 
-	wcnss_riva_dump_pmic_regs();
 	smem_reset_reason = smem_get_entry(SMEM_SSR_REASON_WCNSS0,
 			&smem_reset_size);
 

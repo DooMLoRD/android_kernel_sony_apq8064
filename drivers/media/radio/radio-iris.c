@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -3532,8 +3532,8 @@ static int iris_vidioc_s_ctrl(struct file *file, void *priv,
 			radio->is_station_valid = INVALID_CHANNEL;
 		break;
 	case V4L2_CID_PRIVATE_RXREPEATCOUNT:
-		rd.mode = 0x01;
-		rd.length = 6;
+		rd.mode = RDS_PS0_XFR_MODE;
+		rd.length = RDS_PS0_LEN;
 		rd.param_len = 0;
 		rd.param = 0;
 
@@ -3542,11 +3542,11 @@ static int iris_vidioc_s_ctrl(struct file *file, void *priv,
 			FMDERR("default data read failed for PS0 %x", retval);
 			return retval;
 		}
-		wrd.mode = 0x01;
-		wrd.length = 6;
+		wrd.mode = RDS_PS0_XFR_MODE;
+		wrd.length = RDS_PS0_LEN;
 		memcpy(&wrd.data, &radio->default_data.data,
-		radio->default_data.ret_data_len);
-		wrd.data[5] = ctrl->value;
+				radio->default_data.ret_data_len);
+		wrd.data[RX_REPEATE_BYTE_OFFSET] = ctrl->value;
 
 		retval = hci_def_data_write(&wrd, radio->fm_hdev);
 		if (retval < 0)

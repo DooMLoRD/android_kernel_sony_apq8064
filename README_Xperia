@@ -3,7 +3,7 @@ Configuration files can be found in arch/arm/configs.
   Xperia ZL       -> fusion3_odin_defconfig
   Xperia Z        -> fusion3_yuga_defconfig
   Xperia ZR       -> fusion3_dogo_defconfig
-
+  Xperia Tablet Z -> fusion3_pollux_defconfig
 
 How to flash your kernel using Fastboot:
 

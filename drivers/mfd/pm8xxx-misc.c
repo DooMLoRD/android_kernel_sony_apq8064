@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  * Copyright (C) 2012 Sony Mobile Communications AB.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -229,7 +229,6 @@ int pm8xxx_read_register(u16 addr, u8 *value)
 	return rc;
 }
 EXPORT_SYMBOL_GPL(pm8xxx_read_register);
-
 
 /*
  * Set an SMPS regulator to be disabled in its CTRL register, but enabled
