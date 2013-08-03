@@ -313,6 +313,16 @@ obj-$(CONFIG_MACH_SONY_YUGA) += board-sony_fusion3-all.o board-sony_fusion3_yuga
 obj-$(CONFIG_MACH_SONY_YUGA) += board-sony_yuga-camera.o board-sony_yuga-pmic.o board-sony_yuga-gpiomux.o board-sony_yuga-regulator.o board-sony_yuga-touch.o
 obj-$(CONFIG_MACH_SONY_YUGA) += board-sony_yuga-mpu.o gyro-semc_common.o bms-batterydata-lucius.o
 
+board-sony_fusion3-pollux-all-objs += board-sony_fusion3.o board-sony_fusion3-storage.o board-8064-gpu.o board-sony_fusion3-hwrev.o
+board-sony_fusion3-pollux-all-objs += board-sony_pollux-display.o
+board-sony_fusion3-pollux-all-objs += board-sony_fusion3_pollux.o
+board-sony_fusion3-pollux-all-objs += board-sony_pollux-camera.o board-sony_pollux-touch.o board-sony_pollux-mpu.o gyro-semc_common.o
+
+obj-$(CONFIG_MACH_SONY_POLLUX) += board-sony_fusion3-pollux-all.o
+obj-$(CONFIG_MACH_SONY_POLLUX) += board-sony_pollux-pmic.o board-sony_pollux-gpiomux.o board-sony_pollux-regulator.o
+obj-$(CONFIG_MACH_SONY_POLLUX) += bms-batterydata-gemini.o
+obj-$(CONFIG_MACH_SONY_POLLUX) += board-sony_ir_remote.o
+
 obj-$(CONFIG_MACH_SONY_ODIN) += board-sony_fusion3-all.o board-sony_fusion3_odin.o
 obj-$(CONFIG_MACH_SONY_ODIN) += board-sony_odin-camera.o board-sony_odin-pmic.o board-sony_odin-gpiomux.o board-sony_odin-regulator.o board-sony_odin-mpu.o board-sony_odin-touch.o
 obj-$(CONFIG_MACH_SONY_ODIN) += gyro-semc_common.o bms-batterydata-sleipner.o

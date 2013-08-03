@@ -620,17 +620,23 @@ void ddl_calc_dec_hw_buffers_size(enum vcd_codec codec, u32 width,
 			(codec == VCD_CODEC_DIVX_6) ||
 			(codec == VCD_CODEC_XVID) ||
 			(codec == VCD_CODEC_H263)) {
+			u32 val = DDL_MAX(DDL_MAX_FRAME_WIDTH,
+				DDL_MAX_FRAME_HEIGHT);
+			sz_sub_anchor_mv = DDL_ALIGN(((val >> 4) * 128 * 2 * 8),
+				DDL_LINEAR_BUFFER_ALIGN_BYTES);
 			sz_nb_dcac = DDL_KILO_BYTE(16);
 			sz_upnb_mv = DDL_KILO_BYTE(68);
-			sz_sub_anchor_mv = DDL_KILO_BYTE(136);
 			sz_overlap_xform = DDL_KILO_BYTE(32);
 			if (codec != VCD_CODEC_H263)
 				sz_stx_parser = DDL_KILO_BYTE(68);
 		} else if ((codec == VCD_CODEC_VC1) ||
 			(codec == VCD_CODEC_VC1_RCV)) {
+			u32 val = DDL_MAX(DDL_MAX_FRAME_WIDTH,
+				DDL_MAX_FRAME_HEIGHT);
+			sz_sub_anchor_mv = DDL_ALIGN(((val >> 4) * 128 * 2 * 8),
+				DDL_LINEAR_BUFFER_ALIGN_BYTES);
 			sz_nb_dcac = DDL_KILO_BYTE(16);
 			sz_upnb_mv = DDL_KILO_BYTE(68);
-			sz_sub_anchor_mv = DDL_KILO_BYTE(136);
 			sz_overlap_xform = DDL_KILO_BYTE(32);
 			sz_bit_plane3 = DDL_KILO_BYTE(2);
 			sz_bit_plane2 = DDL_KILO_BYTE(2);
@@ -1056,6 +1062,23 @@ u32 ddl_check_reconfig(struct ddl_client_context *ddl)
 			decoder->progressive_only)
 				need_reconfig = false;
 	}
+	DDL_MSG_HIGH("%s(): need_reconfig = %u, cont_mode = %u\n"\
+	"Actual: WxH = %ux%u, SxSH = %ux%u, sz = %u, min = %u, act = %u\n"\
+	"Client: WxH = %ux%u, SxSH = %ux%u, sz = %u, min = %u, act = %u\n",
+	__func__, need_reconfig, decoder->cont_mode,
+	decoder->frame_size.width, decoder->frame_size.height,
+	decoder->frame_size.stride, decoder->frame_size.scan_lines,
+	decoder->actual_output_buf_req.sz,
+	decoder->actual_output_buf_req.min_count,
+	decoder->actual_output_buf_req.actual_count,
+	decoder->client_frame_size.width,
+	decoder->client_frame_size.height,
+	decoder->client_frame_size.stride,
+	decoder->client_frame_size.scan_lines,
+	decoder->client_output_buf_req.sz,
+	decoder->client_output_buf_req.min_count,
+	decoder->client_output_buf_req.actual_count);
+
 	return need_reconfig;
 }
 

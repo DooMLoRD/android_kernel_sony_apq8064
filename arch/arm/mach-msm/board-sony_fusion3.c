@@ -216,6 +216,8 @@
 
 #if defined(CONFIG_MACH_SONY_YUGA)
 #include "board-sony_fusion3_yuga.h"
+#elif defined(CONFIG_MACH_SONY_POLLUX)
+#include "board-sony_fusion3_pollux.h"
 #elif defined(CONFIG_MACH_SONY_ODIN)
 #include "board-sony_fusion3_odin.h"
 #elif defined(CONFIG_MACH_SONY_DOGO)
@@ -3168,10 +3170,10 @@ static struct platform_device msm_tsens_device = {
 
 static struct msm_thermal_data msm_thermal_pdata = {
 	.sensor_id = 7,
-	.poll_ms = 250,
-	.limit_temp_degC = 60,
-	.temp_hysteresis_degC = 10,
-	.freq_step = 2,
+	.poll_ms = 1000,
+	.limit_temp_degC = 110,
+	.temp_hysteresis_degC = 5,
+	.freq_step = 1,
 	.core_limit_temp_degC = 80,
 	.core_temp_hysteresis_degC = 10,
 	.core_control_mask = 0xe,
@@ -4431,7 +4433,7 @@ static void __init apq8064_common_init(void)
 	platform_add_devices(common_devices, ARRAY_SIZE(common_devices));
 		msm_hsic_pdata.swfi_latency =
 			msm_rpmrs_levels[0].latency_us;
-	if (machine_is_apq8064_mtp() || machine_is_sony_fusion3()) {
+	if ((machine_is_apq8064_mtp() || machine_is_sony_fusion3())) {
 		msm_hsic_pdata.log2_irq_thresh = 5;
 		apq8064_device_hsic_host.dev.platform_data = &msm_hsic_pdata;
 		device_initialize(&apq8064_device_hsic_host.dev);
@@ -4439,7 +4441,7 @@ static void __init apq8064_common_init(void)
 	apq8064_pm8xxx_gpio_mpp_init();
 	apq8064_init_mmc();
 
-	if (machine_is_apq8064_mtp() || machine_is_sony_fusion3()) {
+	if ((machine_is_apq8064_mtp() || machine_is_sony_fusion3())) {
 		mdm_8064_device.dev.platform_data = &amdm_platform_data;
 		platform_device_register(&mdm_8064_device);
 	}
@@ -4453,6 +4455,7 @@ static void __init apq8064_common_init(void)
 	switch (sony_hw()) {
 	case HW_ODIN:
 	case HW_YUGA:
+	case HW_POLLUX:
 	case HW_DOGO:
 		nfc_vreg_low_power_mode();
 	}

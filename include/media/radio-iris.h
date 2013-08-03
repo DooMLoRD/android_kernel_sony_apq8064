@@ -54,6 +54,10 @@
 #define FM_TX_PHY_CFG_MODE   0x3c
 #define FM_TX_PHY_CFG_LEN    0x10
 #define FM_TX_PWR_GAIN_OFFSET 14
+#define RDS_PS0_XFR_MODE 0x01
+#define RDS_PS0_LEN 6
+#define RX_REPEATE_BYTE_OFFSET 5
+
 /* HCI timeouts */
 #define RADIO_HCI_TIMEOUT	(10000)	/* 10 seconds */
 

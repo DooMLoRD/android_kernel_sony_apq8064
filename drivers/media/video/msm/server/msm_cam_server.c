@@ -456,18 +456,27 @@ static int msm_server_control(struct msm_cam_server_dev *server_dev,
 	} while (1);
 	D("Waiting is over for config status\n");
 	if (list_empty_careful(&queue->list)) {
-		if (!rc)
+		if (!rc) {
 			rc = -ETIMEDOUT;
+			msm_drain_eventq(
+			&server_dev->server_queue[out->queue_idx].eventData_q);
+		}
 		if (rc < 0) {
 			if (++server_dev->server_evt_id == 0)
 				server_dev->server_evt_id++;
 			pr_err("%s: wait_event error %d\n", __func__, rc);
 			return rc;
+		} else {
+			pr_err("%s: List is empty\n", __func__);
+			return -EINVAL;
 		}
 	}
 
 	rcmd = msm_dequeue(queue, list_control);
-	BUG_ON(!rcmd);
+	if (!rcmd) {
+		pr_err("%s: List is empty\n", __func__);
+		return -EINVAL;
+	}
 	D("%s Finished servicing ioctl\n", __func__);
 
 	ctrlcmd = (struct msm_ctrl_cmd *)(rcmd->command);
@@ -494,6 +503,7 @@ static int msm_server_control(struct msm_cam_server_dev *server_dev,
 	return rc;
 
 ctrlcmd_alloc_fail:
+	mutex_unlock(&server_dev->server_queue_lock);
 	kfree(isp_event);
 isp_event_alloc_fail:
 	kfree(event_qcmd);
@@ -2613,8 +2623,10 @@ int msm_cam_server_close_mctl_session(struct msm_cam_v4l2_device *pcam)
 		return -ENODEV;
 	}
 
-	if (pmctl->mctl_release)
+	if (pmctl->mctl_release) {
 		pmctl->mctl_release(pmctl);
+		pmctl->mctl_release = NULL;
+	}
 
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
 	kref_put(&pmctl->refcount, msm_release_ion_client);
@@ -2771,6 +2783,7 @@ int msm_server_send_ctrl(struct msm_ctrl_cmd *out,
 	return rc;
 
 ctrlcmd_alloc_fail:
+	mutex_unlock(&server_dev->server_queue_lock);
 	kfree(isp_event);
 isp_event_alloc_fail:
 	kfree(event_qcmd);
@@ -2826,6 +2839,11 @@ static int msm_open_config(struct inode *inode, struct file *fp)
 	config_cam->use_count++;
 
 	/* assume there is only one active camera possible*/
+	if (!g_server_dev.pcam_active[config_cam->dev_num]) {
+		pr_err("%s: camera %d is not active\n", __func__, config_cam->dev_num);
+		config_cam->use_count--;
+		return -ENODEV;
+	}
 	config_cam->p_mctl = msm_cam_server_get_mctl(
 		g_server_dev.pcam_active[config_cam->dev_num]->mctl_handle);
 	if (!config_cam->p_mctl) {

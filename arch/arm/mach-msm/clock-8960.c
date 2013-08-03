@@ -1535,6 +1535,10 @@ static struct clk_freq_tbl clk_tbl_sdc[] = {
 	F_SDC( 17070000, pll8,  1, 2,  45),
 	F_SDC( 20210000, pll8,  1, 1,  19),
 	F_SDC( 24000000, pll8,  4, 1,   4),
+#ifdef CONFIG_MMC_MSM_SDC3_POLLUX_DOWN_CLKRATE
+	F_SDC( 32000000, pll8,  4, 1,   3),
+	F_SDC( 40000000, pll8,  1, 5,  48),
+#endif /* CONFIG_MMC_MSM_SDC3_POLLUX_DOWN_CLKRATE */
 	F_SDC( 48000000, pll8,  4, 1,   2),
 	F_SDC( 64000000, pll8,  3, 1,   2),
 	F_SDC( 96000000, pll8,  4, 0,   0),
