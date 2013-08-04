@@ -176,9 +176,9 @@ static int simple_governor(struct kgsl_device *device, int idle_stat)
 	} else {
 		if ((pwr->active_pwrlevel >= 0) &&
 			(pwr->active_pwrlevel < (pwr->num_pwrlevels - 1)))
-			if (lazyness > 0) {
+			if (laziness > 0) {
 				/* hold off for a while */
-				lazyness--;
+				laziness--;
 				val = 0; /* don't change anything yet */
 			} else {
 				val = 1; /* above min, lower it */
