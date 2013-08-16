@@ -16,6 +16,10 @@ then
 
 ### copy zImage
 cp arch/arm/boot/zImage ../final_files/.
+cp drivers/staging/prima/wlan.ko ../final_files/prima_wlan.ko
+cp net/wireless/cfg80211.ko ../final_files/.
+~/arm-linux-androideabi-4.7/bin/arm-linux-androideabi-strip --strip-unneeded ../final_files/prima_wlan.ko
+~/arm-linux-androideabi-4.7/bin/arm-linux-androideabi-strip --strip-unneeded ../final_files/cfg80211.ko 
 
 echo "DONE"
 
