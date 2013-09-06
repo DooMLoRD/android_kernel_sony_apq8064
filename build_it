@@ -18,8 +18,12 @@ then
 cp arch/arm/boot/zImage ../final_files/.
 cp drivers/staging/prima/wlan.ko ../final_files/prima_wlan.ko
 cp net/wireless/cfg80211.ko ../final_files/.
+cp drivers/exfat/exfat_core.ko ../final_files/.
+cp drivers/exfat/exfat_fs.ko ../final_files/.
 ~/arm-linux-androideabi-4.7/bin/arm-linux-androideabi-strip --strip-unneeded ../final_files/prima_wlan.ko
 ~/arm-linux-androideabi-4.7/bin/arm-linux-androideabi-strip --strip-unneeded ../final_files/cfg80211.ko 
+~/arm-linux-androideabi-4.7/bin/arm-linux-androideabi-strip --strip-unneeded ../final_files/exfat_core.ko
+~/arm-linux-androideabi-4.7/bin/arm-linux-androideabi-strip --strip-unneeded ../final_files/exfat_fs.ko
 
 echo "DONE"
 
