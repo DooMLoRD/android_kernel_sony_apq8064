@@ -990,6 +990,10 @@ config TOUCHSCREEN_SYNAPTICS_DT2WAKE
         tristate "DoubleTap2Wake for SYNAPTICS_3k based touchscreens"
         default y
 
+config TOUCHSCREEN_SWEEP2WAKE
+        tristate "Sweep2Wake for touchscreens"
+        default y
+
 
 config TOUCHSCREEN_SYNAPTICS_I2C_RMI4
 	tristate "Synaptics DSX I2C touchscreen"

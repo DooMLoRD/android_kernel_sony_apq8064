@@ -136,9 +136,10 @@ do {					\
 	mutex_unlock(&this->lock);	\
 } while (0)
 
-#ifdef CONFIG_TOUCHSCREEN_SYNAPTICS_DT2WAKE
+int screen_sus=0;
 int cancel_pwrtrigger = 0;
 int dt2w_switch = 1;
+int s2w_switch =1;
 cputime64_t pwrtrigger_time[2] = {0, 0};
 
 static struct input_dev * dt2wake_pwrdev;
@@ -153,8 +154,8 @@ EXPORT_SYMBOL(dt2wake_setdev);
 
 static void dt2wake_presspwr(struct work_struct * dt2wake_presspwr_work) {
 
-  //if (!mutex_trylock(&pwrkeyworklock))
-                  //return;
+  if (!mutex_trylock(&pwrkeyworklock))
+                  return;
     input_event(dt2wake_pwrdev, EV_KEY, KEY_POWER, 1);
     input_event(dt2wake_pwrdev, EV_SYN, 0, 0);
     msleep(100);
@@ -189,6 +190,8 @@ static int __init get_dt2w_opt(char *dt2w)
 
 __setup("dt2w=", get_dt2w_opt);
 
+#ifdef CONFIG_TOUCHSCREEN_SYNAPTICS_DT2WAKE
+
 static ssize_t synaptics_doubletap2wake_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
   size_t count = 0;
@@ -207,6 +210,32 @@ static ssize_t synaptics_doubletap2wake_dump(struct device *dev, struct device_a
 
 static DEVICE_ATTR(doubletap2wake, (S_IWUSR|S_IRUGO),
   synaptics_doubletap2wake_show, synaptics_doubletap2wake_dump);
+#endif
+
+#ifdef CONFIG_TOUCHSCREEN_SWEEP2WAKE
+
+static ssize_t lge_touch_sweep2wake_show(struct device *dev,
+    struct device_attribute *attr, char *buf)
+{
+  size_t count = 0;
+
+  count += sprintf(buf, "%d\n", s2w_switch);
+
+  return count;
+}
+
+static ssize_t lge_touch_sweep2wake_dump(struct device *dev,
+    struct device_attribute *attr, const char *buf, size_t count)
+{
+  if (buf[0] >= '0' && buf[0] <= '2' && buf[1] == '\n')
+                if (s2w_switch != buf[0] - '0')
+            s2w_switch = buf[0] - '0';
+
+  return count;
+}
+
+static DEVICE_ATTR(sweep2wake, (S_IWUSR|S_IRUGO),
+  lge_touch_sweep2wake_show, lge_touch_sweep2wake_dump);
 #endif
 
 enum synaptics_state {
@@ -1880,7 +1909,7 @@ exit:
 
 static void dt2w_func() {
 
-      printk("[DT2W]: OFF->ON\n");
+      printk("[Gesture_Wake]: OFF->ON\n");
       cancel_pwrtrigger = 0;
       dt2wake_pwrtrigger();
       return;
@@ -1913,7 +1942,7 @@ static int synaptics_clearpad_handle_gesture(struct synaptics_clearpad *this)
 					"double_tap");
 		
 		#ifdef CONFIG_TOUCHSCREEN_SYNAPTICS_DT2WAKE
-		if(dt2w_switch == 1)
+		if(dt2w_switch == 1 && screen_sus==0)
    		dt2w_func();
 		#endif 
 
@@ -1925,6 +1954,11 @@ static int synaptics_clearpad_handle_gesture(struct synaptics_clearpad *this)
 	case XY_LPWG_STATUS_TWO_SWIPE_DETECTED:
 		rc = evgen_execute(this->input, this->evgen_blocks,
 					"two_swipe");
+		#ifdef CONFIG_TOUCHSCREEN_SWEEP2WAKE
+		if(s2w_switch == 1)
+   		dt2w_func();
+		#endif
+
 		break;
 	default:
 		rc = -EINVAL;
@@ -2598,18 +2632,33 @@ static int lge_touch_sysfs_init(void)
     return ret;
   }
 
+  #ifdef CONFIG_TOUCHSCREEN_SWEEP2WAKE
+  ret = sysfs_create_file(android_touch_kobj, &dev_attr_sweep2wake.attr);
+  if (ret) {
+    printk(KERN_ERR "%s: sysfs_create_file failed\n", __func__);
+    return ret;
+  }
+  #endif
+
+  #ifdef CONFIG_TOUCHSCREEN_SYNAPTICS_DT2WAKE
   ret = sysfs_create_file(android_touch_kobj, &dev_attr_doubletap2wake.attr);
   if (ret) {
     printk(KERN_ERR "%s: sysfs_create_file failed\n", __func__);
     return ret;
   }
+  #endif
  return 0 ;
 }
 
 static void lge_touch_sysfs_deinit(void)
 {
+  #ifdef CONFIG_TOUCHSCREEN_SWEEP2WAKE
+  sysfs_remove_file(android_touch_kobj, &dev_attr_sweep2wake.attr);
+  #endif
+  #ifdef CONFIG_TOUCHSCREEN_SYNAPTICS_DT2WAKE
   sysfs_remove_file(android_touch_kobj,&dev_attr_doubletap2wake.attr);
   kobject_del(android_touch_kobj);
+  #endif
 }
 
 static int create_sysfs_entries(struct synaptics_clearpad *this)
@@ -2755,6 +2804,11 @@ static int synaptics_clearpad_pm_suspend(struct device *dev)
 	struct synaptics_clearpad *this = dev_get_drvdata(dev);
 	unsigned long flags;
 
+	#ifdef CONFIG_TOUCHSCREEN_SWEEP2WAKE
+	printk("\n [S2W]: Screen suspended\n");
+        screen_sus = 1;
+	#endif
+
 	spin_lock_irqsave(&this->slock, flags);
 	if (unlikely(this->dev_busy)) {
 		dev_info(dev, "Busy to suspend\n");
@@ -2770,7 +2824,7 @@ static int synaptics_clearpad_pm_suspend(struct device *dev)
 		return rc;
 #endif
 	
-	if (device_may_wakeup(dev)||dt2w_switch==1) {
+	if (device_may_wakeup(dev)||dt2w_switch==1||s2w_switch==1) {
 		enable_irq_wake(this->pdata->irq);
 		dev_info(&this->pdev->dev, "enable irq wake");
 	}
@@ -2783,7 +2837,12 @@ static int synaptics_clearpad_pm_resume(struct device *dev)
 	unsigned long flags;
 	bool irq_pending;
 
-	if (device_may_wakeup(dev)||dt2w_switch==1) {
+	#ifdef CONFIG_TOUCHSCREEN_SWEEP2WAKE
+	printk("\n [S2W]: Screen not suspended\n");        
+	screen_sus = 0;
+	#endif
+
+	if (device_may_wakeup(dev)||dt2w_switch==1||s2w_switch==1) {
 		disable_irq_wake(this->pdata->irq);
 		dev_info(&this->pdev->dev, "disable irq wake");
 	}
