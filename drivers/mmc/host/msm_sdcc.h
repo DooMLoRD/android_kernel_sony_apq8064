@@ -3,6 +3,7 @@
  *
  *  Copyright (C) 2008 Google, All Rights Reserved.
  *  Copyright (c) 2009-2012, The Linux Foundation. All rights reserved.
+ *  Copyright (C) 2013 Sony Mobile Communications AB.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -214,6 +215,7 @@
 #define NR_SG		128
 
 #define MSM_MMC_DEFAULT_IDLE_TIMEOUT	5000 /* msecs */
+#define MSM_MMC_SDCARD_DEFAULT_IDLE_TIMEOUT	50000 /* msecs */
 #define MSM_MMC_CLK_GATE_DELAY	200 /* msecs */
 
 /* Set the request timeout to 30 secs */
@@ -252,6 +254,12 @@
 #define MMC_MAX_DMA_BOX_LENGTH (MMC_MAX_DMA_ROWS * MCI_FIFOSIZE)
 #define MMC_MAX_DMA_CMDS (MAX_NR_SG_DMA_PIO * (MMC_MAX_REQ_SIZE / \
 		MMC_MAX_DMA_BOX_LENGTH))
+
+/*
+ * Peripheral bus clock scaling vote rates
+ */
+#define MSMSDCC_BUS_VOTE_MAX_RATE	64000000 /* Hz */
+#define MSMSDCC_BUS_VOTE_MIN_RATE	32000000 /* Hz */
 
 struct clk;
 
@@ -353,6 +361,7 @@ struct msmsdcc_host {
 	struct clk		*clk;		/* main MMC bus clock */
 	struct clk		*pclk;		/* SDCC peripheral bus clock */
 	struct clk		*bus_clk;	/* SDCC bus voter clock */
+	unsigned long		bus_clk_rate;	/* peripheral bus clk rate */
 	atomic_t		clks_on;	/* set if clocks are enabled */
 
 	unsigned int		eject;		/* eject state */

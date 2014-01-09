@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  * Copyright (C) 2012-2013 Sony Mobile Communications AB.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -176,7 +176,7 @@
 #define MSM_ION_MFC_META_SIZE	0x40000 /* 256 Kbytes */
 #define MSM_CONTIG_MEM_SIZE	0x65000
 #ifdef CONFIG_MSM_IOMMU
-#define MSM_ION_MM_SIZE		0x5000000
+#define MSM_ION_MM_SIZE		0x6000000
 #define MSM_ION_CAMERA_SIZE	0x3200000
 #define MSM_ION_SF_SIZE		0
 #define MSM_ION_QSECOM_SIZE	0x780000 /* (7.5MB) */
@@ -217,6 +217,8 @@
 #if defined(CONFIG_MACH_SONY_YUGA)
 #include "board-sony_fusion3_yuga.h"
 #elif defined(CONFIG_MACH_SONY_POLLUX)
+#include "board-sony_fusion3_pollux.h"
+#elif defined(CONFIG_MACH_SONY_POLLUX_WINDY)
 #include "board-sony_fusion3_pollux.h"
 #elif defined(CONFIG_MACH_SONY_ODIN)
 #include "board-sony_fusion3_odin.h"
@@ -343,6 +345,8 @@ static void __init reserve_rtb_memory(void)
 {
 #if defined(CONFIG_MSM_RTB)
 	apq8064_reserve_table[MEMTYPE_EBI1].size += apq8064_rtb_pdata.size;
+	pr_info("mem_map: rtb reserved with size 0x%x in pool\n",
+			apq8064_rtb_pdata.size);
 #endif
 }
 
@@ -375,7 +379,9 @@ static void __init reserve_pmem_memory(void)
 	reserve_memory_for(&android_pmem_pdata);
 	reserve_memory_for(&android_pmem_audio_pdata);
 #endif /*CONFIG_MSM_MULTIMEDIA_USE_ION*/
-apq8064_reserve_table[MEMTYPE_EBI1].size += msm_contig_mem_size;
+    apq8064_reserve_table[MEMTYPE_EBI1].size += msm_contig_mem_size;
+	pr_info("mem_map: contig_mem reserved with size 0x%x in pool\n",
+			msm_contig_mem_size);
 #endif /*CONFIG_ANDROID_PMEM*/
 }
 
@@ -555,6 +561,9 @@ static void __init apq8064_reserve_fixed_area(unsigned long fixed_area_size)
 
 	ret = memblock_remove(reserve_info->fixed_area_start,
 		reserve_info->fixed_area_size);
+	pr_info("mem_map: fixed_area reserved at 0x%lx with size 0x%lx\n",
+		reserve_info->fixed_area_start,
+		reserve_info->fixed_area_size);
 	BUG_ON(ret);
 #endif
 }
@@ -624,7 +633,7 @@ static void __init reserve_ion_memory(void)
 
 			if (fixed_position != NOT_FIXED)
 				fixed_size += heap->size;
-			else
+			else if (!use_cma)
 				reserve_mem_for_ion(MEMTYPE_EBI1, heap->size);
 
 			if (fixed_position == FIXED_LOW) {
@@ -668,6 +677,9 @@ static void __init reserve_ion_memory(void)
 		BUG_ON(!IS_ALIGNED(fixed_low_size + HOLE_SIZE, SECTION_SIZE));
 		ret = memblock_remove(fixed_low_start,
 				      fixed_low_size + HOLE_SIZE);
+		pr_info("mem_map: fixed_low_area reserved at 0x%lx with size \
+				0x%x\n", fixed_low_start,
+				      fixed_low_size + HOLE_SIZE);
 		BUG_ON(ret);
 	}
 
@@ -678,6 +690,9 @@ static void __init reserve_ion_memory(void)
 	} else {
 		BUG_ON(!IS_ALIGNED(fixed_middle_size, SECTION_SIZE));
 		ret = memblock_remove(fixed_middle_start, fixed_middle_size);
+		pr_info("mem_map: fixed_middle_area reserved at 0x%lx with \
+				size 0x%x\n", fixed_middle_start,
+				fixed_middle_size);
 		BUG_ON(ret);
 	}
 
@@ -689,6 +704,9 @@ static void __init reserve_ion_memory(void)
 		/* This is the end of the fixed area so it's okay to round up */
 		fixed_high_size = ALIGN(fixed_high_size, SECTION_SIZE);
 		ret = memblock_remove(fixed_high_start, fixed_high_size);
+		pr_info("mem_map: fixed_high_area reserved at 0x%lx with size \
+				0x%x\n", fixed_high_start,
+				fixed_high_size);
 		BUG_ON(ret);
 	}
 
@@ -756,6 +774,8 @@ static void __init reserve_cache_dump_memory(void)
 	total = apq8064_cache_dump_pdata.l1_size +
 		apq8064_cache_dump_pdata.l2_size;
 	apq8064_reserve_table[MEMTYPE_EBI1].size += total;
+	pr_info("mem_map: cache_dump reserved with size 0x%x in pool\n",
+			total);
 #endif
 }
 
@@ -3137,7 +3157,7 @@ static struct mdm_vddmin_resource mdm_vddmin_rscs = {
 
 static struct gpiomux_setting mdm2ap_status_gpio_run_cfg = {
 	.func = GPIOMUX_FUNC_GPIO,
-	.drv = GPIOMUX_DRV_8MA,
+	.drv = GPIOMUX_DRV_2MA,
 	.pull = GPIOMUX_PULL_NONE,
 };
 
@@ -3878,6 +3898,7 @@ static struct platform_device *cdp_devices[] __initdata = {
 	&msm_rotator_device,
 #endif
 	&msm8064_pc_cntr,
+	&msm8064_cpu_slp_status,
 };
 
 
@@ -4336,7 +4357,8 @@ static void __init register_i2c_devices(void)
 	/* Build the matching 'supported_machs' bitmask */
 	if (machine_is_apq8064_cdp())
 		mach_mask = I2C_SURF;
-	else if (machine_is_apq8064_mtp() || machine_is_sony_fusion3())
+	else if (machine_is_apq8064_mtp() || machine_is_sony_fusion3() ||
+		machine_is_sony_pollux_windy())
 		mach_mask = I2C_FFA;
 	else if (machine_is_apq8064_liquid())
 		mach_mask = I2C_LIQUID;
@@ -4440,7 +4462,8 @@ static void __init apq8064_common_init(void)
 	platform_add_devices(common_devices, ARRAY_SIZE(common_devices));
 		msm_hsic_pdata.swfi_latency =
 			msm_rpmrs_levels[0].latency_us;
-	if ((machine_is_apq8064_mtp() || machine_is_sony_fusion3())) {
+	if ((machine_is_apq8064_mtp() || machine_is_sony_fusion3()) &&
+		!machine_is_sony_pollux_windy()) {
 		msm_hsic_pdata.log2_irq_thresh = 5;
 		apq8064_device_hsic_host.dev.platform_data = &msm_hsic_pdata;
 		device_initialize(&apq8064_device_hsic_host.dev);
@@ -4448,7 +4471,8 @@ static void __init apq8064_common_init(void)
 	apq8064_pm8xxx_gpio_mpp_init();
 	apq8064_init_mmc();
 
-	if ((machine_is_apq8064_mtp() || machine_is_sony_fusion3())) {
+	if ((machine_is_apq8064_mtp() || machine_is_sony_fusion3()) &&
+		!machine_is_sony_pollux_windy()) {
 		mdm_8064_device.dev.platform_data = &amdm_platform_data;
 		platform_device_register(&mdm_8064_device);
 	}
@@ -4497,7 +4521,11 @@ static void __init sony_fusion3_very_early_init(void)
 	apq8064_early_reserve();
 }
 
+#if defined(CONFIG_MACH_SONY_POLLUX_WINDY)
+MACHINE_START(SONY_POLLUX_WINDY, "Sony Mobile fusion3")
+#else
 MACHINE_START(SONY_FUSION3, "Sony Mobile fusion3")
+#endif
 	.map_io = apq8064_map_io,
 	.reserve = apq8064_reserve,
 	.init_irq = apq8064_init_irq,

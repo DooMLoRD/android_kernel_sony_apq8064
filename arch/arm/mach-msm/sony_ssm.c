@@ -17,7 +17,7 @@
 #include <linux/platform_device.h>
 #include <linux/fs.h>
 #include <linux/suspend.h>
-#include <linux/earlysuspend.h>
+#include <linux/fb.h>
 
 #define MODULE_NAME "sony_ssm"
 
@@ -28,8 +28,8 @@ enum ssm_state {
 
 struct ssm_data {
 	struct device *dev;
-	struct early_suspend early_suspend;
 	struct notifier_block pm_notifier;
+	struct notifier_block fb_notif;
 	struct mutex lock;
 	bool enabled;
 	bool notify_next_suspend_prepare;
@@ -48,16 +48,35 @@ static void ssm_notify(struct ssm_data *sd, enum ssm_state state)
 	kobject_uevent_env(&sd->dev->kobj, KOBJ_CHANGE, envp);
 }
 
-static void ssm_late_resume(struct early_suspend *h)
+static int fb_notifier_callback(struct notifier_block *self,
+				 unsigned long event, void *data)
 {
-	struct ssm_data *sd = container_of(h, struct ssm_data, early_suspend);
+	struct ssm_data *sd;
+	struct fb_event *evdata = data;
 
-	dev_dbg(sd->dev, "%s\n", __func__);
+	/* If we aren't interested in this event, skip it immediately ... */
+	if (event != FB_EVENT_BLANK || *(int *)evdata->data != FB_BLANK_UNBLANK)
+		return 0;
+
+	sd = container_of(self, struct ssm_data, fb_notif);
 
 	mutex_lock(&sd->lock);
 	if (sd->notify_late_resume)
 		ssm_notify(sd, SSM_LATE_RESUME);
 	mutex_unlock(&sd->lock);
+	return 0;
+}
+
+static int register_fb(struct ssm_data *sd)
+{
+	memset(&sd->fb_notif, 0, sizeof(sd->fb_notif));
+	sd->fb_notif.notifier_call = fb_notifier_callback;
+	return fb_register_client(&sd->fb_notif);
+}
+
+static void unregister_fb(struct ssm_data *sd)
+{
+	fb_unregister_client(&sd->fb_notif);
 }
 
 static int ssm_pm_notifier(struct notifier_block *nb, unsigned long event,
@@ -102,7 +121,12 @@ static int ssm_enable(struct ssm_data *sd)
 		goto exit;
 	}
 
-	register_early_suspend(&sd->early_suspend);
+	rc = register_fb(sd);
+	if (rc) {
+		dev_err(sd->dev, "%s: Failed to register fb client (%d)\n",
+			__func__, rc);
+		goto exit;
+	}
 
 	sd->notify_next_suspend_prepare = false;
 	sd->notify_late_resume = false;
@@ -119,8 +143,8 @@ static void ssm_disable(struct ssm_data *sd)
 
 	mutex_lock(&sd->lock);
 	if (sd->enabled) {
-		unregister_early_suspend(&sd->early_suspend);
 		unregister_pm_notifier(&sd->pm_notifier);
+		unregister_fb(sd);
 		sd->enabled = false;
 	} else {
 		dev_warn(sd->dev, "%s: Not enabled\n", __func__);
@@ -244,9 +268,6 @@ static int ssm_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
-	sd->early_suspend.level = EARLY_SUSPEND_LEVEL_STOP_DRAWING;
-	sd->early_suspend.resume = ssm_late_resume;
-
 	sd->dev = &pdev->dev;
 
 	mutex_init(&sd->lock);
@@ -283,7 +304,7 @@ static int ssm_remove(struct platform_device *pdev)
 	ssm_remove_attrs(sd->dev);
 
 	if (sd->enabled) {
-		unregister_early_suspend(&sd->early_suspend);
+		unregister_fb(sd);
 		unregister_pm_notifier(&sd->pm_notifier);
 	}
 

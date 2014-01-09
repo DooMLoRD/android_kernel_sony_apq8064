@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  * Copyright (C) 2012-2013 Sony Mobile Communications AB.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -21,7 +21,7 @@
 #include <linux/leds.h>
 #include <linux/leds-pm8xxx.h>
 #include <linux/mfd/pm8xxx/pm8xxx-adc.h>
-#include <linux/mfd/pm8xxx/vibrator.h>
+#include <linux/gpio_event.h>
 #include <linux/gpio_keys.h>
 #include <asm/mach-types.h>
 #include <asm/mach/mmc.h>
@@ -31,6 +31,7 @@
 #include <mach/restart.h>
 #include "devices.h"
 #include "board-8064.h"
+#include "charger-sony_fusion3.h"
 
 struct pm8xxx_gpio_init {
 	unsigned			gpio;
@@ -82,6 +83,9 @@ struct pm8xxx_mpp_init {
 	} \
 }
 
+#define PM8821_MPP_DISABLE(_mpp) \
+	PM8821_MPP_INIT(_mpp, SINK, PM8XXX_MPP_CS_OUT_5MA, CS_CTRL_DISABLE)
+
 #define PM8921_GPIO_DISABLE(_gpio) \
 	PM8921_GPIO_INIT(_gpio, PM_GPIO_DIR_IN, 0, 0, 0, PM_GPIO_VIN_S4, \
 			 0, 0, 0, 1)
@@ -127,61 +131,34 @@ struct pm8xxx_mpp_init {
 /* Initial PM8921 GPIO configurations */
 static struct pm8xxx_gpio_init pm8921_gpios[] __initdata = {
 	PM8921_GPIO_DISABLE(1),                    /* NC */
-	PM8921_GPIO_DISABLE(2),                    /* NC */
-	PM8921_GPIO_INPUT(3,  PM_GPIO_PULL_UP_30),/* Camera AF key */
-	PM8921_GPIO_INPUT(4,  PM_GPIO_PULL_UP_30),/* Camera Shutter Key */
-	PM8921_GPIO_DISABLE(5),                    /* NC */
-	PM8921_GPIO_INPUT(6,  PM_GPIO_PULL_NO),    /* HW_ID[0] */
-	PM8921_GPIO_INPUT(7,  PM_GPIO_PULL_NO),    /* HW_ID[1] */
-	PM8921_GPIO_INPUT(8,  PM_GPIO_PULL_NO),    /* HW_ID[2] */
+	PM8921_GPIO_INPUT(2, PM_GPIO_PULL_UP_1P5), /* ACC_COVER_OPEN */
+	PM8921_GPIO_DISABLE(3),                    /* NC */
+	PM8921_GPIO_DISABLE(4),                    /* NC */
+	PM8921_GPIO_OUTPUT(5, 0, LOW),             /* IR_LEVEL_EN */
+	PM8921_GPIO_DISABLE(6),                    /* HWID[0] used only by S1 */
+	PM8921_GPIO_DISABLE(7),                    /* HWID[1] used only by S1 */
+	PM8921_GPIO_DISABLE(8),                    /* HWID[2] used only by S1 */
 	PM8921_GPIO_DISABLE(9),                    /* NC */
-	PM8921_GPIO_DISABLE(10),                   /* NC */
+	PM8921_GPIO_OUTPUT(10, 0, LOW),            /* BACKLIGHT_EN */
 	PM8921_GPIO_DISABLE(11),                   /* NC */
 	PM8921_GPIO_DISABLE(12),                   /* NC */
 	PM8921_GPIO_DISABLE(13),                   /* NC */
-	PM8921_GPIO_DISABLE(14),                   /* NC */
+	PM8921_GPIO_OUTPUT(14, 0, LOW),            /* IR_RESET_N */
 	PM8921_GPIO_DISABLE(15),                   /* NC */
 	PM8921_GPIO_DISABLE(16),                   /* NC */
-	PM8921_GPIO_OUTPUT(17, 0, LOW),            /* IRDA_PWRDWN */
+	PM8921_GPIO_DISABLE(17),                   /* NC */
 	PM8921_GPIO_DISABLE(18),                   /* NC */
 	PM8921_GPIO_OUTPUT(19, 0, MED), /* Right speaker enab */
 	PM8921_GPIO_INPUT(20, PM_GPIO_PULL_NO),    /* OTG_OVRCUR_DET_N */
+	PM8921_GPIO_OUTPUT(21, 0, LOW),            /* NFC_DWLD_EN */
 	PM8921_GPIO_OUTPUT(22, 0, HIGH),           /* RF_ID_EN */
 	PM8921_GPIO_INPUT(23, PM_GPIO_PULL_NO), /* LCD ID */
 	PM8921_GPIO_OUTPUT(24, 0, LOW), /* LCD_DCDC_EN */
 	PM8921_GPIO_OUTPUT(25, 0, LOW), /* DISP_RESET_N */
-	PM8921_GPIO_OUTPUT(26, 0, LOW),            /* LMU_EN */
+	PM8921_GPIO_OUTPUT(26, 1, LOW),            /* LMU_EN */
 	PM8921_GPIO_OUTPUT(27, 0, LOW),            /* MHL_RST_N */
 	PM8921_GPIO_OUTPUT(28, 0, LOW),            /* MCAM_RST_N */
-	PM8921_GPIO_DISABLE(29),                   /* NC */
-	PM8921_GPIO_OUTPUT(34, 1, MED),            /* WCD9310_RESET_N */
-	PM8921_GPIO_INPUT(35, PM_GPIO_PULL_UP_30),/* VOLUME_UP_KEY */
-	PM8921_GPIO_OUTPUT(36, 0, LOW),            /* TUNER_PWR_EN */
-	PM8921_GPIO_OUTPUT(37, 0, LOW),            /* TUNER_RST_N */
-	PM8921_GPIO_INPUT(38, PM_GPIO_PULL_UP_30),/* VOLUME_DOWN_KEY */
-	/* GPIO_39 (SSBI_PMIC_FWD_CLK) is set by PBL */
-	PM8921_GPIO_DISABLE(40),                   /* NC */
-	PM8921_GPIO_DISABLE(41),                   /* NC */
-	PM8921_GPIO_OUTPUT_BUFCONF_VPH(42, 1, LOW, CMOS), /* OTG_OVP_CNTL */
-	PM8921_GPIO_DISABLE(43),                    /* NC */
-	PM8921_GPIO_DISABLE(44),                    /* NC */
-
-#if defined(CONFIG_SONY_FELICA_SUPPORT) && !defined(CONFIG_NFC_PN544)
-	PM8921_GPIO_INPUT(21, PM_GPIO_PULL_NO),    /* FELICA_RFS */
-	PM8921_GPIO_OUTPUT(30, 1, LOW),            /* NFC_EXT_LDO_EN */
-	/* FELICA_LOCK */
-	PM8921_GPIO_INIT(31, PM_GPIO_DIR_IN, PM_GPIO_OUT_BUF_CMOS, 0, \
-			PM_GPIO_PULL_NO, PM_GPIO_VIN_L15, \
-			PM_GPIO_STRENGTH_NO, \
-			PM_GPIO_FUNC_NORMAL, 0, 0),
-	/* FELICA_FF */
-	PM8921_GPIO_INIT(32, PM_GPIO_DIR_OUT, PM_GPIO_OUT_BUF_CMOS, 0, \
-			PM_GPIO_PULL_NO, PM_GPIO_VIN_L15, \
-			PM_GPIO_STRENGTH_LOW, \
-			PM_GPIO_FUNC_NORMAL, 0, 0),
-	PM8921_GPIO_OUTPUT(33, 0, LOW),            /* FELICA_PON */
-#elif !defined(CONFIG_SONY_FELICA_SUPPORT) && defined(CONFIG_NFC_PN544)
-	PM8921_GPIO_OUTPUT(21, 0, LOW),            /* NFC_DWLD_EN */
+	PM8921_GPIO_INPUT(29, PM_GPIO_PULL_UP_30), /* VOLUME_UP_KEY */
 	PM8921_GPIO_DISABLE(30),                   /* NC */
 	PM8921_GPIO_DISABLE(31),                   /* NC */
 	PM8921_GPIO_DISABLE(32),                   /* NC */
@@ -190,13 +167,17 @@ static struct pm8xxx_gpio_init pm8921_gpios[] __initdata = {
 				PM_GPIO_PULL_NO, PM_GPIO_VIN_VPH, \
 				PM_GPIO_STRENGTH_LOW, \
 				PM_GPIO_FUNC_NORMAL, 0, 0),
-#else
-	PM8921_GPIO_DISABLE(21),
-	PM8921_GPIO_DISABLE(30),
-	PM8921_GPIO_DISABLE(31),
-	PM8921_GPIO_DISABLE(32),
-	PM8921_GPIO_DISABLE(33),
-#endif
+	PM8921_GPIO_OUTPUT(34, 1, HIGH),           /* WCD9310_RESET_N */
+	PM8921_GPIO_DISABLE(35),                   /* NC */
+	PM8921_GPIO_DISABLE(36),                   /* NC */
+	PM8921_GPIO_DISABLE(37),                   /* NC */
+	PM8921_GPIO_INPUT(38, PM_GPIO_PULL_UP_30),/* VOLUME_DOWN_KEY */
+	/* GPIO_39 (SSBI_PMIC_FWD_CLK) is set by SBL */
+	PM8921_GPIO_DISABLE(40),                   /* NC */
+	PM8921_GPIO_DISABLE(41),                   /* NC */
+	PM8921_GPIO_OUTPUT_BUFCONF_VPH(42, 1, LOW, CMOS), /* OTG_OVP_CNTL */
+	PM8921_GPIO_DISABLE(43),                    /* NC */
+	PM8921_GPIO_DISABLE(44),                    /* NC */
 };
 
 static struct pm8xxx_gpio_init pm8921_mtp_kp_gpios[] __initdata = {
@@ -215,7 +196,7 @@ static struct pm8xxx_mpp_init pm8xxx_mpps[] __initdata = {
 	PM8921_MPP_DISABLE(1), /* N/C */
 	PM8921_MPP_DISABLE(2), /* N/C */
 	PM8921_MPP_DISABLE(3), /* N/C */
-	PM8921_MPP_INIT(4, D_OUTPUT, PM8921_MPP_DIG_LEVEL_S4, DOUT_CTRL_LOW),
+	PM8921_MPP_DISABLE(4), /* N/C */
 	/* MPP 5 and 6 are handled by QCT*/
 	/* External 5V regulator enable; used by USB_OTG switches. */
 	PM8921_MPP_INIT(7, D_OUTPUT, PM8921_MPP_DIG_LEVEL_S4, DOUT_CTRL_LOW),
@@ -226,6 +207,11 @@ static struct pm8xxx_mpp_init pm8xxx_mpps[] __initdata = {
 	PM8921_MPP_DISABLE(10), /* N/C */
 	PM8921_MPP_DISABLE(11), /* N/C, Reserve Audio Study */
 	PM8921_MPP_DISABLE(12), /* N/C */
+
+	PM8821_MPP_DISABLE(1), /* N/C */
+	PM8821_MPP_DISABLE(2), /* N/C */
+	PM8821_MPP_DISABLE(3), /* N/C */
+	PM8821_MPP_DISABLE(4), /* N/C */
 };
 
 void __init apq8064_pm8xxx_gpio_mpp_init(void)
@@ -283,7 +269,7 @@ static struct pm8xxx_misc_platform_data apq8064_pm8921_misc_pdata = {
 	.priority		= 0,
 };
 
-#define PM8921_LC_LED_MAX_CURRENT	4	/* I = 4mA */
+#define PM8921_LC_LED_MAX_CURRENT	12	/* I = 12mA */
 #define PM8921_LC_LED_LOW_CURRENT	1	/* I = 1mA */
 #define PM8XXX_LED_PWM_PERIOD		1000
 #define PM8XXX_LED_PWM_DUTY_MS		20
@@ -430,7 +416,7 @@ static int apq8064_pm8921_therm_mitigation[] = {
 
 #define MAX_VOLTAGE_MV	4200
 #define V_CUTOFF_MV	3200
-#define CHG_TERM_MA	115
+#define CHG_TERM_MA	310
 static struct pm8921_charger_platform_data
 apq8064_pm8921_chg_pdata __devinitdata = {
 	.ttrkl_time		= 64,
@@ -442,9 +428,8 @@ apq8064_pm8921_chg_pdata __devinitdata = {
 #endif
 	.max_voltage		= MAX_VOLTAGE_MV,
 	.min_voltage		= V_CUTOFF_MV,
-	.uvd_thresh_voltage	= 4050,
 	.resume_voltage_delta	= 100,
-	.resume_soc		= 95,
+	.resume_charge_percent	= 95,
 	.term_current		= CHG_TERM_MA,
 	.cool_temp		= 10,
 	.warm_temp		= 45,
@@ -460,50 +445,59 @@ apq8064_pm8921_chg_pdata __devinitdata = {
 	.thermal_mitigation	= apq8064_pm8921_therm_mitigation,
 	.thermal_levels		= ARRAY_SIZE(apq8064_pm8921_therm_mitigation),
 	.rconn_mohm		= 18,
+	.enable_tcxo_warmup_delay = true,
 	.btc_override		= 1,
 	.btc_override_cold_degc	= 5,
 	.btc_override_hot_degc	= 55,
 	.btc_delay_ms		= 10000,
 	.btc_panic_if_cant_stop_chg	= 1,
 	.stop_chg_upon_expiry	= 1,
+	.repeat_safety_time	= 1,
 	.safety_time		= 512,
 	.soc_scaling		= 1,
 };
 
 static struct pm8xxx_ccadc_platform_data
 apq8064_pm8xxx_ccadc_pdata = {
-	.r_sense		= 10,
+	.r_sense_uohm		= 10000,
 	.calib_delay_ms		= 600000,
 };
 
 static struct pm8921_bms_platform_data
 apq8064_pm8921_bms_pdata __devinitdata = {
-	.battery_type		= BATT_OEM,
-	.r_sense		= 10,
-	.i_test			= 1000,
-	.v_failure		= V_CUTOFF_MV,
-	.max_voltage_uv		= MAX_VOLTAGE_MV * 1000,
-	.rconn_mohm		= 30,
-#ifndef CONFIG_PM8921_SONY_BMS_CHARGER
-	.alarm_low_mv		= V_CUTOFF_MV,
-	.alarm_high_mv		= V_CUTOFF_MV + 100,
+#ifdef CONFIG_PM8921_SONY_BMS_CHARGER
+	.battery_data			= &pm8921_battery_data,
+#else
+	.battery_type			= BATT_OEM,
 #endif
-	.enable_fcc_learning	= 1,
-	.normal_voltage_calc_ms	= 20000,
-	.low_voltage_calc_ms	= 1000,
+	.r_sense_uohm			= 10000,
+	.v_cutoff			= V_CUTOFF_MV,
+	.i_test				= 1000,
+	.max_voltage_uv			= MAX_VOLTAGE_MV * 1000,
+	.rconn_mohm			= 30,
+#ifndef CONFIG_PM8921_SONY_BMS_CHARGER
+	.alarm_low_mv			= V_CUTOFF_MV,
+	.alarm_high_mv			= V_CUTOFF_MV + 100,
+#endif
+	.shutdown_soc_valid_limit	= 20,
+	.adjust_soc_low_threshold	= 25,
+	.chg_term_ua			= CHG_TERM_MA * 1000,
+	.enable_fcc_learning		= 1,
+	.min_fcc_learning_soc		= 20,
+	.min_fcc_ocv_pc			= 30,
+	.min_fcc_learning_samples	= 5,
+	.normal_voltage_calc_ms		= 20000,
+	.low_voltage_calc_ms		= 1000,
 #ifndef CONFIG_PM8921_SONY_BMS_CHARGER
 	.pon_disable_flat_portion_ocv	= 1,
 	.pon_ocv_dis_high_soc		= 55,
-	.pon_ocv_dis_low_soc		= 20,
-	.low_voltage_detect	= 1,
-	.vbatt_cutoff_retries	= 5,
+	.pon_ocv_dis_low_soc		= 25,
+	.low_voltage_detect		= 1,
+	.vbatt_cutoff_retries		= 5,
+	.high_ocv_correction_limit_uv	= 50,
+	.low_ocv_correction_limit_uv	= 100,
+	.hold_soc_est			= 3,
 #endif
-};
-
-static struct pm8xxx_vibrator_platform_data
-apq8064_pm8xxx_vibrator_pdata __devinitdata = {
-	.initial_vibrate_ms = 0,
-	.level_mV = 3100,
 };
 
 static struct pm8921_platform_data
@@ -519,7 +513,6 @@ apq8064_pm8921_platform_data __devinitdata = {
 	.adc_pdata		= &apq8064_pm8921_adc_pdata,
 	.charger_pdata		= &apq8064_pm8921_chg_pdata,
 	.bms_pdata		= &apq8064_pm8921_bms_pdata,
-	.vibrator_pdata		= &apq8064_pm8xxx_vibrator_pdata,
 	.ccadc_pdata		= &apq8064_pm8xxx_ccadc_pdata,
 };
 
@@ -577,17 +570,8 @@ void __init apq8064_init_pmic(void)
 
 static struct gpio_keys_button fusion3_keys[] = {
 	{
-		.code           = KEY_CAMERA_FOCUS,
-		.gpio           = PM8921_GPIO_PM_TO_SYS(3),
-		.desc           = "cam_focus_key",
-		.active_low     = 1,
-		.type		= EV_KEY,
-		.wakeup		= 1,
-		.debounce_interval = 15,
-	},
-	{
 		.code           = KEY_VOLUMEUP,
-		.gpio           = PM8921_GPIO_PM_TO_SYS(35),
+		.gpio           = PM8921_GPIO_PM_TO_SYS(29),
 		.desc           = "volume_up_key",
 		.active_low     = 1,
 		.type		= EV_KEY,
@@ -601,14 +585,6 @@ static struct gpio_keys_button fusion3_keys[] = {
 		.active_low     = 1,
 		.type		= EV_KEY,
 		.wakeup		= 1,
-		.debounce_interval = 15,
-	},
-	{
-		.code           = KEY_CAMERA_SNAPSHOT,
-		.gpio           = PM8921_GPIO_PM_TO_SYS(4),
-		.desc           = "cam_snap_key",
-		.active_low     = 1,
-		.type		= EV_KEY,
 		.debounce_interval = 15,
 	},
 };

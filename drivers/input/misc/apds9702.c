@@ -254,7 +254,42 @@ static ssize_t attr_rfilt_set(struct device *dev,
 	return -EINVAL;
 }
 
+static ssize_t attr_val_show(struct device *dev,
+				   struct device_attribute *attr,
+				   char *buf)
+{
+	struct apds9702data *data = dev_get_drvdata(dev);
+	struct apds9702_platform_data *pdata = data->client->dev.platform_data;
+	int d;
+
+	dev_dbg(dev, "%s:\n", __func__);
+	mutex_lock(&data->lock);
+	/* Turn on the sensor without flagging it as active (ie no valid irq) */
+	if (!data->active) {
+		pdata->hw_config(&data->client->dev, 1);
+		d = apds9702_write_byte(data->client, data->ctl_reg & 0xFF,
+					data->ctl_reg >> 8);
+		if (d)
+			goto exit;
+		/* Stabilization delay */
+		usleep_range(10000, 11000);
+	}
+	/* Inverted to match the prx_on_pwr semantics */
+	d = gpio_get_value(pdata->gpio_dout);
+	dev_dbg(dev, "%s: gpio = %d\n", __func__, d);
+	/* Graceful shutdown */
+exit:
+	if (!data->active) {
+		apds9702_write_byte(data->client, 0, 0);
+		pdata->hw_config(&data->client->dev, 0);
+	}
+	mutex_unlock(&data->lock);
+	return d < 0 ? d : scnprintf(buf, PAGE_SIZE, "%d\n", !d);
+}
+
+
 static struct device_attribute attributes[] = {
+	__ATTR(val, 0440, attr_val_show, NULL),
 	__ATTR(threshold, 0600, attr_threshold_show, attr_threshold_set),
 	__ATTR(nburst, 0200, NULL, attr_nburst_set),
 	__ATTR(freq, 0200, NULL, attr_freq_set),

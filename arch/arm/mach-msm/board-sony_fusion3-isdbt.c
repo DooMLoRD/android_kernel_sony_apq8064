@@ -1,6 +1,6 @@
 /* arch/arm/mach-msm/board-sony_fusion3-isdbt.c
  *
- * Copyright (C) 2012-2013 Sony Mobile Communications AB.
+ * Copyright (C) 2012 Sony Mobile Communications AB.
  *
  * Author: Tatsuya Ooka <Tatsuya.Ooka@sonymobile.com>
  *

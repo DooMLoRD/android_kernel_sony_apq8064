@@ -46,7 +46,7 @@ enum DevCapOffset_e {
 
 /* Version that this chip supports */
 #define MHL_VER_MAJOR			(0x01 << 4)	/* bits 4..7 */
-#define MHL_VER_MINOR			0x02		/* bits 0..3 */
+#define MHL_VER_MINOR			0x03		/* bits 0..3 */
 #define MHL_VERSION			(MHL_VER_MAJOR | MHL_VER_MINOR)
 
 /* Device Category */
