@@ -615,6 +615,7 @@ const struct panel jdc_mdz50_panel_id_1a = {
 	.id_num = ARRAY_SIZE(ddb_val_1a),
 	.width = 57,
 	.height = 101,
+	.send_video_data_before_display_on = true,
 	.panel_id = "mdz50",
 	.panel_rev = "1a",
 };
@@ -627,6 +628,7 @@ const struct panel jdc_mdz50_panel_id_1b = {
 	.id_num = ARRAY_SIZE(ddb_val_1b),
 	.width = 57,
 	.height = 101,
+	.send_video_data_before_display_on = true,
 	.panel_id = "mdz50",
 	.panel_rev = "1b",
 };
@@ -639,6 +641,7 @@ const struct panel jdc_mdz50_panel_id = {
 	.id_num = ARRAY_SIZE(ddb_val),
 	.width = 57,
 	.height = 101,
+	.send_video_data_before_display_on = true,
 	.panel_id = "mdz50",
 	.panel_rev = "generic",
 };
@@ -651,6 +654,7 @@ const struct panel jdc_mdz50_panel_id_nvm = {
 	.id_num = ARRAY_SIZE(nvm_ddb_val),
 	.width = 57,
 	.height = 101,
+	.send_video_data_before_display_on = true,
 	.panel_id = "recovery",
 	.panel_rev = "recovery",
 };

@@ -918,7 +918,7 @@ config MACH_MPQ8064_DTV
 
 config MACH_SONY_FUSION3
 	depends on ARCH_APQ8064
-	bool "Sony Mobile CDB"
+	bool "Sony Mobile"
 	help
 	  Support for the Sony Mobile Fusion3 devices.
 
@@ -945,6 +945,12 @@ config MACH_SONY_POLLUX
 	bool "Sony Mobile POLLUX"
 	help
 	  Support for the Sony Mobile Pollux device.
+
+config MACH_SONY_POLLUX_WINDY
+	depends on ARCH_APQ8064
+	bool "Sony Mobile Pollux Windy"
+	help
+	  Support for the Sony Mobile Pollux Windy device.
 
 config MACH_FSM9XXX_SURF
 	depends on ARCH_FSM9XXX
@@ -1531,6 +1537,16 @@ config MSM_IPC_ROUTER_SMD_XPRT
 	bool "MSM SMD XPRT Layer"
 	help
 	  SMD Transport Layer for IPC Router
+
+config MSM_IPC_ROUTER_HSIC_XPRT
+	depends on USB_QCOM_IPC_BRIDGE
+	depends on MSM_IPC_ROUTER
+	bool "MSM HSIC XPRT Layer"
+	help
+	  HSIC Transport Layer that enables off-chip communication of
+	  IPC Router. When the HSIC endpoint becomes available, this layer
+	  registers the transport with IPC Router and enable message
+	  exchange.
 
 config MSM_IPC_ROUTER_SECURITY
 	depends on MSM_IPC_ROUTER
@@ -2539,6 +2555,21 @@ config MSM_L1_ERR_PANIC
 	  instability is suspected.
 
 	  For production builds, you should probably say 'N' here.
+
+config MSM_L1_RECOV_ERR_PANIC
+	bool "Panic on recoverable L1 cache errors"
+	depends on MSM_CACHE_ERP && MSM_L1_ERR_PANIC
+	help
+	  Certain CPU designs may be able to automatically recover from certain
+	  kinds of L1 cache errors, even though the L1 cache itself may not
+	  support error correction. These errors should not result in any kind
+	  of corruption, but their presence is nevertheless an indication of
+	  poor system health. To cause the kernel to panic whenever a
+	  recoverable L1 cache error is detected, say 'Y' here. This may be
+	  useful as a debugging technique if general system instability is
+	  suspected.
+
+	  For production builds, you should definitely say 'N' here.
 
 config MSM_L1_ERR_LOG
 	bool "Log CPU ERP events to system memory"

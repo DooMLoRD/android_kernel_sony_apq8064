@@ -103,21 +103,21 @@ struct lm3533_platform_data lm3533_pdata = {
 			.pwm = 0,
 			.ctl = LM3533_LV_MAP_LIN | LM3533_LV_BR_CTL,
 			/* 1ma in spec, but this is not possible */
-			.fsc =  I_UA_TO_FSC(20200),
+			.fsc =  I_UA_TO_FSC(10600),
 			.iname = "lm3533-red",
 		},
 		[LM3533_CBNKD] = {
 			.pwm = 0,
 			.ctl = LM3533_LV_MAP_LIN | LM3533_LV_BR_CTL,
 			/* 1ma in spec, but this is not possible */
-			.fsc =  I_UA_TO_FSC(20200),
+			.fsc =  I_UA_TO_FSC(10600),
 			.iname = "lm3533-green",
 		},
 		[LM3533_CBNKE] = {
 			.pwm = 0,
 			.ctl = LM3533_LV_MAP_LIN | LM3533_LV_BR_CTL,
 			/* 1ma in spec, but this is not possible */
-			.fsc =  I_UA_TO_FSC(20200),
+			.fsc =  I_UA_TO_FSC(10600),
 			.iname = "lm3533-blue",
 		},
 		[LM3533_CBNKF] = {

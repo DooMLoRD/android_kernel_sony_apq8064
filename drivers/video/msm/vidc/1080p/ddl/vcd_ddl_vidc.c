@@ -16,6 +16,7 @@
 #include "vcd_ddl_metadata.h"
 #include "vcd_ddl_shared_mem.h"
 #include "vcd_core.h"
+#include "vcd_res_tracker_api.h"
 
 #if defined(PIX_CACHE_DISABLE)
 #define DDL_PIX_CACHE_ENABLE  false
@@ -109,7 +110,9 @@ void ddl_vidc_channel_set(struct ddl_client_context *ddl)
 		dec_pix_cache = VIDC_1080P_DECODE_PCACHE_DISABLE;
 	const enum vidc_1080p_encode_p_cache_enable
 		enc_pix_cache = VIDC_1080P_ENCODE_PCACHE_ENABLE;
-	u32 pix_cache_ctrl, ctxt_mem_offset, ctxt_mem_size;
+	u32 pix_cache_ctrl, ctxt_mem_offset, ctxt_mem_size, arg1 = 0;
+	u8 *hw_ctxt = NULL;
+	struct ion_handle *alloc_handle;
 
 	if (ddl->decoding) {
 		ddl_set_core_start_time(__func__, DEC_OP_TIME);
@@ -117,15 +120,30 @@ void ddl_vidc_channel_set(struct ddl_client_context *ddl)
 		pix_cache_ctrl = (u32)dec_pix_cache;
 		ctxt_mem_offset = DDL_ADDR_OFFSET(ddl_context->dram_base_a,
 		ddl->codec_data.decoder.hw_bufs.context) >> 11;
+		hw_ctxt =
+		ddl->codec_data.decoder.hw_bufs.context.align_virtual_addr;
 		ctxt_mem_size =
 			ddl->codec_data.decoder.hw_bufs.context.buffer_size;
+		alloc_handle =
+			ddl->codec_data.decoder.hw_bufs.context.alloc_handle;
 	} else {
 		vcd_codec = &(ddl->codec_data.encoder.codec.codec);
 		pix_cache_ctrl = (u32)enc_pix_cache;
 		ctxt_mem_offset = DDL_ADDR_OFFSET(ddl_context->dram_base_a,
 			ddl->codec_data.encoder.hw_bufs.context) >> 11;
+		hw_ctxt =
+		ddl->codec_data.encoder.hw_bufs.context.align_virtual_addr;
 		ctxt_mem_size =
 			ddl->codec_data.encoder.hw_bufs.context.buffer_size;
+		alloc_handle =
+			ddl->codec_data.encoder.hw_bufs.context.alloc_handle;
+	}
+	if (!res_trk_check_for_sec_session() && hw_ctxt) {
+		memset(hw_ctxt, 0, ctxt_mem_size);
+		msm_ion_do_cache_op(ddl_context->video_ion_client,
+			alloc_handle, hw_ctxt, ctxt_mem_size,
+			ION_IOC_CLEAN_INV_CACHES);
+		arg1 = 1 << 29;
 	}
 	switch (*vcd_codec) {
 	default:
@@ -185,8 +203,9 @@ void ddl_vidc_channel_set(struct ddl_client_context *ddl)
 	DDL_MSG_LOW("ddl_state_transition: %s ~~> DDL_CLIENT_WAIT_FOR_CHDONE",
 	ddl_get_state_string(ddl->client_state));
 	ddl->client_state = DDL_CLIENT_WAIT_FOR_CHDONE;
+	arg1 |= (u32)codec;
 	vidc_1080p_set_host2risc_cmd(VIDC_1080P_HOST2RISC_CMD_OPEN_CH,
-		(u32)codec, pix_cache_ctrl, ctxt_mem_offset,
+		arg1, pix_cache_ctrl, ctxt_mem_offset,
 		ctxt_mem_size);
 }
 
@@ -321,7 +340,7 @@ void ddl_vidc_encode_dynamic_property(struct ddl_client_context *ddl,
 {
 	struct ddl_encoder_data *encoder = &(ddl->codec_data.encoder);
 	u32 frame_rate_change = false, bit_rate_change = false;
-	u32 i_period_change = false, reset_req = false;
+	u32 reset_req = false;
 
 	if (!enable) {
 		if (encoder->dynmic_prop_change_req) {
@@ -334,6 +353,17 @@ void ddl_vidc_encode_dynamic_property(struct ddl_client_context *ddl,
 			encoder->dynamic_prop_change &=
 				~(DDL_ENC_REQ_IFRAME);
 		}
+		if (encoder->dynamic_prop_change & DDL_ENC_LTR_USE_FRAME) {
+			if (encoder->ltr_control.callback_reqd) {
+				DDL_MSG_ERROR("%s: LTR use failed", __func__);
+				ddl_encoder_use_ltr_fail_callback(ddl);
+				encoder->ltr_control.callback_reqd = false;
+			} else {
+				encoder->ltr_control.use_ltr_reqd = true;
+			}
+			encoder->dynamic_prop_change &=
+				~(DDL_ENC_LTR_USE_FRAME);
+		}
 		if ((encoder->dynamic_prop_change &
 			DDL_ENC_CHANGE_BITRATE)) {
 			bit_rate_change = true;
@@ -345,7 +375,7 @@ void ddl_vidc_encode_dynamic_property(struct ddl_client_context *ddl,
 		}
 		if ((encoder->dynamic_prop_change
 			& DDL_ENC_CHANGE_IPERIOD)) {
-			i_period_change = true;
+			encoder->intra_period_changed = true;
 			vidc_sm_set_encoder_new_i_period(
 				&ddl->shared_mem[ddl->command_channel],
 				encoder->i_period.p_frames);
@@ -377,7 +407,7 @@ void ddl_vidc_encode_dynamic_property(struct ddl_client_context *ddl,
 		vidc_sm_set_encoder_param_change(
 			&ddl->shared_mem[ddl->command_channel],
 			bit_rate_change, frame_rate_change,
-			i_period_change);
+			encoder->intra_period_changed);
 	}
 }
 
@@ -570,7 +600,7 @@ void ddl_vidc_encode_init_codec(struct ddl_client_context *ddl)
 	u32 index, luma[4], chroma[4], hdr_ext_control = false;
 	const u32 recon_bufs = 4;
 	u32 h263_cpfc_enable = false;
-	u32 scaled_frame_rate;
+	u32 scaled_frame_rate, ltr_enable;
 
 	ddl_vidc_encode_set_profile_level(ddl);
 	vidc_1080p_set_encode_frame_size(encoder->frame_size.width,
@@ -587,12 +617,15 @@ void ddl_vidc_encode_init_codec(struct ddl_client_context *ddl)
 	scaled_frame_rate = DDL_FRAMERATE_SCALE(encoder->\
 			frame_rate.fps_numerator) /
 			encoder->frame_rate.fps_denominator;
+	ltr_enable = DDL_IS_LTR_ENABLED(encoder);
+	DDL_MSG_HIGH("ltr_enable = %u", ltr_enable);
 	vidc_sm_set_extended_encoder_control(&ddl->shared_mem
 		[ddl->command_channel], hdr_ext_control,
 		r_cframe_skip, false, 0,
 		h263_cpfc_enable, encoder->sps_pps.sps_pps_for_idr_enable_flag,
 		encoder->closed_gop, encoder->avc_delimiter_enable,
-		encoder->vui_timinginfo_enable);
+		encoder->vui_timinginfo_enable,
+		encoder->bitstream_restrict_enable, ltr_enable);
 	if (encoder->vui_timinginfo_enable) {
 		vidc_sm_set_h264_encoder_timing_info(
 			&ddl->shared_mem[ddl->command_channel],
@@ -804,6 +837,8 @@ void ddl_vidc_encode_frame_run(struct ddl_client_context *ddl)
 		ddl_vidc_encode_dynamic_property(ddl, true);
 	}
 
+	if (DDL_IS_LTR_ENABLED(encoder))
+		ddl_encoder_ltr_control(ddl);
 	vidc_1080p_set_encode_circular_intra_refresh(
 		encoder->intra_refresh.cir_mb_number);
 	ddl_vidc_encode_set_multi_slice_info(encoder);
@@ -824,6 +859,17 @@ void ddl_vidc_encode_frame_run(struct ddl_client_context *ddl)
 		encoder->intra_frame_insertion = false;
 	enc_param.input_flush = false;
 	enc_param.slice_enable = false;
+	enc_param.store_ltr0 = encoder->ltr_control.store_ltr0;
+	enc_param.store_ltr1 = encoder->ltr_control.store_ltr1;
+	enc_param.use_ltr0 = encoder->ltr_control.use_ltr0;
+	enc_param.use_ltr1 = encoder->ltr_control.use_ltr1;
+
+	encoder->intra_frame_insertion = false;
+	encoder->intra_period_changed = false;
+	encoder->ltr_control.store_ltr0 = false;
+	encoder->ltr_control.store_ltr1 = false;
+	encoder->ltr_control.use_ltr0 = false;
+	encoder->ltr_control.use_ltr1 = false;
 		vidc_sm_set_encoder_vop_time(
 			&ddl->shared_mem[ddl->command_channel], true,
 			encoder->vop_timing.vop_time_resolution,

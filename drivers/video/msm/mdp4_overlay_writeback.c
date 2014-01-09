@@ -206,7 +206,7 @@ int mdp4_overlay_writeback_off(struct platform_device *pdev)
 	/* sanity check, free pipes besides base layer */
 	mdp4_overlay_unset_mixer(pipe->mixer_num);
 	mdp4_mixer_stage_down(pipe, 1);
-	mdp4_overlay_pipe_free(pipe);
+	mdp4_overlay_pipe_free(pipe, 1);
 	vctrl->base_pipe = NULL;
 	mdp_clk_ctrl(0);
 	undx =  vctrl->update_ndx;
@@ -388,13 +388,6 @@ int mdp4_wfd_pipe_commit(struct msm_fb_data_type *mfd,
 	if (rc != 0) {
 		pr_err("%s: mdp4_wfd_dequeue_update failed !! mfd=%x\n",
 			__func__, (int)mfd);
-		pipe = vp->plist;
-		for (i = 0; i < OVERLAY_PIPE_MAX; i++, pipe++) {
-			pipe->pipe_used = 0;
-			pr_info("%s: dequeue update failed, unsetting pipes\n",
-				__func__);
-		}
-		return cnt;
 	}
 	/* free previous committed iommu back to pool */
 	mdp4_overlay_iommu_unmap_freelist(mixer);
@@ -421,6 +414,10 @@ int mdp4_wfd_pipe_commit(struct msm_fb_data_type *mfd,
 	mdp4_mixer_stage_commit(mixer);
 
 	pipe = vctrl->base_pipe;
+	if (!pipe->ov_blt_addr) {
+		schedule_work(&vctrl->clk_work);
+		return cnt;
+	}
 	spin_lock_irqsave(&vctrl->spin_lock, flags);
 	vctrl->ov_koff++;
 	INIT_COMPLETION(vctrl->ov_comp);

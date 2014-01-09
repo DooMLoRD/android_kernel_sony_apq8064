@@ -58,7 +58,7 @@ MODULE_ALIAS("mmc:block");
 #define INAND_CMD38_ARG_SECERASE 0x80
 #define INAND_CMD38_ARG_SECTRIM1 0x81
 #define INAND_CMD38_ARG_SECTRIM2 0x88
-#define MMC_BLK_TIMEOUT_MS  (10 * 60 * 1000)        /* 10 minute timeout */
+#define MMC_BLK_TIMEOUT_MS  (30 * 1000)        /* 30 sec timeout */
 
 #define MMC_SANITIZE_REQ_TIMEOUT 240000 /* msec */
 
@@ -489,7 +489,7 @@ static int mmc_blk_ioctl_cmd(struct block_device *bdev,
 	md = mmc_blk_get(bdev->bd_disk);
 	if (!md) {
 		err = -EINVAL;
-		goto cmd_err;
+		goto blk_err;
 	}
 
 	card = md->queue.card;
@@ -588,18 +588,147 @@ cmd_rel_host:
 
 cmd_done:
 	mmc_blk_put(md);
-cmd_err:
+blk_err:
 	kfree(idata->buf);
 	kfree(idata);
 	return err;
+}
+
+static int mmc_queue_halt(struct mmc_queue *mq)
+{
+	struct request_queue *q = mq->queue;
+	unsigned long flags;
+	int rc = 0;
+
+	spin_lock_irqsave(q->queue_lock, flags);
+	queue_flag_set(QUEUE_FLAG_STOPPED, q);
+	spin_unlock_irqrestore(q->queue_lock, flags);
+
+	rc = down_trylock(&mq->thread_sem);
+	if (rc) {
+		/*
+		 * Failed to take the lock so better to abort the
+		 * halt because mmcqd thread is processing requests.
+		 */
+		spin_lock_irqsave(q->queue_lock, flags);
+		queue_flag_clear(QUEUE_FLAG_STOPPED, q);
+		spin_unlock_irqrestore(q->queue_lock, flags);
+		rc = -EBUSY;
+	}
+	return rc;
+}
+static void mmc_queue_continue(struct mmc_queue *mq)
+{
+	struct request_queue *q = mq->queue;
+	unsigned long flags;
+	up(&mq->thread_sem);
+
+	spin_lock_irqsave(q->queue_lock, flags);
+	queue_flag_clear(QUEUE_FLAG_STOPPED, q);
+	spin_unlock_irqrestore(q->queue_lock, flags);
+}
+
+static int mmc_oob_close(struct mmc_blk_data *md)
+{
+	struct mmc_blk_data *part_md;
+
+	if (!md)
+		return -EINVAL;
+
+	/* Continue all the halted queues. */
+	md->part_curr = md->part_type;
+	mmc_queue_continue(&md->queue);
+	printk(KERN_WARNING "Queue on %s continued\n",
+	       md->disk->disk_name);
+	list_for_each_entry(part_md, &md->part, part) {
+	  printk(KERN_WARNING "Queue on %s continued\n",
+		 part_md->disk->disk_name);
+	  mmc_queue_continue(&part_md->queue);
+	}
+	return 0;
+}
+
+static int mmc_oob_open(struct mmc_blk_data *md)
+{
+	struct mmc_blk_data *part_md;
+	int rc = 0;
+	printk(KERN_WARNING "Queue oob halt. %s\n", md->disk->disk_name);
+	if (!md)
+		return 0;
+
+	rc = mmc_queue_halt(&md->queue);
+
+	printk(KERN_WARNING "Queue halted status %s %d\n",
+	       md->disk->disk_name, rc);
+	if (rc)
+		return rc;
+
+	list_for_each_entry(part_md, &md->part, part) {
+	  rc = mmc_queue_halt(&part_md->queue);
+	  printk(KERN_WARNING "Queue halted on %s.\n",
+		 part_md->disk->disk_name);
+	}
+	if (rc) {
+		printk(KERN_WARNING "Queue halting failed.\n");
+		mmc_queue_continue(&md->queue);
+		list_for_each_entry(part_md, &md->part, part) {
+			mmc_queue_continue(&part_md->queue);
+		}
+	}
+
+	return rc;
+}
+
+static int mmc_blk_ioctl_oob(struct block_device *bdev,
+	struct mmc_ioc_oob __user *ic_ptr)
+{
+	struct mmc_ioc_oob data;
+	struct mmc_blk_data *md;
+	int ret = -EINVAL;
+
+	/*
+	 * The caller must have CAP_SYS_RAWIO, and must be calling this on the
+	 * whole block device, not on a partition.  This prevents overspray
+	 * between sibling partitions.
+	 */
+	if ((!capable(CAP_SYS_RAWIO)) || (bdev != bdev->bd_contains))
+		return -EPERM;
+
+	if (copy_from_user(&data, ic_ptr, sizeof(data)))
+		return -EFAULT;
+
+	md = mmc_blk_get(bdev->bd_disk);
+
+	if (!md)
+		return -EINVAL;
+
+	if (IS_ERR(md->queue.card)) {
+		mmc_blk_put(md);
+		return PTR_ERR(md->queue.card);
+	}
+
+	if (data.magic == OOB_MAGIC_ON)
+		ret = mmc_oob_open(md);
+	else if (data.magic == OOB_MAGIC_OFF)
+		ret = mmc_oob_close(md);
+
+	mmc_blk_put(md);
+	return ret;
 }
 
 static int mmc_blk_ioctl(struct block_device *bdev, fmode_t mode,
 	unsigned int cmd, unsigned long arg)
 {
 	int ret = -EINVAL;
-	if (cmd == MMC_IOC_CMD)
+
+	switch (cmd) {
+	case MMC_IOC_CMD:
 		ret = mmc_blk_ioctl_cmd(bdev, (struct mmc_ioc_cmd __user *)arg);
+		break;
+	case MMC_IOC_OOB:
+		ret = mmc_blk_ioctl_oob(bdev, (struct mmc_ioc_oob __user *)arg);
+		break;
+	}
 	return ret;
 }
 
@@ -1030,7 +1159,7 @@ static int mmc_blk_issue_sanitize_rq(struct mmc_queue *mq,
 	pr_debug("%s: %s - SANITIZE IN PROGRESS...\n",
 		mmc_hostname(card->host), __func__);
 
-	err = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
+	err = mmc_switch_ignore_timeout(card, EXT_CSD_CMD_SET_NORMAL,
 					EXT_CSD_SANITIZE_START, 1,
 					MMC_SANITIZE_REQ_TIMEOUT);
 
