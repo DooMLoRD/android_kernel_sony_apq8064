@@ -11,7 +11,7 @@
  *  $Date:: 2011-10-26 13:33:02 +0900#$ Date of last commit
  *
  *              Copyright (C) 2011 by Panasonic Co., Ltd.
- *              Copyright (C) 2012-2013 Sony Mobile Communications AB.
+ *              Copyright (C) 2012 Sony Mobile Communications AB.
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by

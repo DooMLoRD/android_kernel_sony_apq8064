@@ -654,7 +654,7 @@ static int32_t sony_sensor_set_fps(struct msm_sensor_ctrl_t *s_ctrl,
 }
 
 static int32_t sony_sensor_write_exp_gain1(struct msm_sensor_ctrl_t *s_ctrl,
-	        uint16_t gain, uint32_t line, int32_t luma_avg, uint16_t fgain)
+		uint16_t gain, uint32_t line, int32_t luma_avg, uint16_t fgain)
 {
 	return 0;
 }

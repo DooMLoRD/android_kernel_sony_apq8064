@@ -144,7 +144,10 @@ struct mhl_device {
 	/* USB interface */
 	struct work_struct usb_online_work;
 
-	int key_release_supported;
+	/* RCP release control */
+	int rcp_last_received;
+	struct timer_list rcp_key_release_timer;
+
 	int mouse_enabled;
 	int mouse_move_distance_dx;
 	int mouse_move_distance_dy;

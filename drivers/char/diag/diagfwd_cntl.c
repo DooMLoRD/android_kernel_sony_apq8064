@@ -69,7 +69,7 @@ int diag_process_smd_cntl_read_data(struct diag_smd_info *smd_info, void *buf,
 		type = *(uint32_t *)(buf);
 		data_len = *(uint32_t *)(buf + 4);
 		if (type < DIAG_CTRL_MSG_REG ||
-				 type > DIAG_CTRL_MSG_F3_MASK_V2) {
+				 type > DIAG_CTRL_MSG_LAST) {
 			pr_alert("diag: In %s, Invalid Msg type %d proc %d",
 				 __func__, type, smd_info->peripheral);
 			break;
@@ -88,7 +88,7 @@ int diag_process_smd_cntl_read_data(struct diag_smd_info *smd_info, void *buf,
 			pkt_params->count = msg->count_entries;
 			pkt_params->params = kzalloc(pkt_params->count *
 				sizeof(struct bindpkt_params), GFP_KERNEL);
-			if (pkt_params->params == NULL) {
+			if (ZERO_OR_NULL_PTR(pkt_params->params)) {
 				pr_alert("diag: In %s, Memory alloc fail\n",
 					__func__);
 				kfree(pkt_params);
@@ -147,10 +147,15 @@ void diag_send_diag_mode_update_by_smd(struct diag_smd_info *smd_info,
 	char buf[sizeof(struct diag_ctrl_msg_diagmode)];
 	int msg_size = sizeof(struct diag_ctrl_msg_diagmode);
 	int wr_size = -ENOMEM, retry_count = 0, timer;
+	struct diag_smd_info *data = NULL;
 
 	/* For now only allow the modem to receive the message */
 	if (!smd_info || smd_info->type != SMD_CNTL_TYPE ||
 		(smd_info->peripheral != MODEM_DATA))
+		return;
+
+	data = &driver->smd_data[smd_info->peripheral];
+	if (!data)
 		return;
 
 	mutex_lock(&driver->diag_cntl_mutex);
@@ -188,11 +193,9 @@ void diag_send_diag_mode_update_by_smd(struct diag_smd_info *smd_info,
 				for (timer = 0; timer < 5; timer++)
 					udelay(2000);
 			} else {
-				struct diag_smd_info *data =
+				data =
 				&driver->smd_data[smd_info->peripheral];
 				driver->real_time_mode = real_time;
-				process_lock_enabling(&data->nrt_lock,
-								real_time);
 				break;
 			}
 		}
@@ -204,6 +207,7 @@ void diag_send_diag_mode_update_by_smd(struct diag_smd_info *smd_info,
 		pr_err("diag: ch invalid, feature update on proc %d\n",
 				smd_info->peripheral);
 	}
+	process_lock_enabling(&data->nrt_lock, real_time);
 
 	mutex_unlock(&driver->diag_cntl_mutex);
 }

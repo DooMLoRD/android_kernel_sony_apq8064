@@ -36,7 +36,6 @@
 #include <mach/peripheral-loader.h>
 #include <mach/msm_smd.h>
 #include <mach/msm_iomap.h>
-#include <linux/ratelimit.h>
 #include <linux/mfd/pm8xxx/misc.h>
 #ifdef CONFIG_WCNSS_MEM_PRE_ALLOC
 #include "wcnss_prealloc.h"
@@ -113,13 +112,13 @@ struct wcnss_pmic_dump {
 };
 
 static struct wcnss_pmic_dump wcnss_pmic_reg_dump[] = {
-	{"S2", 0x1D8},
-	{"L4", 0xB4},
-	{"L10", 0xC0},
-	{"LVS2", 0x62},
-	{"S4", 0x1E8},
-	{"LVS7", 0x06C},
-	{"LVS1", 0x060},
+	{"S2", 0x1D8}, /* S2 */
+	{"L4", 0xB4},  /* L4 */
+	{"L10", 0xC0},  /* L10 */
+	{"LVS2", 0x62},   /* LVS2 */
+	{"S4", 0x1E8}, /*S4*/
+	{"LVS7", 0x06C}, /*LVS7*/
+	{"LVS1", 0x060}, /*LVS7*/
 };
 
 #define NVBIN_FILE "wlan/prima/WCNSS_qcom_wlan_nv.bin"
@@ -340,9 +339,8 @@ void wcnss_riva_dump_pmic_regs(void)
 			pr_err("PMIC READ: Failed to read addr = %d\n",
 					wcnss_pmic_reg_dump[i].reg_addr);
 		else
-			pr_info_ratelimited("PMIC READ: %s addr = %x, value = %x\n",
-				wcnss_pmic_reg_dump[i].reg_name,
-				wcnss_pmic_reg_dump[i].reg_addr, val);
+			pr_err("PMIC READ: addr = %x, value = %x\n",
+					wcnss_pmic_reg_dump[i].reg_addr, val);
 	}
 }
 
@@ -1496,7 +1494,6 @@ static ssize_t wcnss_wlan_write(struct file *fp, const char __user
 exit:
 	return rc;
 }
-
 
 static const struct file_operations wcnss_node_fops = {
 	.owner = THIS_MODULE,

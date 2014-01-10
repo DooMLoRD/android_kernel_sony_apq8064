@@ -41,6 +41,8 @@
 #define SEND_POWERKEY_TIME	(jiffies + HZ/3)
 #endif /* CONFIG_MHL_RAP */
 
+#define RCP_KEY_RELEASE_DELAY 480
+
 #define MHL_KEYCODE_OFFSET	0x40
 /*
  * mhl.c - MHL control abustruction provides following feature
@@ -71,6 +73,11 @@ static struct workqueue_struct *scratchpad_workqueue;
 #endif /* CONFIG_MHL_OSD_NAME */
 
 static void (*notify_usb_online)(int online);
+
+/* RCP release control */
+static void mhl_init_rcp_release_control(struct mhl_device *mhl_dev);
+static void mhl_stop_rcp_release_control(struct mhl_device *mhl_dev);
+static void mhl_rcp_last_received_key_release(unsigned long data);
 
 static int mhl_update_peer_devcap(struct mhl_device *mhl_dev,
 	int offset, u8 devcap);
@@ -142,7 +149,9 @@ int mhl_notify_unplugged(struct mhl_device *mhl_dev)
 	mhl_dev->hpd_state = 0;
 	mhl_dev->tmds_state = FALSE;
 	mhl_dev->devcap_state = 0;
-	mhl_dev->key_release_supported = 0;
+
+	mhl_stop_rcp_release_control(mhl_dev);
+
 	memset(&mhl_dev->state, 0, sizeof(struct mhl_state));
 
 	/* callback usb driver if callback registered */
@@ -562,17 +571,33 @@ static void mhl_rap_send_retry_timer(unsigned long data)
 	queue_work(rap_command_workqueue, &mhl_dev->rap_retry_work);
 }
 
+static void __mhl_input_send_powerkey(struct mhl_device *mhl_dev)
+{
+	int key;
+
+	if (!mhl_dev->input)
+		return;
+
+	dev_info(&mhl_dev->dev, "send powerkey\n");
+
+	/*
+	 * fake Vendor_Specific key event to suspend phone, sending directly
+	 * to the input device to avoid conflicts with mhl_handle_input logic
+	 * in future
+	 */
+	key = 0x7E + MHL_KEYCODE_OFFSET;
+	input_report_key(mhl_dev->input, key, TRUE);
+	input_report_key(mhl_dev->input, key, FALSE);
+	input_sync(mhl_dev->input);
+}
+
 static void mhl_rap_powerkey_timer(unsigned long data)
 {
 	struct mhl_device *mhl_dev = (struct mhl_device *)data;
 	if (!mhl_dev)
 		return;
 
-	dev_info(&mhl_dev->dev, "send powerkey\n");
-
-	/* fake Vendor_Specific key event to suspend phone */
-	mhl_handle_input(mhl_dev, 0x7E);
-	mhl_handle_input(mhl_dev, 0x7E | 0x80);
+	__mhl_input_send_powerkey(mhl_dev);
 }
 
 static void mhl_init_rap_timers(struct mhl_device *mhl_dev)
@@ -966,6 +991,42 @@ static int mhl_rap_send_msc_msg(
 }
 #endif /* CONFIG_MHL_RAP */
 
+static void mhl_init_rcp_release_control(struct mhl_device *mhl_dev)
+{
+	init_timer(&mhl_dev->rcp_key_release_timer);
+	mhl_dev->rcp_key_release_timer.function =
+		mhl_rcp_last_received_key_release;
+	mhl_dev->rcp_key_release_timer.data = (unsigned long)mhl_dev;
+
+	mhl_dev->rcp_last_received = -1;
+}
+
+static void mhl_stop_rcp_release_control(struct mhl_device *mhl_dev)
+{
+	del_timer(&mhl_dev->rcp_key_release_timer);
+
+	mhl_dev->rcp_last_received = -1;
+}
+
+static void mhl_rcp_last_received_key_release(unsigned long data)
+{
+	struct mhl_device *mhl_dev = (struct mhl_device *)data;
+
+	if (!mhl_dev)
+		return;
+
+	if (!mhl_dev->full_operation)
+		return;
+
+	if (!(mhl_dev->rcp_last_received & 0x80))
+		mhl_handle_input(mhl_dev, mhl_dev->rcp_last_received | 0x80);
+	else
+		pr_err("%s: rcp_last_received wrong value = %d !\n",
+			__func__, mhl_dev->rcp_last_received);
+
+	mhl_dev->rcp_last_received = -1;
+}
+
 static void mhl_handle_input(struct mhl_device *mhl_dev, u8 key_code)
 {
 	int input_key_code = (key_code & 0x7F) + MHL_KEYCODE_OFFSET;
@@ -1020,15 +1081,30 @@ static int mhl_rcp_recv(struct mhl_device *mhl_dev, u8 key_code)
 		MHL_MSC_MSG_RCPK,
 		key_code);
 
-	if (mhl_dev->full_operation && !mhl_dev->suspended) {
-		if (key_code & 0x80)
-			mhl_dev->key_release_supported = 1;
-		if (mhl_dev->input) {
-			mhl_handle_input(mhl_dev, key_code);
-			/* Fake key release */
-			if (!mhl_dev->key_release_supported)
-				mhl_handle_input(mhl_dev, key_code | 0x80);
+	if (mhl_dev->full_operation && !mhl_dev->suspended && mhl_dev->input) {
+
+		if (key_code & 0x80) {
+			/* Received proper key release for last received key pressed */
+			if (key_code == (mhl_dev->rcp_last_received | 0x80) &&
+				mhl_dev->rcp_last_received != -1)
+				mhl_stop_rcp_release_control(mhl_dev);
+		} else {
+			/* Received another key pressed than last received */
+			if (key_code != mhl_dev->rcp_last_received &&
+				mhl_dev->rcp_last_received != -1) {
+				del_timer(&mhl_dev->rcp_key_release_timer);
+				mhl_rcp_last_received_key_release((unsigned long)mhl_dev);
+			}
+
+			/* Save last key pressed received
+			 * and start key release control based on timer
+			 */
+			mhl_dev->rcp_last_received = key_code;
+			mod_timer(&mhl_dev->rcp_key_release_timer,
+				jiffies + msecs_to_jiffies(RCP_KEY_RELEASE_DELAY));
 		}
+
+		mhl_handle_input(mhl_dev, key_code);
 	}
 
 	return rc;
@@ -1058,6 +1134,10 @@ static int mhl_rap_action(struct mhl_device *mhl_dev, u8 action_code)
 			mhl_dev->ops->tmds_control(TRUE);
 			/* notify userspace */
 			mhl_notify_rap_recv(mhl_dev, action_code);
+		}
+		if (mhl_dev->suspended) {
+			mhl_dev->suspended = 0;
+			__mhl_input_send_powerkey(mhl_dev);
 		}
 		break;
 	case MHL_RAP_CONTENT_OFF:
@@ -1122,7 +1202,9 @@ static int mhl_rap_recv(struct mhl_device *mhl_dev, u8 action_code)
 	case MHL_RAP_POLL:
 	case MHL_RAP_CONTENT_ON:
 	case MHL_RAP_CONTENT_OFF:
-		if (mhl_dev->full_operation && !mhl_dev->suspended) {
+		if (mhl_dev->full_operation &&
+			(action_code == MHL_RAP_CONTENT_ON ||
+				!mhl_dev->suspended)) {
 			mhl_rap_action(mhl_dev, action_code);
 			error_code = MHL_RAPK_NO_ERROR;
 #ifdef CONFIG_MHL_RAP
@@ -1547,6 +1629,7 @@ static void mhl_early_suspend(struct early_suspend *handler)
 
 	if (mhl_dev->mhl_online != MHL_ONLINE || !mhl_dev->tmds_state
 			|| !mhl_dev->full_operation) {
+		mhl_stop_rcp_release_control(mhl_dev);
 		mhl_dev->suspended = 1;
 		return;
 	}
@@ -1554,6 +1637,8 @@ static void mhl_early_suspend(struct early_suspend *handler)
 	mhl_dev->ops->hpd_control(FALSE);
 	mhl_dev->ops->tmds_control(FALSE);
 	mhl_dev->tmds_state = FALSE;
+
+	mhl_stop_rcp_release_control(mhl_dev);
 
 	mhl_content_off_and_suspend(mhl_dev);
 }
@@ -1646,7 +1731,8 @@ struct mhl_device *mhl_device_register(const char *name,
 	/* device added */
 	kobject_uevent(&mhl_dev->dev.kobj, KOBJ_ADD);
 
-	mhl_dev->key_release_supported = 0;
+	mhl_init_rcp_release_control(mhl_dev);
+
 	mhl_dev->mouse_enabled = 0;
 	mhl_dev->mouse_move_distance_dx = 0;
 	mhl_dev->mouse_move_distance_dy = 0;
@@ -1702,6 +1788,9 @@ void mhl_device_unregister(struct mhl_device *mhl_dev)
 	del_timer(&mhl_dev->rap_retry_timer);
 	del_timer(&mhl_dev->rap_powerkey_timer);
 #endif /* CONFIG_MHL_RAP */
+
+	mhl_stop_rcp_release_control(mhl_dev);
+
 	mutex_lock(&mhl_dev->ops_mutex);
 	if (mhl_dev->input) {
 		input_unregister_device(mhl_dev->input);

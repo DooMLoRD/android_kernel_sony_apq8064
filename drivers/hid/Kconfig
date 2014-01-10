@@ -534,7 +534,7 @@ config HID_SONY
 
 config HID_SONY_PS3_CTRL_BT
 	tristate "Sony PS3 controller bluetooth connection support"
-	depends on HID_SONY=m && HIDRAW && BT_HIDP
+	depends on HID_SONY && HIDRAW && BT_HIDP
 	---help---
 	Support for Sony PS3 controller bluetooth connection.
 	This includes add following HID report types as special feature.

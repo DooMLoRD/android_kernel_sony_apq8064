@@ -649,20 +649,24 @@ void cont_splash_clk_ctrl(int enable)
 	}
 }
 
-void mipi_dsi_prepare_clocks(void)
+void mipi_dsi_prepare_ahb_clocks(void)
 {
 	clk_prepare(amp_pclk);
 	clk_prepare(dsi_m_pclk);
 	clk_prepare(dsi_s_pclk);
 }
 
+void mipi_dsi_unprepare_ahb_clocks(void)
+{
+	clk_unprepare(dsi_m_pclk);
+	clk_unprepare(dsi_s_pclk);
+	clk_unprepare(amp_pclk);
+}
+
 void mipi_dsi_unprepare_clocks(void)
 {
 	clk_unprepare(dsi_esc_clk);
 	clk_unprepare(dsi_byte_div_clk);
-	clk_unprepare(dsi_m_pclk);
-	clk_unprepare(dsi_s_pclk);
-	clk_unprepare(amp_pclk);
 }
 
 void mipi_dsi_ahb_ctrl(u32 enable)
@@ -809,11 +813,20 @@ void hdmi_msm_reset_core(void)
 void hdmi_msm_init_phy(int video_format)
 {
 	uint32 offset;
+
 	pr_err("Video format is : %u\n", video_format);
 
 	HDMI_OUTP(HDMI_PHY_REG_0, 0x1B);
-	HDMI_OUTP(HDMI_PHY_REG_1, 0xf2);
+	HDMI_OUTP(HDMI_PHY_REG_1, 0xF2);
 
+	/* Set HDMI_PHY_REG1 based on chip source id[30:28] and PTE_HDMI[31] bit
+	 * of QFPROM_RAW_PTE_ROW1_LSB */
+	 if (hdmi_msm_state->pd->source) {
+		if ((hdmi_msm_state->pd->source()) &&
+			(((inpdw(QFPROM_BASE + 0x00c0) & 0xF0000000) >> 28) ==
+									0x1))
+			HDMI_OUTP(HDMI_PHY_REG_1, 0xF1);
+	}
 	offset = HDMI_PHY_REG_4;
 	while (offset <= HDMI_PHY_REG_11) {
 		HDMI_OUTP(offset, 0x0);

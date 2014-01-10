@@ -54,7 +54,7 @@ static char read_ddb_start[] = {
 
 /* LTPS Interface mode */
 static char ltps_if_ctrl[] = {
-	0xC4, 0xC3, 0x29
+	0xC4, 0xC3, 0x29, 0x00
 };
 /* Gamma */
 static char gamma_ctrl[] = {
@@ -104,6 +104,9 @@ static char nvm_status[] = {
 static char test_mode1[] = {
 	0xE4, 0x00, 0x00, 0x00, 0xF0, 0xFF
 };
+static char nvm_read_stop[] = {
+	0xE4, 0x00, 0x00, 0x00, 0x00, 0xFF
+};
 static char test_mode2[] = {
 	0xE4, 0x39, 0x87
 };
@@ -137,6 +140,14 @@ static char pix_fmt[] = {
 static char dsi_ctl[] = {
 	0xB6, 0x51, 0xE3
 };
+static char test_mode8[] = {
+	0xB7, 0x18, 0x00, 0x18, 0x18, 0x0C, 0x14, 0xAC,
+	0x14, 0x6C, 0x14, 0x0C, 0x14, 0x00, 0x10, 0x00
+};
+static char test_mode9[] = {
+	0xB8, 0x28, 0xDA, 0x6D, 0x53, 0xFF, 0xFF, 0xCF,
+	0x04, 0x37, 0x5A, 0x87, 0xBE, 0xFF
+};
 static char dsp_h_timming[] = {
 	0xC1, 0x00, 0xB4, 0x00, 0x00, 0xA1, 0x00, 0x00, 0xA1,
 	0x09, 0x21, 0x09, 0x00, 0x00, 0x00, 0x01
@@ -160,7 +171,7 @@ static char pow_set1[] = {
 	0xD0, 0x6B, 0x66, 0x09, 0x18, 0x58, 0x00, 0x14, 0x00
 };
 static char pow_set2[] = {
-	0xD1, 0x77, 0xD4
+	0xD1, 0x77, 0xD4, 0x5C, 0x21, 0x97, 0x06, 0x00, 0x00
 };
 static char pow_internal[] = {
 	0xD3, 0x33
@@ -168,21 +179,89 @@ static char pow_internal[] = {
 static char vol_set[] = {
 	0xD5, 0x09, 0x09
 };
+
+static char test_mode10[] = {
+	0xD7, 0x22, 0x21, 0x55, 0x46, 0x44, 0x34, 0x02, 0x65, 0x04
+};
+static char test_mode11[] = {
+	0xD8, 0x34, 0x64, 0x23, 0x25, 0x62, 0x32
+};
+static char test_mode12[] = {
+	0xD9, 0xDF, 0xDD, 0x3F
+};
+static char test_mode13[] = {
+	0xDA, 0x01
+};
+static char test_mode14[] = {
+	0xDB, 0x46, 0x62, 0x42
+};
 static char nvm_ld_ctl[] = {
 	0xE2, 0x03
 };
 static char reg_wri_ctl[] = {
 	0xE5, 0x01
 };
+static char test_mode15[] = {
+	0xF3, 0x00, 0x00, 0x00, 0x25, 0x00, 0x00, 0x00,
+	0x00
+};
+static char test_mode16[] = {
+	0xFE, 0x00, 0x00
+};
 
-static struct dsi_cmd_desc display_init_cmd_seq[] = {
-	{DTYPE_DCS_WRITE, 1, 0, 0, 10, sizeof(exit_sleep), exit_sleep},
+static struct dsi_cmd_desc display_def_sets_cmd_seq[] = {
 	{DTYPE_GEN_WRITE2, 1, 0, 0, 0, sizeof(mcap), mcap},
 	{DTYPE_GEN_LWRITE, 1, 0, 0, 0,
 		sizeof(auto_cmd_refresh), auto_cmd_refresh},
-	{DTYPE_GEN_LWRITE, 1, 0, 0, 120,
-		sizeof(panel_driving), panel_driving},
-	{DTYPE_GEN_WRITE2, 1, 0, 0, 0, sizeof(mcap_lock), mcap_lock},
+	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(nvm_read_stop), nvm_read_stop},
+	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(test_mode8), test_mode8},
+	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(test_mode9), test_mode9},
+	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(src_output), src_output},
+	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(pow_set1), pow_set1},
+	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(pow_set2), pow_set2},
+	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(test_mode10), test_mode10},
+	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(test_mode11), test_mode11},
+	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(test_mode12), test_mode12},
+	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(test_mode13), test_mode13},
+	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(test_mode14), test_mode14},
+	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(test_mode15), test_mode15},
+	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(test_mode7), test_mode7},
+	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(test_mode16), test_mode16},
+
+	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(dev_code), dev_code},
+	{DTYPE_GEN_LWRITE, 1, 0, 0, 0,
+		sizeof(auto_cmd_refresh), auto_cmd_refresh},
+	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(pix_fmt), pix_fmt},
+	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(dsi_ctl), dsi_ctl},
+	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(panel_driving), panel_driving},
+	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(dsp_h_timming), dsp_h_timming},
+	{DTYPE_GEN_LWRITE, 1, 0, 0, 0,
+		sizeof(gate_drv_if_ctl), gate_drv_if_ctl},
+	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(ltps_if_ctrl), ltps_if_ctrl},
+	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(pbctrl_ctl), pbctrl_ctl},
+	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(dsp_rgb_sw_odr), dsp_rgb_sw_odr},
+	{DTYPE_GEN_WRITE2, 1, 0, 0, 0, sizeof(ltps_if_ctl), ltps_if_ctl},
+	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(pow_internal), pow_internal},
+	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(vol_set), vol_set},
+	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(nvm_ld_ctl), nvm_ld_ctl},
+	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(reg_wri_ctl), reg_wri_ctl},
+	{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(gamma_ctrl), gamma_ctrl},
+	{DTYPE_GEN_LWRITE, 1, 0, 0, 0,
+		sizeof(gamma_ctrl_set_r_pos), gamma_ctrl_set_r_pos},
+	{DTYPE_GEN_LWRITE, 1, 0, 0, 0,
+		sizeof(gamma_ctrl_set_r_neg), gamma_ctrl_set_r_neg},
+	{DTYPE_GEN_LWRITE, 1, 0, 0, 0,
+		sizeof(gamma_ctrl_set_g_pos), gamma_ctrl_set_g_pos},
+	{DTYPE_GEN_LWRITE, 1, 0, 0, 0,
+		sizeof(gamma_ctrl_set_g_neg), gamma_ctrl_set_g_neg},
+	{DTYPE_GEN_LWRITE, 1, 0, 0, 0,
+		sizeof(gamma_ctrl_set_b_pos), gamma_ctrl_set_b_pos},
+	{DTYPE_GEN_LWRITE, 1, 0, 0, 0,
+		sizeof(gamma_ctrl_set_b_neg), gamma_ctrl_set_b_neg},
+};
+
+static struct dsi_cmd_desc display_init_cmd_seq[] = {
+	{DTYPE_DCS_WRITE, 1, 0, 0, 120, sizeof(exit_sleep), exit_sleep},
 };
 
 static struct dsi_cmd_desc display_on_cmd_seq[] = {
@@ -286,6 +365,8 @@ static struct dsi_cmd_desc nvm_flash_user_cmd_seq[] = {
 };
 
 static const struct panel_cmd display_init_cmds[] = {
+	{CMD_DSI, {.dsi_payload = {display_def_sets_cmd_seq,
+				ARRAY_SIZE(display_def_sets_cmd_seq)} } },
 	{CMD_DSI, {.dsi_payload = {display_init_cmd_seq,
 				ARRAY_SIZE(display_init_cmd_seq)} } },
 	{CMD_END, {} },
@@ -509,6 +590,7 @@ const struct panel sharp_ls046k3sx01_panel_tovis_id = {
 	.id_num = ARRAY_SIZE(ddb_val_tov),
 	.width = 53,
 	.height = 95,
+	.send_video_data_before_display_on = true,
 	.panel_id = "ls046k3sx01",
 	.panel_rev = "tov",
 };
@@ -521,6 +603,7 @@ const struct panel sharp_ls046k3sx01_panel_id_1a = {
 	.id_num = ARRAY_SIZE(ddb_val_1a),
 	.width = 53,
 	.height = 95,
+	.send_video_data_before_display_on = true,
 	.panel_id = "ls046k3sx01",
 	.panel_rev = "1a",
 };
@@ -533,6 +616,7 @@ const struct panel sharp_ls046k3sx01_panel_id = {
 	.id_num = ARRAY_SIZE(ddb_val),
 	.width = 53,
 	.height = 95,
+	.send_video_data_before_display_on = true,
 	.panel_id = "ls046k3sx01",
 	.panel_rev = "generic",
 };

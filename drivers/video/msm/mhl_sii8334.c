@@ -46,8 +46,6 @@
 #endif
 
 #define MSC_COMMAND_TIME_OUT 2050
-#define CHARGER_INIT_WAIT 30
-#define CHARGER_INIT_DELAYED_TIME 20
 enum {
 	POWER_STATE_D0_MHL = 0,
 	POWER_STATE_D0_NO_MHL = 2,
@@ -385,8 +383,6 @@ static void mhl_sii_scdt_status_change(void)
 
 static int mhl_sii_rgnd(void)
 {
-	int ret;
-	int counter;
 	u8 regval = MHL_SII_PAGE3_REG_READ(0x1C) & (BIT(1) | BIT(0));
 	/* 00, 01 or 11 means USB. */
 	/* 10 means 1K impedance (MHL) */
@@ -399,23 +395,6 @@ static int mhl_sii_rgnd(void)
 		wake_lock(&mhl_wake_lock);
 		mutex_unlock(&mhl_state_mutex);
 		mhl_notify_plugged(mhl_state->mhl_dev);
-		if (mhl_state->charging_enable) {
-			/* 700 means 700mA charging ready */
-			ret = mhl_state->charging_enable(TRUE, 700);
-			if (ret) {
-				/* We used late_initcall before for
-				 * charger_enable(). Still, call of
-				 * charger_enable() is some fail.
-				 * Waits here until initialization success it.
-				 */
-				counter = CHARGER_INIT_WAIT;
-				while (ret && counter--) {
-					msleep(CHARGER_INIT_DELAYED_TIME);
-					ret = mhl_state->charging_enable
-						(TRUE, 700);
-				}
-			}
-		}
 		pr_info("mhl: MHL detected\n");
 		complete_all(&mhl_state->rgnd_done);
 	} else {
@@ -1339,18 +1318,8 @@ static void __exit mhl_sii_exit(void)
 	kfree(mhl_state);
 }
 
-
-/*
- * We have to use late_initcall instead of module_init.
- * Because, when we use module_init, the issue occurred
- * that cannot charge a phone from dongle or MHL straight cable
- * when a phone is a power off state.
- * This reason is cause that reading DEV_CAT of mhl_msc_command_done()
- * of the MHL driver is run before calling pm8921_charger_probe().
- * To solve this issue, It is necessary for us to call late_initcall
- * which pm8921_charger driver called.
- */
-late_initcall(mhl_sii_init);
+/* sync with pm8921-charger, we should start later */
+late_initcall_sync(mhl_sii_init);
 module_exit(mhl_sii_exit);
 
 MODULE_LICENSE("GPL v2");
