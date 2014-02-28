@@ -52,6 +52,10 @@
 #if defined CONFIG_SENSORS_MPU6050
 #include <linux/mpu.h>
 #endif
+#if defined CONFIG_INV_MPU_IIO
+#include <linux/iio_mpu.h>
+#include "gyro-semc_common.h"
+#endif
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
 #include <asm/hardware/gic.h>
@@ -2361,7 +2365,8 @@ err_vdd:
 
 }
 
-#if defined CONFIG_INPUT_BMA250_NG || defined CONFIG_INPUT_BMA250
+#if defined CONFIG_INPUT_BMA250_NG || defined CONFIG_INPUT_BMA250 || \
+	defined CONFIG_INV_IIO_MPU3050_ACCEL_SLAVE_BMA250
 #define BMA250_DEFAULT_RATE 50
 static int bma250_power_mode(struct device *dev, int enable)
 {
@@ -2384,7 +2389,9 @@ static int bma250_power_mode(struct device *dev, int enable)
 out:
 	return rc;
 }
+#endif
 
+#if defined CONFIG_INPUT_BMA250_NG || defined CONFIG_INPUT_BMA250
 static struct registers bma250_reg_setup = {
 	.range                = BMA250_RANGE_2G,
 	.bw_sel               = BMA250_BW_250HZ,
@@ -2403,7 +2410,21 @@ static struct bma250_platform_data bma250_platform_data = {
 };
 #endif
 
-#ifdef CONFIG_INPUT_AKM8963
+#ifdef CONFIG_INV_IIO_MPU3050_ACCEL_SLAVE_BMA250
+int acc_power_supply(struct device *dev, int enable)
+{
+	static bool powered;
+	if ((powered && enable) || !(powered || enable)) {
+		dev_err(dev, "%s: unbalanced, enable %d", __func__, enable);
+		return 0;
+	}
+	powered = enable;
+	dev_dbg(dev, "%s: enable %d", __func__, enable);
+	return bma250_power_mode(dev, enable);
+}
+#endif
+
+#if defined CONFIG_INPUT_AKM8963 || defined CONFIG_INV_AK89XX_IIO
 #define AKM8963_GPIO 7
 static int akm8963_gpio_setup(struct device *dev)
 {
@@ -2440,6 +2461,7 @@ out:
 	return rc;
 }
 
+#ifdef CONFIG_INPUT_AKM8963
 static struct akm8963_platform_data akm8963_platform_data = {
 	.setup		= akm8963_gpio_setup,
 	.shutdown	= akm8963_gpio_shutdown,
@@ -2447,7 +2469,34 @@ static struct akm8963_platform_data akm8963_platform_data = {
 };
 #endif
 
-#ifdef CONFIG_SENSORS_MPU3050
+#ifdef CONFIG_INV_AK89XX_IIO
+int compass_power_supply(struct device *dev, int enable)
+{
+	int rc;
+	static bool powered;
+	if ((powered && enable) || !(powered || enable)) {
+		dev_err(dev, "%s: unbalanced, enable %d", __func__, enable);
+		return 0;
+	}
+	dev_dbg(dev, "%s: enable %d", __func__, enable);
+	powered = enable;
+	if (enable) {
+		rc = akm8963_gpio_setup(dev);
+		if (!rc) {
+			rc = akm8963_power_mode(dev, 1);
+			if (rc)
+				(void)akm8963_gpio_shutdown(dev);
+		}
+		return rc;
+	}
+	rc = akm8963_power_mode(dev, 0);
+	akm8963_gpio_shutdown(dev);
+	return rc;
+}
+#endif
+#endif
+
+#if defined(CONFIG_SENSORS_MPU3050) || defined(CONFIG_INV_MPU_IIO)
 #define MPU3050_GPIO 28
 int mpu3050_gpio_setup(struct device *dev, int enable)
 {
@@ -2486,6 +2535,19 @@ int mpu3050_power_mode(struct device *dev, int enable)
 out:
 	return rc;
 }
+#ifdef CONFIG_INV_MPU_IIO
+int mpu_power_supply(struct device *dev, int enable)
+{
+	static bool powered;
+	if ((powered && enable) || !(powered || enable)) {
+		dev_err(dev, "%s: unbalanced, enable %d", __func__, enable);
+		return 0;
+	}
+	powered = enable;
+	dev_dbg(dev, "%s: enable %d", __func__, enable);
+	return mpu3050_power_mode(dev, enable);
+}
+#endif
 #endif
 
 #ifdef CONFIG_SENSORS_MPU6050
@@ -4250,6 +4312,13 @@ struct i2c_registry {
 };
 
 static struct i2c_board_info gsbi2_peripherals_info[] __initdata = {
+#ifdef CONFIG_INV_AK89XX_IIO
+	{
+		/* Config-spec is 8-bit = 0x30, src-code need 7-bit => 0x18 */
+		I2C_BOARD_INFO("akm8963", 0x18 >> 1),
+		.platform_data = &compass_data,
+	},
+#endif
 #ifdef CONFIG_VIBRATOR_LC898300
 	{
 		/* Config-spec is 8-bit = 0x92, src-code need 7-bit => 0x49 */
@@ -4282,6 +4351,14 @@ static struct i2c_board_info gsbi2_peripherals_info[] __initdata = {
 	{
 		/* Config-spec is 8-bit = 0xD0, src-code need 7-bit => 0x68 */
 		I2C_BOARD_INFO(MPU_NAME, 0xD0 >> 1),
+		.irq = MSM_GPIO_TO_INT(MPU3050_GPIO),
+		.platform_data = &mpu_data,
+	},
+#endif
+#ifdef CONFIG_INV_MPU_IIO
+	{
+		/* Config-spec is 8-bit = 0xD0, src-code need 7-bit => 0x68 */
+		I2C_BOARD_INFO("mpu3050", 0xD0 >> 1),
 		.irq = MSM_GPIO_TO_INT(MPU3050_GPIO),
 		.platform_data = &mpu_data,
 	},

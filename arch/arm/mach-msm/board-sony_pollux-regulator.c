@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
- * Copyright (C) 2012 Sony Mobile Communications AB.
+ * Copyright (C) 2012-2013 Sony Mobile Communications AB.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -79,6 +79,7 @@ VREG_CONSUMERS(L9) = {
 	REGULATOR_SUPPLY("vdd",			"3-0024"),
 	REGULATOR_SUPPLY("mpu3050_vdd",		"2-0068"),
 	REGULATOR_SUPPLY("bma250_vdd",		"2-0018"),
+	REGULATOR_SUPPLY("bma250_vdd",		"2-0068"),
 	REGULATOR_SUPPLY("akm8963_vdd",		"2-000c"),
 	REGULATOR_SUPPLY("ir-vdd",	"ir_remote_control"),
 };
@@ -226,6 +227,7 @@ VREG_CONSUMERS(LVS4) = {
 	REGULATOR_SUPPLY("8921_lvs4",		NULL),
 	REGULATOR_SUPPLY("mpu3050_vio",		"2-0068"),
 	REGULATOR_SUPPLY("bma250_vio",		"2-0018"),
+	REGULATOR_SUPPLY("bma250_vio",		"2-0068"),
 	REGULATOR_SUPPLY("akm8963_vio",		"2-000c"),
 	REGULATOR_SUPPLY("ir-vio",	"ir_remote_control"),
 };
