@@ -221,7 +221,7 @@ static ssize_t hidraw_get_report(struct file *file, char __user *buffer, size_t 
 			printk(KERN_WARNING "hidraw: pid %d passed too short report\n",
 					task_pid_nr(current));
 			ret = -EINVAL;
-			goto out;
+			goto out_free;
 		}
 
 		if (copy_from_user(buf, buffer, 3)) {

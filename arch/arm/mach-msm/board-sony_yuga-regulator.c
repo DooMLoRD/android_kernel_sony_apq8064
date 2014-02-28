@@ -80,6 +80,7 @@ VREG_CONSUMERS(L9) = {
 	REGULATOR_SUPPLY("apds9702_vdd",	"2-0054"),
 	REGULATOR_SUPPLY("mpu3050_vdd",		"2-0068"),
 	REGULATOR_SUPPLY("bma250_vdd",		"2-0018"),
+	REGULATOR_SUPPLY("bma250_vdd",		"2-0068"),
 	REGULATOR_SUPPLY("akm8963_vdd",		"2-000c"),
 	REGULATOR_SUPPLY("irda_vcc",		"irda"),
 };
@@ -225,6 +226,7 @@ VREG_CONSUMERS(LVS4) = {
 	REGULATOR_SUPPLY("apds9702_vio",	"2-0054"),
 	REGULATOR_SUPPLY("mpu3050_vio",		"2-0068"),
 	REGULATOR_SUPPLY("bma250_vio",		"2-0018"),
+	REGULATOR_SUPPLY("bma250_vio",		"2-0068"),
 	REGULATOR_SUPPLY("akm8963_vio",		"2-000c"),
 	REGULATOR_SUPPLY("irda_vio",		"irda"),
 };

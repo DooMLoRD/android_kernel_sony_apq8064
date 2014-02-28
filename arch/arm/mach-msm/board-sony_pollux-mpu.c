@@ -1,7 +1,7 @@
 /* arch/arm/mach-msm/board-sony_pollux-mpu.c
  *
  * Copyright (C) 2011 Sony Ericsson Mobile Communications AB.
- * Copyright (C) 2012 Sony Mobile Communications AB.
+ * Copyright (C) 2012-2013 Sony Mobile Communications AB.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2, as
@@ -15,15 +15,20 @@
 #include <mach/irqs.h>
 #include "devices.h"
 #include "devices-msm8x60.h"
-#include <linux/mpu.h>
-#include "gyro-semc_common.h"
-
 #ifdef CONFIG_SENSORS_MPU3050
+#include <linux/mpu.h>
+#endif
+#ifdef CONFIG_INV_MPU_IIO
+#include <linux/iio_mpu.h>
+#endif
+#include "gyro-semc_common.h"
 
 #define GYRO_ORIENTATION {  0,  -1,  0, -1,  0,  0,  0,  0,  -1 }
 #define ACCEL_ORIENTATION {  -1,  0,  0,  0,  1,  0,  0,  0,  -1 }
 #define COMPASS_ORIENTATION {  -1,  0,  0,  0,  1,  0,  0,  0,  -1 }
 #define PRESSURE_ORIENTATION {  1,  0,  0,  0,  1,  0,  0,  0,  1 }
+
+#ifdef CONFIG_SENSORS_MPU3050
 
 struct mpu3050_platform_data mpu_data = {
 	.int_config  = BIT_INT_ANYRD_2CLEAR,
@@ -54,5 +59,25 @@ struct mpu3050_platform_data mpu_data = {
 	 },
 	.setup   = mpu3050_gpio_setup,
 	.hw_config  = mpu3050_power_mode,
+};
+#endif
+
+#ifdef CONFIG_INV_MPU_IIO
+struct mpu_platform_data mpu_data = {
+	.int_config  = 0x10,
+	.level_shifter = 0,
+	.orientation = GYRO_ORIENTATION,
+	.sec_slave_type = SECONDARY_SLAVE_TYPE_ACCEL,
+	.sec_slave_id   = ACCEL_ID_BMA250,
+	.secondary_i2c_addr = 0x18,
+	.secondary_orientation = ACCEL_ORIENTATION,
+	.power_supply = mpu_power_supply,
+	.secondary_power_supply = acc_power_supply,
+	.gpio = 28,
+};
+
+struct mpu_platform_data compass_data = {
+	.orientation = COMPASS_ORIENTATION,
+	.power_supply = compass_power_supply,
 };
 #endif

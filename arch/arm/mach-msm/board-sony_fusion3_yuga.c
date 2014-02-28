@@ -201,6 +201,6 @@ static int __init startup_rgb(char *str)
 early_param("startup", startup_rgb);
 #endif
 struct apq8064_data apq8064_data = {
-	.v_hs_max = 2450,
+	.v_hs_max = 2850,
 	.hs_detect_extn_cable = true,
 };
