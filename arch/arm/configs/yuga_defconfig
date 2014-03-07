@@ -3948,7 +3948,7 @@ CONFIG_NLS_ISO8859_1=y
 # CONFIG_NLS_KOI8_R is not set
 # CONFIG_NLS_KOI8_U is not set
 CONFIG_NLS_UTF8=y
-CONFIG_DYNAMIC_FSYNC=y
+# CONFIG_DYNAMIC_FSYNC is not set
 
 #
 # Kernel hacking
