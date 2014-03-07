@@ -8,6 +8,7 @@ obj-$(CONFIG_FB_BACKLIGHT) += msm_fb_bl.o
 ifeq ($(CONFIG_FB_MSM_MDP_HW),y)
 # MDP
 obj-y += mdp.o
+obj-y += lcd_notify.o
 
 obj-$(CONFIG_DEBUG_FS) += mdp_debugfs.o
 

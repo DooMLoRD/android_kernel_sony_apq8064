@@ -1695,6 +1695,11 @@ static int msm_fb_register(struct msm_fb_data_type *mfd)
 	("FrameBuffer[%d] %dx%dx%d size=%d bytes is registered successfully!\n",
 	mfd->index, fbi->var.xres, fbi->var.yres, fbi->var.bits_per_pixel,
 							fbi->fix.smem_len);
+	
+	#ifdef CONFIG_UPDATE_LCDC_LUT
+ 	if (msm_fb_pdata->update_lcdc_lut)
+     	msm_fb_pdata->update_lcdc_lut();
+ 	#endif
 
 	ret = 0;
 
