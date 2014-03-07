@@ -25,10 +25,6 @@
 #include <linux/mfd/pm8xxx/core.h>
 #include <linux/input/pmic8xxx-pwrkey.h>
 
-#ifdef CONFIG_TOUCHSCREEN_SYNAPTICS_DT2WAKE
-#include <linux/synaptics_i2c_rmi.h>
-#endif
-
 #define PON_CNTL_1 0x1C
 #define PON_CNTL_PULL_UP BIT(7)
 #define PON_CNTL_TRIG_DELAY_MASK (0x7)
@@ -222,11 +218,6 @@ static int __devinit pmic8xxx_pwrkey_probe(struct platform_device *pdev)
 	INIT_DELAYED_WORK(&pwrkey->confirm_work, confirm_key_status);
 
 	platform_set_drvdata(pdev, pwrkey);
-
-	#ifdef CONFIG_TOUCHSCREEN_SYNAPTICS_DT2WAKE
-  	dt2wake_setdev(pwr);
-  	printk(KERN_INFO "[dt2wake]: set device %s\n", pwr->name);
-	#endif
 
 	err = request_any_context_irq(key_press_irq, pwrkey_press_irq,
 		IRQF_TRIGGER_RISING, "pmic8xxx_pwrkey_press", pwrkey);
