@@ -648,7 +648,7 @@ static int mdp_lut_update_lcdc(struct fb_info *info, struct fb_cmap *cmap)
 	return 0;
 }
 
-#ifdef CONFIG_UPDATE_LCDC_LUT
+#ifdef CONFIG_UPDATE_LCDC_LUT_STANDALONE
 int mdp_preset_lut_update_lcdc(struct fb_cmap *cmap, uint32_t *internal_lut)
 {
 	uint32_t out;

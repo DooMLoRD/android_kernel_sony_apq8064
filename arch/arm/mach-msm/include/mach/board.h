@@ -485,7 +485,7 @@ struct msm_fb_platform_data {
 	int (*allow_set_offset)(void);
 	char prim_panel_name[PANEL_NAME_MAX_LEN];
 	char ext_panel_name[PANEL_NAME_MAX_LEN];
-	#ifdef CONFIG_UPDATE_LCDC_LUT
+	#ifdef CONFIG_UPDATE_LCDC_LUT_STANDALONE
    	int (*update_lcdc_lut)(void);
  	#endif
 };

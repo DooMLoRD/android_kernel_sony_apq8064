@@ -2945,15 +2945,15 @@ config FORCE_FAST_CHARGE
 		A simple sysfs interface to force adapters that
 		are detected as USB to charge as AC.
 
-config UPDATE_LCDC_LUT
-         bool "Set initial Qualcomm LCDC lut"
+config UPDATE_LCDC_LUT_STANDALONE
+         bool "Set initial Qualcomm LCDC lut MSM"
          default y
          help
            Set initial Qualcomm LCDC Look Up Table.
  
-config LCD_KCAL
+config LCD_KCAL_STANDALONE
          tristate "MSM generic LCDC Calibration"
-         default y
+        default m
          help
           Enable MSM generic LCDC temperature Calibration.
 
