@@ -118,7 +118,7 @@ static int msm_fb_detect_panel(const char *name)
 	return -ENODEV;
 }
 
-#ifdef CONFIG_UPDATE_LCDC_LUT_STANDALONE
+#ifdef CONFIG_UPDATE_LCDC_LUT
 int update_preset_lcdc_lut(void)
 {
   return 0;
@@ -127,7 +127,7 @@ int update_preset_lcdc_lut(void)
 
 static struct msm_fb_platform_data msm_fb_pdata = {
 	.detect_client = msm_fb_detect_panel,
-	#ifdef CONFIG_UPDATE_LCDC_LUT_STANDALONE
+	#ifdef CONFIG_UPDATE_LCDC_LUT
  	.update_lcdc_lut = update_preset_lcdc_lut,
 	#endif
 };

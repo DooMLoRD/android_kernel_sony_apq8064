@@ -648,7 +648,7 @@ static int mdp_lut_update_lcdc(struct fb_info *info, struct fb_cmap *cmap)
 	return 0;
 }
 
-#ifdef CONFIG_UPDATE_LCDC_LUT_STANDALONE
+#ifdef CONFIG_UPDATE_LCDC_LUT
 int mdp_preset_lut_update_lcdc(struct fb_cmap *cmap, uint32_t *internal_lut)
 {
 	uint32_t out;
@@ -2427,7 +2427,7 @@ static int mdp_on(struct platform_device *pdev)
 {
 	int ret = 0;
 	struct msm_fb_data_type *mfd;
-	//int i;
+	/* int i; */
 	mfd = platform_get_drvdata(pdev);
 
 	pr_debug("%s:+\n", __func__);

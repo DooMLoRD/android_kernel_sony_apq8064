@@ -1696,7 +1696,7 @@ static int msm_fb_register(struct msm_fb_data_type *mfd)
 	mfd->index, fbi->var.xres, fbi->var.yres, fbi->var.bits_per_pixel,
 							fbi->fix.smem_len);
 	
-	#ifdef CONFIG_UPDATE_LCDC_LUT_STANDALONE
+	#ifdef CONFIG_UPDATE_LCDC_LUT
  	if (msm_fb_pdata->update_lcdc_lut)
      	msm_fb_pdata->update_lcdc_lut();
  	#endif
