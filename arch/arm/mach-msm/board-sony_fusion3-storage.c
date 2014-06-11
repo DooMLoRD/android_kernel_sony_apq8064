@@ -348,6 +348,7 @@ void __init apq8064_init_mmc(void)
 					ARRAY_SIZE(sdc1_sup_clk_rates_all);
 		}
 		apq8064_add_sdcc(1, apq8064_sdc1_pdata);
+		msm_add_uio();
 	}
 
 	if (apq8064_sdc2_pdata)

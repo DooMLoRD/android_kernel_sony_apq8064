@@ -3,6 +3,7 @@
  * Show Logo in RLE 565 format
  *
  * Copyright (C) 2008 Google Incorporated
+ * Copyright (C) 2013 Sony Mobile Communications AB.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -21,6 +22,7 @@
 #include <linux/vt_kern.h>
 #include <linux/unistd.h>
 #include <linux/syscalls.h>
+#include <linux/workqueue.h>
 
 #include <linux/irq.h>
 #include <asm/system.h>
@@ -32,6 +34,16 @@
 #define fb_depth(fb)	((fb)->var.bits_per_pixel >> 3)
 #define fb_size(fb)	(fb_width(fb) * fb_height(fb) * fb_depth(fb))
 #define INIT_IMAGE_FILE "/logo.rle"
+
+static void close_fb_work(struct work_struct *work)
+{
+	struct fb_info *fb_info;
+	struct delayed_work *fb_work = to_delayed_work(work);
+	fb_info = registered_fb[0];
+	if (fb_info && fb_info->fbops->fb_release)
+		fb_info->fbops->fb_release(fb_info, 0);
+	kfree(fb_work);
+}
 
 static void memset16(void *_ptr, unsigned short val, unsigned count)
 {
@@ -144,12 +156,19 @@ err_logo_close_file:
 static void __init draw_logo(void)
 {
 	struct fb_info *fb_info;
-
+	struct delayed_work *fb_work;
 	fb_info = registered_fb[0];
 	if (fb_info && fb_info->fbops->fb_open) {
 		printk(KERN_INFO "Drawing logo.\n");
 		fb_info->fbops->fb_open(fb_info, 0);
 		fb_info->fbops->fb_pan_display(&fb_info->var, fb_info);
+		fb_work = kmalloc(sizeof(struct delayed_work), GFP_KERNEL);
+		if (fb_work == NULL) {
+			printk(KERN_ERR"%s failed for kmalloc\n", __func__);
+		} else {
+			INIT_DELAYED_WORK(fb_work, close_fb_work);
+			schedule_delayed_work(fb_work, HZ*5);
+		}
 	}
 }
 

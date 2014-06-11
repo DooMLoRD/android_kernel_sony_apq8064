@@ -643,6 +643,7 @@ static int msm_hsic_reset(struct msm_hsic_hcd *mehci)
 	struct usb_hcd *hcd = hsic_to_hcd(mehci);
 	int ret;
 	struct msm_hsic_host_platform_data *pdata = mehci->dev->platform_data;
+	u32 temp;
 
 	msm_hsic_clk_reset(mehci);
 
@@ -699,6 +700,10 @@ static int msm_hsic_reset(struct msm_hsic_hcd *mehci)
 		/* Enable HSIC mode in HSIC_CFG register */
 		ulpi_write(mehci, 0xA9, 0x30);
 	}
+
+	temp = readl_relaxed(USB_GENCONFIG2);
+	temp &= ~GENCFG2_SYS_CLK_HOST_DEV_GATE_EN;
+	writel_relaxed(temp, USB_GENCONFIG2);
 
 	/*disable auto resume*/
 	ulpi_write(mehci, ULPI_IFC_CTRL_AUTORESUME, ULPI_CLR(ULPI_IFC_CTRL));
@@ -968,15 +973,6 @@ static irqreturn_t msm_hsic_irq(struct usb_hcd *hcd)
 
 		timeleft = GPT_CNT(ehci_readl(ehci,
 						 &mehci->timer->gptimer1_ctrl));
-		if (!mehci->bus_reset) {
-			if (ktime_us_delta(ktime_get(), mehci->resume_start_t) >
-					RESUME_SIGNAL_TIME_SOF_USEC) {
-				dbg_log_event(NULL, "FPR: GPT prog invalid",
-						timeleft);
-				pr_err("HSIC GPT timer prog invalid\n");
-				timeleft = 0;
-			}
-		}
 		if (timeleft && !(temp & PORT_SUSPEND) &&
 		    !(temp & PORT_RESUME)) {
 			if (mehci->bus_reset) {

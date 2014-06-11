@@ -1,4 +1,5 @@
 /*  Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+ *  Copyright (C) 2013 Sony Mobile Communications AB. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1397,7 +1398,8 @@ static int voice_send_cvs_register_cal_cmd(struct voice_data *v)
 
 	/* get the cvs cal data */
 	get_all_vocstrm_cal(&cal_block);
-	if (cal_block.cal_size == 0)
+	if (cal_block.cal_size == 0 ||
+	    cal_block.cal_size > CVS_CAL_SIZE)
 		goto fail;
 
 	if (v == NULL) {
@@ -1472,7 +1474,8 @@ static int voice_send_cvs_deregister_cal_cmd(struct voice_data *v)
 	u16 cvs_handle;
 
 	get_all_vocstrm_cal(&cal_block);
-	if (cal_block.cal_size == 0)
+	if (cal_block.cal_size == 0 ||
+	    cal_block.cal_size > CVS_CAL_SIZE)
 		return 0;
 
 	if (v == NULL) {
@@ -1528,7 +1531,8 @@ static int voice_send_cvp_map_memory_cmd(struct voice_data *v)
 
 	/* get all cvp cal data */
 	get_all_cvp_cal(&cal_block);
-	if (cal_block.cal_size == 0)
+	if (cal_block.cal_size == 0 ||
+	    cal_block.cal_size > CVP_CAL_SIZE)
 		goto fail;
 
 	if (v == NULL) {
@@ -1600,7 +1604,8 @@ static int voice_send_cvp_unmap_memory_cmd(struct voice_data *v)
 	uint32_t cal_paddr = 0;
 
 	get_all_cvp_cal(&cal_block);
-	if (cal_block.cal_size == 0)
+	if (cal_block.cal_size == 0 ||
+	    cal_block.cal_size > CVP_CAL_SIZE)
 		return 0;
 
 	if (v == NULL) {
@@ -1668,7 +1673,8 @@ static int voice_send_cvs_map_memory_cmd(struct voice_data *v)
 
 	/* get all cvs cal data */
 	get_all_vocstrm_cal(&cal_block);
-	if (cal_block.cal_size == 0)
+	if (cal_block.cal_size == 0 ||
+	    cal_block.cal_size > CVS_CAL_SIZE)
 		goto fail;
 
 	if (v == NULL) {
@@ -1740,7 +1746,8 @@ static int voice_send_cvs_unmap_memory_cmd(struct voice_data *v)
 	uint32_t cal_paddr = 0;
 
 	get_all_vocstrm_cal(&cal_block);
-	if (cal_block.cal_size == 0)
+	if (cal_block.cal_size == 0 ||
+	    cal_block.cal_size > CVS_CAL_SIZE)
 		return 0;
 
 	if (v == NULL) {
@@ -1809,7 +1816,8 @@ static int voice_send_cvp_register_cal_cmd(struct voice_data *v)
 
       /* get the cvp cal data */
 	get_all_vocproc_cal(&cal_block);
-	if (cal_block.cal_size == 0)
+	if (cal_block.cal_size == 0 ||
+	    cal_block.cal_size > CVP_CAL_SIZE)
 		goto fail;
 
 	if (v == NULL) {
@@ -1884,7 +1892,8 @@ static int voice_send_cvp_deregister_cal_cmd(struct voice_data *v)
 	u16 cvp_handle;
 
 	get_all_vocproc_cal(&cal_block);
-	if (cal_block.cal_size == 0)
+	if (cal_block.cal_size == 0 ||
+	    cal_block.cal_size > CVP_CAL_SIZE)
 		return 0;
 
 	if (v == NULL) {
@@ -1934,6 +1943,7 @@ static int voice_send_cvp_register_vol_cal_table_cmd(struct voice_data *v)
 	struct cvp_register_vol_cal_table_cmd cvp_reg_cal_tbl_cmd;
 	struct acdb_cal_block vol_block;
 	struct acdb_cal_block voc_block;
+	struct acdb_cal_block cvp_block;
 	int ret = 0;
 	void *apr_cvp;
 	u16 cvp_handle;
@@ -1943,8 +1953,10 @@ static int voice_send_cvp_register_vol_cal_table_cmd(struct voice_data *v)
 	/* get the cvp vol cal data */
 	get_all_vocvol_cal(&vol_block);
 	get_all_vocproc_cal(&voc_block);
+	get_all_cvp_cal(&cvp_block);
 
-	if (vol_block.cal_size == 0)
+	if (vol_block.cal_size == 0 ||
+	    cvp_block.cal_size > CVP_CAL_SIZE)
 		goto fail;
 
 	if (v == NULL) {
@@ -2016,12 +2028,16 @@ static int voice_send_cvp_deregister_vol_cal_table_cmd(struct voice_data *v)
 {
 	struct cvp_deregister_vol_cal_table_cmd cvp_dereg_cal_tbl_cmd;
 	struct acdb_cal_block cal_block;
+	struct acdb_cal_block voc_block;
 	int ret = 0;
 	void *apr_cvp;
 	u16 cvp_handle;
 
 	get_all_vocvol_cal(&cal_block);
-	if (cal_block.cal_size == 0)
+	get_all_cvp_cal(&voc_block);
+
+	if (cal_block.cal_size == 0 ||
+	    voc_block.cal_size > CVP_CAL_SIZE)
 		return 0;
 
 	if (v == NULL) {
@@ -3755,11 +3771,11 @@ int voc_standby_voice_call(uint16_t session_id)
 	u16 mvm_handle;
 	int ret = 0;
 
-	pr_debug("%s: voc state=%d", __func__, v->voc_state);
 	if (v == NULL) {
 		pr_err("%s: v is NULL\n", __func__);
 		return -EINVAL;
 	}
+	pr_debug("%s: voc state=%d", __func__, v->voc_state);
 	if (v->voc_state == VOC_RUN) {
 		apr_mvm = common.apr_q6_mvm;
 		if (!apr_mvm) {

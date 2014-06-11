@@ -1405,7 +1405,7 @@ exit:
 #endif
 
 static struct device_attribute panel_attributes[] = {
-	__ATTR(panel_id, S_IRUGO, mipi_dsi_panel_id_show, NULL),
+	__ATTR(panel_id, S_IRUSR, mipi_dsi_panel_id_show, NULL),
 	__ATTR(panel_rev, S_IRUGO, mipi_dsi_panel_rev_show, NULL),
 	__ATTR(frame_counter, S_IRUGO, mipi_dsi_panel_frame_counter, NULL),
 	__ATTR(frames_per_ksecs, S_IRUGO,

@@ -1,7 +1,7 @@
 /* drivers/misc/felica.c
  *
  * Copyright (C) 2010-2011 Sony Ericsson Mobile Communications AB.
- * Copyright (C) 2012 Sony Mobile Communications AB.
+ * Copyright (C) 2012-2014 Sony Mobile Communications AB.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2, as
@@ -276,59 +276,52 @@ err_shash:
 	return ret;
 }
 
-static int felica_cen_open(struct inode *inode, struct file *file)
+static int cen_open(struct inode *inode, struct file *file,
+			struct felica_dev *d, struct device *dev)
 {
 	int ret;
-	struct miscdevice *c = file->private_data;
-	struct felica_dev *d = container_of(c, struct felica_dev, device_cen);
 
-	dev_dbg(d->device_cen.this_device, "%s\n", __func__);
+	dev_dbg(dev, "%s\n", __func__);
 
 	/* Open CEN */
 	ret = d->flcen->cen_init(d);
 	if (ret) {
-		dev_err(d->device_cen.this_device,
-				"%s: Cannot enable CEN.\n", __func__);
+		dev_err(dev, "%s: Cannot enable CEN.\n", __func__);
 		return ret;
 	}
-	dev_dbg(d->device_cen.this_device, "Successfully enabled CEN\n");
+	dev_dbg(dev, "Successfully enabled CEN\n");
 
 	return 0;
 }
 
-static int felica_cen_release(struct inode *inode, struct file *file)
+static int cen_release(struct inode *inode, struct file *file,
+			struct felica_dev *d, struct device *dev)
 {
-	struct miscdevice *c = file->private_data;
-	struct felica_dev *d = container_of(c, struct felica_dev, device_cen);
-
-	dev_dbg(d->device_cen.this_device, "%s\n", __func__);
+	dev_dbg(dev, "%s\n", __func__);
 
 	return 0;
 }
 
-static ssize_t felica_cen_read(struct file *file, char __user *buf,
-					size_t count, loff_t *offset)
+static ssize_t cen_read(struct file *file, char __user *buf,
+			size_t count, loff_t *offset,
+			struct felica_dev *d, struct device *dev)
 {
 	int ret;
 	char kbuf;
-	struct miscdevice *c = file->private_data;
-	struct felica_dev *d = container_of(c, struct felica_dev, device_cen);
 
-	dev_dbg(d->device_cen.this_device, "%s\n", __func__);
+	dev_dbg(dev, "%s\n", __func__);
 
 	/* Read CEN value */
 	ret = d->flcen->cen_read(&kbuf, d);
 	if (ret) {
-		dev_err(d->device_cen.this_device,
-				"%s: Error. CEN access failed.\n", __func__);
+		dev_err(dev, "%s: Error. CEN access failed.\n", __func__);
 		return -EIO;
 	}
 
 	/* Copy CEN value to user space */
 	ret = copy_to_user(buf, &kbuf, sizeof(kbuf));
 	if (ret) {
-		dev_err(d->device_cen.this_device,
-				"%s: Error. copy_to_user failure.\n", __func__);
+		dev_err(dev, "%s: Error. copy_to_user failure.\n", __func__);
 		return -EFAULT;
 	}
 
@@ -336,22 +329,19 @@ static ssize_t felica_cen_read(struct file *file, char __user *buf,
 	return sizeof(kbuf);
 }
 
-static ssize_t felica_cen_write(struct file *file, const char __user *buf,
-					size_t count, loff_t *offset)
+static ssize_t cen_write(struct file *file, const char __user *buf,
+				size_t count, loff_t *offset,
+				struct felica_dev *d, struct device *dev)
 {
 	int ret;
 	char kbuf;
 	u8 *src;
 	u8 hash[AUTH_HASH_LEN];
-	struct miscdevice *c = file->private_data;
-	struct felica_dev *d = container_of(c, struct felica_dev, device_cen);
 
-	dev_dbg(d->device_cen.this_device, "%s\n", __func__);
+	dev_dbg(dev, "%s\n", __func__);
 
 	if ((AUTHENTICATION_LEN+1) != count || buf == NULL) {
-		dev_err(d->device_cen.this_device,
-				"%s: Error. Invalid arg @CEN write.\n",
-					__func__);
+		dev_err(dev, "%s: Error. Invalid arg @CEN write.\n", __func__);
 		ret = -EINVAL;
 		goto exit;
 	}
@@ -359,34 +349,26 @@ static ssize_t felica_cen_write(struct file *file, const char __user *buf,
 	/* Carry out user authentication */
 	src = kmalloc(AUTHENTICATION_LEN, GFP_KERNEL);
 	if (!src) {
-		dev_err(d->device_cen.this_device,
-				"%s: Error. No enough mem for Auth.\n",
-					__func__);
+		dev_err(dev, "%s: Error. No enough mem for Auth.\n", __func__);
 		ret = -ENOMEM;
 		goto exit;
 	}
 	ret = copy_from_user(src, buf, AUTHENTICATION_LEN);
 	if (ret) {
-		dev_err(d->device_cen.this_device,
-				"%s: Error. copy_from_user failure.\n",
-					__func__);
+		dev_err(dev, "%s: Error. copy_from_user failure.\n", __func__);
 		ret = -EFAULT;
 		goto end_process;
 	}
 
-	if (calc_hash(src, AUTHENTICATION_LEN, hash,
-					d->device_cen.this_device)) {
-		dev_err(d->device_cen.this_device,
-				"%s: Error. calc hash digest failure.\n",
-					__func__);
+	if (calc_hash(src, AUTHENTICATION_LEN, hash, dev)) {
+		dev_err(dev, "%s: Error. calc hash digest failure.\n",
+			__func__);
 		ret = -EACCES;
 		goto end_process;
 	}
 
 	if (memcmp(auth_hash, hash, AUTH_HASH_LEN)) {
-		dev_err(d->device_cen.this_device,
-				"%s: Error. invalid authentication.\n",
-					__func__);
+		dev_err(dev, "%s: Error. invalid authentication.\n", __func__);
 		ret = -EACCES;
 		goto end_process;
 	}
@@ -394,17 +376,14 @@ static ssize_t felica_cen_write(struct file *file, const char __user *buf,
 	/* Copy value from user space */
 	ret = copy_from_user(&kbuf, &buf[AUTHENTICATION_LEN], sizeof(kbuf));
 	if (ret) {
-		dev_err(d->device_cen.this_device,
-				"%s: Error. copy_from_user failure.\n",
-					__func__);
+		dev_err(dev, "%s: Error. copy_from_user failure.\n", __func__);
 		ret = -EFAULT;
 		goto end_process;
 	}
 
 	ret = d->flcen->cen_write(kbuf, d);
 	if (ret) {
-		dev_err(d->device_cen.this_device,
-				"%s: Error. Cannot write CEN.\n", __func__);
+		dev_err(dev, "%s: Error. Cannot write CEN.\n", __func__);
 		goto end_process;
 	}
 
@@ -421,6 +400,49 @@ end_process:
 	kfree(src);
 exit:
 	return ret;
+}
+
+static int felica_cen_open(struct inode *inode, struct file *file)
+{
+	struct miscdevice *c = file->private_data;
+	struct felica_dev *d = container_of(c, struct felica_dev, device_cen);
+
+	dev_dbg(d->device_cen.this_device, "%s\n", __func__);
+
+	return cen_open(inode, file, d, d->device_cen.this_device);
+}
+
+static int felica_cen_release(struct inode *inode, struct file *file)
+{
+	struct miscdevice *c = file->private_data;
+	struct felica_dev *d = container_of(c, struct felica_dev, device_cen);
+
+	dev_dbg(d->device_cen.this_device, "%s\n", __func__);
+
+	return cen_release(inode, file, d, d->device_cen.this_device);
+}
+
+static ssize_t felica_cen_read(struct file *file, char __user *buf,
+					size_t count, loff_t *offset)
+{
+	struct miscdevice *c = file->private_data;
+	struct felica_dev *d = container_of(c, struct felica_dev, device_cen);
+
+	dev_dbg(d->device_cen.this_device, "%s\n", __func__);
+
+	return cen_read(file, buf, count, offset, d, d->device_cen.this_device);
+}
+
+static ssize_t felica_cen_write(struct file *file, const char __user *buf,
+					size_t count, loff_t *offset)
+{
+	struct miscdevice *c = file->private_data;
+	struct felica_dev *d = container_of(c, struct felica_dev, device_cen);
+
+	dev_dbg(d->device_cen.this_device, "%s\n", __func__);
+
+	return cen_write(file, buf, count, offset, d,
+				d->device_cen.this_device);
 }
 
 static const struct file_operations felica_cen_fops = {
@@ -1364,6 +1386,85 @@ static void snfc_available_poll_remove_func(struct felica_dev *dev)
 
 	misc_deregister(&dev->device_available_poll);
 }
+
+static int snfc_cen_open(struct inode *inode, struct file *file)
+{
+	struct miscdevice *c = file->private_data;
+	struct felica_dev *d = container_of(c, struct felica_dev,
+							device_snfc_cen);
+
+	dev_dbg(d->device_snfc_cen.this_device, "%s\n", __func__);
+
+	return cen_open(inode, file, d, d->device_snfc_cen.this_device);
+}
+
+static int snfc_cen_release(struct inode *inode, struct file *file)
+{
+	struct miscdevice *c = file->private_data;
+	struct felica_dev *d = container_of(c, struct felica_dev,
+							device_snfc_cen);
+
+	dev_dbg(d->device_snfc_cen.this_device, "%s\n", __func__);
+
+	return cen_release(inode, file, d, d->device_snfc_cen.this_device);
+}
+
+static ssize_t snfc_cen_read(struct file *file, char __user *buf,
+					size_t count, loff_t *offset)
+{
+	struct miscdevice *c = file->private_data;
+	struct felica_dev *d = container_of(c, struct felica_dev,
+							device_snfc_cen);
+
+	dev_dbg(d->device_snfc_cen.this_device, "%s\n", __func__);
+
+	return cen_read(file, buf, count, offset, d,
+				d->device_snfc_cen.this_device);
+}
+
+static ssize_t snfc_cen_write(struct file *file, const char __user *buf,
+					size_t count, loff_t *offset)
+{
+	struct miscdevice *c = file->private_data;
+	struct felica_dev *d = container_of(c, struct felica_dev,
+							device_snfc_cen);
+
+	dev_dbg(d->device_snfc_cen.this_device, "%s\n", __func__);
+
+	return cen_write(file, buf, count, offset, d,
+				d->device_snfc_cen.this_device);
+}
+
+static const struct file_operations snfc_cen_fops = {
+	.owner		= THIS_MODULE,
+	.read		= snfc_cen_read,
+	.write		= snfc_cen_write,
+	.open		= snfc_cen_open,
+	.release	= snfc_cen_release,
+	.fsync		= NULL,
+};
+
+static int snfc_cen_probe_func(struct felica_dev *dev)
+{
+	dev_dbg(dev->dev, "%s\n", __func__);
+
+	/* Create CEN character device (/dev/snfc_cen) */
+	if (misc_register(&dev->device_snfc_cen)) {
+		dev_err(dev->dev, "%s: Error. Cannot register CEN.\n",
+				__func__);
+		return -ENODEV;
+	}
+
+	return 0;
+}
+
+static void snfc_cen_remove_func(struct felica_dev *dev)
+{
+	dev_dbg(dev->dev, "%s\n", __func__);
+
+	misc_deregister(&dev->device_snfc_cen);
+}
+
 #endif
 
 static int felica_probe(struct platform_device *pdev)
@@ -1419,6 +1520,10 @@ static int felica_probe(struct platform_device *pdev)
 	dev->device_available_poll.minor = MISC_DYNAMIC_MINOR;
 	dev->device_available_poll.name = "snfc_available_poll";
 	dev->device_available_poll.fops = &snfc_available_poll_fops;
+
+	dev->device_snfc_cen.minor = MISC_DYNAMIC_MINOR;
+	dev->device_snfc_cen.name = "snfc_cen";
+	dev->device_snfc_cen.fops = &snfc_cen_fops;
 #endif
 
 	dev->flcen = &flc_pfdata->cen_pfdata;
@@ -1491,6 +1596,12 @@ static int felica_probe(struct platform_device *pdev)
 
 	init_waitqueue_head(&dev->available_poll_wait);
 	dev->available_poll_snfc = 0;
+
+	ret = snfc_cen_probe_func(dev);
+	if (ret) {
+		dev_err(&pdev->dev, "%s: SNFC CEN probe failure\n", __func__);
+		goto err_snfc_cen_probe;
+	}
 #endif
 
 	ret = create_sysfs_interfaces(&pdev->dev);
@@ -1504,6 +1615,8 @@ static int felica_probe(struct platform_device *pdev)
 
 err_create_sysfs:
 #ifdef CONFIG_SONY_FELICA_NFC_SUPPORT
+	snfc_cen_remove_func(dev);
+err_snfc_cen_probe:
 	snfc_available_poll_remove_func(dev);
 err_snfc_available_poll_probe:
 	snfc_intu_poll_remove_func(dev);
@@ -1549,6 +1662,7 @@ static int felica_remove(struct platform_device *pdev)
 	snfc_available_poll_remove_func(dev);
 	snfc_intu_poll_remove_func(dev);
 	snfc_hsel_remove_func(dev);
+	snfc_cen_remove_func(dev);
 #endif
 
 	flc_pfdata = pdev->dev.platform_data;

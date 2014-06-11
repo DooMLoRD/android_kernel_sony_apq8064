@@ -229,16 +229,6 @@ int mdp4_dsi_video_pipe_commit(int cndx, int wait)
 				 * and not be unset yet
 				 */
 				mdp4_overlay_vsync_commit(pipe);
-				if (pipe->frame_format !=
-						MDP4_FRAME_FORMAT_LINEAR) {
-					spin_lock_irqsave(&vctrl->spin_lock,
-									flags);
-					INIT_COMPLETION(vctrl->dmap_comp);
-					vsync_irq_enable(INTR_DMA_P_DONE,
-								MDP_DMAP_TERM);
-				       spin_unlock_irqrestore(&vctrl->spin_lock,
-								flags);
-				}
 			}
 		}
 	}
@@ -779,7 +769,7 @@ int mdp4_dsi_video_off(struct platform_device *pdev)
 	vctrl = &vsync_ctrl_db[cndx];
 	pipe = vctrl->base_pipe;
 
-	if (pipe->ov_blt_addr) {
+	if (pipe && pipe->ov_blt_addr) {
 		spin_lock_irqsave(&vctrl->spin_lock, flags);
 		if (vctrl->ov_koff != vctrl->ov_done)
 			need_wait = 1;

@@ -2430,7 +2430,6 @@ static int mdp_on(struct platform_device *pdev)
 
 	if(mfd->index == 0)
 		mdp_iommu_max_map_size = mfd->max_map_size;
-
 	if (mdp_rev >= MDP_REV_40) {
 		mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
 		mdp_clk_ctrl(1);

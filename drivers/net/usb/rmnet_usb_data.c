@@ -25,8 +25,8 @@
 
 #define RMNET_DATA_LEN			2000
 #define RMNET_HEADROOM_W_MUX		(sizeof(struct mux_hdr) + \
-					sizeof(struct QMI_QOS_HDR_S))
-#define RMNET_HEADROOM			sizeof(struct QMI_QOS_HDR_S)
+					sizeof(struct QMI_QOS_ALIGNED_HDR_S))
+#define RMNET_HEADROOM			sizeof(struct QMI_QOS_ALIGNED_HDR_S)
 #define RMNET_TAILROOM			MAX_PAD_BYTES(4);
 
 static unsigned int no_rmnet_devs = 1;
@@ -360,8 +360,13 @@ static struct sk_buff *rmnet_usb_tx_fixup(struct usbnet *dev,
 	struct QMI_QOS_HDR_S	*qmih;
 
 	if (test_bit(RMNET_MODE_QOS, &dev->data[0])) {
-		qmih = (struct QMI_QOS_HDR_S *)
-		skb_push(skb, sizeof(struct QMI_QOS_HDR_S));
+		if (test_bit(RMNET_MODE_ALIGNED_QOS, &dev->data[0])) {
+			qmih = (struct QMI_QOS_HDR_S *)
+			skb_push(skb, sizeof(struct QMI_QOS_ALIGNED_HDR_S));
+		} else {
+			qmih = (struct QMI_QOS_HDR_S *)
+			skb_push(skb, sizeof(struct QMI_QOS_HDR_S));
+		}
 		qmih->version = 1;
 		qmih->flags = 0;
 		qmih->flow_id = skb->mark;
@@ -536,6 +541,12 @@ static int rmnet_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 		ifr->ifr_ifru.ifru_data = (void *)(unet->data[0]
 						& (RMNET_MODE_LLP_ETH
 						| RMNET_MODE_LLP_IP));
+		break;
+
+	case RMNET_IOCTL_SET_ALIGNED_QOS_ENABLE:  /* Set QoS Aligned header */
+		set_bit(RMNET_MODE_ALIGNED_QOS, &unet->data[0]);
+		DBG0("[%s] rmnet_ioctl(): set QMI QOS Aligned header enable\n",
+				dev->name);
 		break;
 
 	case RMNET_IOCTL_SET_QOS_ENABLE:	/* Set QoS header enabled*/
@@ -801,15 +812,16 @@ static void rmnet_usb_disconnect(struct usb_interface *intf)
 	struct usbnet		*unet = usb_get_intfdata(intf);
 	struct rmnet_ctrl_dev	*dev;
 	unsigned int		n, rdev_cnt, unet_id;
+	struct driver_info	*info = unet->driver_info;
+	bool			mux = unet->data[4];
 
-	rdev_cnt = unet->data[4] ? no_rmnet_insts_per_dev : 1;
+	rdev_cnt = mux ? no_rmnet_insts_per_dev : 1;
 
 	device_set_wakeup_enable(&unet->udev->dev, 0);
 
 	for (n = 0; n < rdev_cnt; n++) {
-		unet_id = n + unet->driver_info->data * no_rmnet_insts_per_dev;
-		unet =
-		unet->data[4] ? unet_list[unet_id] : usb_get_intfdata(intf);
+		unet_id = n + info->data * no_rmnet_insts_per_dev;
+		unet = mux ? unet_list[unet_id] : usb_get_intfdata(intf);
 		device_remove_file(&unet->net->dev, &dev_attr_dbg_mask);
 
 		dev = (struct rmnet_ctrl_dev *)unet->data[1];

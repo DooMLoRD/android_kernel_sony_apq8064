@@ -33,6 +33,7 @@ struct felica_dev {
 	struct miscdevice	device_hsel;
 	struct miscdevice	device_intu_poll;
 	struct miscdevice	device_available_poll;
+	struct miscdevice	device_snfc_cen;
 #endif
 	struct felica_cen_pfdata	*flcen;
 	struct felica_pon_pfdata	*flpon;

@@ -345,6 +345,77 @@ void machine_restart(char *cmd)
 	while (1);
 }
 
+/*
+ * dump a block of kernel memory from around the given address
+ */
+static void show_data(unsigned long addr, int nbytes, const char *name)
+{
+	int	i, j;
+	int	nlines;
+	u32	*p;
+
+	/*
+	 * don't attempt to dump non-kernel addresses or
+	 * values that are probably just small negative numbers
+	 */
+	if (addr < PAGE_OFFSET || addr > -256UL)
+		return;
+
+	printk("\n%s: %#lx:\n", name, addr);
+
+	/*
+	 * round address down to a 32 bit boundary
+	 * and always dump a multiple of 32 bytes
+	 */
+	p = (u32 *)(addr & ~(sizeof(u32) - 1));
+	nbytes += (addr & (sizeof(u32) - 1));
+	nlines = (nbytes + 31) / 32;
+
+
+	for (i = 0; i < nlines; i++) {
+		/*
+		 * just display low 16 bits of address to keep
+		 * each line of the dump < 80 characters
+		 */
+		printk("%04lx ", (unsigned long)p & 0xffff);
+		for (j = 0; j < 8; j++) {
+			u32	data;
+			if (probe_kernel_address(p, data)) {
+				printk(" ********");
+			} else {
+				printk(" %08x", data);
+			}
+			++p;
+		}
+		printk("\n");
+	}
+}
+
+static void show_extra_register_data(struct pt_regs *regs, int nbytes)
+{
+	mm_segment_t fs;
+
+	fs = get_fs();
+	set_fs(KERNEL_DS);
+	show_data(regs->ARM_pc - nbytes, nbytes * 2, "PC");
+	show_data(regs->ARM_lr - nbytes, nbytes * 2, "LR");
+	show_data(regs->ARM_sp - nbytes, nbytes * 2, "SP");
+	show_data(regs->ARM_ip - nbytes, nbytes * 2, "IP");
+	show_data(regs->ARM_fp - nbytes, nbytes * 2, "FP");
+	show_data(regs->ARM_r0 - nbytes, nbytes * 2, "R0");
+	show_data(regs->ARM_r1 - nbytes, nbytes * 2, "R1");
+	show_data(regs->ARM_r2 - nbytes, nbytes * 2, "R2");
+	show_data(regs->ARM_r3 - nbytes, nbytes * 2, "R3");
+	show_data(regs->ARM_r4 - nbytes, nbytes * 2, "R4");
+	show_data(regs->ARM_r5 - nbytes, nbytes * 2, "R5");
+	show_data(regs->ARM_r6 - nbytes, nbytes * 2, "R6");
+	show_data(regs->ARM_r7 - nbytes, nbytes * 2, "R7");
+	show_data(regs->ARM_r8 - nbytes, nbytes * 2, "R8");
+	show_data(regs->ARM_r9 - nbytes, nbytes * 2, "R9");
+	show_data(regs->ARM_r10 - nbytes, nbytes * 2, "R10");
+	set_fs(fs);
+}
+
 void __show_regs(struct pt_regs *regs)
 {
 	unsigned long flags;
@@ -424,6 +495,8 @@ void __show_regs(struct pt_regs *regs)
 #endif
 	}
 #endif
+
+	show_extra_register_data(regs, 128);
 }
 
 void show_regs(struct pt_regs * regs)
@@ -600,10 +673,11 @@ unsigned long arch_randomize_brk(struct mm_struct *mm)
 }
 
 #ifdef CONFIG_MMU
+#ifdef CONFIG_KUSER_HELPERS
 /*
  * The vectors page is always readable from user space for the
- * atomic helpers and the signal restart code. Insert it into the
- * gate_vma so that it is visible through ptrace and /proc/<pid>/mem.
+ * atomic helpers. Insert it into the gate_vma so that it is visible
+ * through ptrace and /proc/<pid>/mem.
  */
 static struct vm_area_struct gate_vma;
 
@@ -632,14 +706,53 @@ int in_gate_area_no_mm(unsigned long addr)
 {
 	return in_gate_area(NULL, addr);
 }
+#define is_gate_vma(vma)	((vma) == &gate_vma)
+#else
+#define is_gate_vma(vma)	0
+#endif
 
 const char *arch_vma_name(struct vm_area_struct *vma)
 {
-	if (vma == &gate_vma)
+	if (is_gate_vma(vma))
 		return "[vectors]";
+	else if (vma->vm_mm && vma->vm_start == vma->vm_mm->context.sigpage)
+		return "[sigpage]";
 	else if (vma == get_user_timers_vma(NULL))
 		return "[timers]";
 	else
 		return NULL;
+}
+
+static struct page *signal_page;
+extern struct page *get_signal_page(void);
+
+int arch_setup_additional_pages(struct linux_binprm *bprm, int uses_interp)
+{
+	struct mm_struct *mm = current->mm;
+	unsigned long addr;
+	int ret;
+
+	if (!signal_page)
+		signal_page = get_signal_page();
+	if (!signal_page)
+		return -ENOMEM;
+
+	down_write(&mm->mmap_sem);
+	addr = get_unmapped_area(NULL, 0, PAGE_SIZE, 0, 0);
+	if (IS_ERR_VALUE(addr)) {
+		ret = addr;
+		goto up_fail;
+	}
+
+	ret = install_special_mapping(mm, addr, PAGE_SIZE,
+		VM_READ | VM_EXEC | VM_MAYREAD | VM_MAYWRITE | VM_MAYEXEC,
+		&signal_page);
+
+	if (ret == 0)
+		mm->context.sigpage = addr;
+
+ up_fail:
+	up_write(&mm->mmap_sem);
+	return ret;
 }
 #endif

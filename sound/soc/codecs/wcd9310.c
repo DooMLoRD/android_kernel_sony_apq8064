@@ -7254,7 +7254,7 @@ static void tabla_hs_correct_gpio_plug(struct work_struct *work)
 			    retry == NUM_ATTEMPTS_TO_REPORT &&
 			    tabla->current_plug == PLUG_TYPE_NONE) {
 				tabla_codec_report_plug(codec, 1,
-							SND_JACK_HEADPHONE);
+							SND_JACK_UNSUPPORTED);
 			}
 		} else if (plug_type == PLUG_TYPE_HEADPHONE) {
 			pr_debug("Good headphone detected, continue polling mic\n");

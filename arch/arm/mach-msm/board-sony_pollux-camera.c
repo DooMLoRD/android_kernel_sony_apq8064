@@ -630,7 +630,7 @@ static const struct sony_camera_seq sensor_power_off_back[] = {
 	{ SONY_CAM_VAF, -1, 0 },
 	{ SONY_CAM_VANA, -1, 1 },
 	{ SONY_CAM_VIO, -1, 1 },
-	{ SONY_CAM_VDIG, -1, 15 },
+	{ SONY_CAM_VDIG, -1, 100 },
 	{ EXIT, 0, 0 },
 };
 

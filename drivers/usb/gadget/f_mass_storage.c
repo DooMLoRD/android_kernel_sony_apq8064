@@ -941,6 +941,7 @@ static int do_write(struct fsg_common *common)
 
 #ifdef CONFIG_USB_MSC_PROFILING
 	ktime_t			start, diff;
+	unsigned int		record_time, r_count, wb_size;
 #endif
 	if (curlun->ro) {
 		curlun->sense_data = SS_WRITE_PROTECTED;
@@ -986,16 +987,32 @@ static int do_write(struct fsg_common *common)
 	amount_left_to_req = common->data_size_from_cmnd;
 	amount_left_to_write = common->data_size_from_cmnd;
 
-	if (curlun->random_write_count >= RANDOM_WRITE_COUNT_TO_BE_FLUSHED)
+	if (curlun->random_write_count >=
+				curlun->random_write_count_to_be_flushed ||
+		curlun->writeback_size >=
+				curlun->writeback_size_to_be_flushued) {
+#ifdef CONFIG_USB_MSC_PROFILING
+		r_count = curlun->random_write_count;
+		wb_size = curlun->writeback_size;
+		start = ktime_get();
+#endif
 		fsg_lun_fsync_sub(curlun);
+#ifdef CONFIG_USB_MSC_PROFILING
+		record_time = (unsigned int)
+			ktime_to_ms(ktime_sub(ktime_get(), start));
+		add_worst_record(curlun, record_time, r_count, wb_size);
+		/* fsync_sub(): [ms] [n] [Bytes] */
+		LDBG(curlun, "[PROF] vfs_fsync(): %5u %2d %9u\n",
+			record_time, r_count, wb_size);
+#endif
+	}
 
 	/* Detect non-sequential write */
 	if (curlun->last_offset != file_offset)
 		curlun->random_write_count++;
-	else if (curlun->random_write_count)
-		curlun->random_write_count--;
 
 	curlun->last_offset = file_offset + amount_left_to_write;
+	curlun->writeback_size += amount_left_to_write;
 
 	while (amount_left_to_write > 0) {
 
@@ -1103,6 +1120,11 @@ static int do_write(struct fsg_common *common)
 			curlun->perf.wbytes += nwritten;
 			curlun->perf.wtime =
 					ktime_add(curlun->perf.wtime, diff);
+			record_time = (unsigned int)ktime_to_ms(diff);
+			if (add_worst_record(curlun, record_time, 0, nwritten))
+				LDBG(curlun,
+					"[PROF] vfs_write(): %5u %2d %5u\n",
+					record_time, 0, nwritten);
 #endif
 			if (signal_pending(current))
 				return -EINTR;		/* Interrupted! */
@@ -2967,13 +2989,18 @@ static int fsg_main_thread(void *common_)
 
 
 /*************************** DEVICE ATTRIBUTES ***************************/
-
 /* Write permission is checked per LUN in store_*() functions. */
 static DEVICE_ATTR(ro, 0644, fsg_show_ro, fsg_store_ro);
 static DEVICE_ATTR(nofua, 0644, fsg_show_nofua, fsg_store_nofua);
 static DEVICE_ATTR(file, 0644, fsg_show_file, fsg_store_file);
 #ifdef CONFIG_USB_MSC_PROFILING
 static DEVICE_ATTR(perf, 0644, fsg_show_perf, fsg_store_perf);
+static DEVICE_ATTR(random_write_count_to_be_flushed, 0644, fsg_show_rndwcnt,
+							fsg_store_rndwcnt);
+static DEVICE_ATTR(writeback_size_to_be_flushued, 0644, fsg_show_wbsize,
+							fsg_store_wbsize);
+static DEVICE_ATTR(worst_record, 0644,	fsg_show_worstrecord,
+					fsg_store_worstrecord);
 #endif
 
 /****************************** FSG COMMON ******************************/
@@ -3081,6 +3108,11 @@ static struct fsg_common *fsg_common_init(struct fsg_common *common,
 		curlun->nofua = lcfg->nofua;
 		curlun->dev.release = fsg_lun_release;
 		curlun->dev.parent = &gadget->dev;
+		curlun->random_write_count_to_be_flushed =
+					RANDOM_WRITE_COUNT_TO_BE_FLUSHED;
+		curlun->writeback_size_to_be_flushued =
+					WRITEBACK_SIZE_TO_BE_FLUSHED;
+
 		/* curlun->dev.driver = &fsg_driver.driver; XXX */
 		dev_set_drvdata(&curlun->dev, &common->filesem);
 		dev_set_name(&curlun->dev,
@@ -3111,6 +3143,21 @@ static struct fsg_common *fsg_common_init(struct fsg_common *common,
 		if (rc)
 			dev_err(&gadget->dev, "failed to create sysfs entry:"
 				"(dev_attr_perf) error: %d\n", rc);
+		rc = device_create_file(&curlun->dev,
+				&dev_attr_random_write_count_to_be_flushed);
+		if (rc)
+			dev_err(&gadget->dev, "failed to create sysfs entry:"\
+				"(dev_attr_perf) error: %d\n", rc);
+		rc = device_create_file(&curlun->dev,
+				&dev_attr_writeback_size_to_be_flushued);
+		if (rc)
+			dev_err(&gadget->dev, "failed to create sysfs entry:"\
+				"(dev_attr_perf) error: %d\n", rc);
+		rc = device_create_file(&curlun->dev,
+				&dev_attr_worst_record);
+		if (rc)
+			dev_err(&gadget->dev, "failed to create sysfs entry:"\
+				"(dev_attr_worst_record) error: %d\n", rc);
 #endif
 		if (lcfg->filename) {
 			rc = fsg_lun_open(curlun, lcfg->filename);
@@ -3250,6 +3297,11 @@ static void fsg_common_release(struct kref *ref)
 		/* In error recovery common->nluns may be zero. */
 		for (; i; --i, ++lun) {
 #ifdef CONFIG_USB_MSC_PROFILING
+			device_remove_file(&lun->dev, &dev_attr_worst_record);
+			device_remove_file(&lun->dev,
+				&dev_attr_writeback_size_to_be_flushued);
+			device_remove_file(&lun->dev,
+				&dev_attr_random_write_count_to_be_flushed);
 			device_remove_file(&lun->dev, &dev_attr_perf);
 #endif
 			device_remove_file(&lun->dev, &dev_attr_nofua);
