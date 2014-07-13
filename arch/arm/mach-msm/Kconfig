@@ -962,7 +962,6 @@ config MACH_MSM_DUMMY
 
 endmenu
 
-source "arch/arm/mach-msm/lge/Kconfig"
 
 config MSM_STACKED_MEMORY
 	bool "Stacked Memory"
@@ -2944,5 +2943,17 @@ config FORCE_FAST_CHARGE
 	help
 		A simple sysfs interface to force adapters that
 		are detected as USB to charge as AC.
+
+config UPDATE_LCDC_LUT
+          bool "Set initial Qualcomm LCDC lut"
+         default y
+         help
+           Set initial Qualcomm LCDC Look Up Table.
+ 
+config LCD_KCAL
+         tristate "MSM generic LCDC Calibration"
+        default m
+         help
+          Enable MSM generic LCDC temperature Calibration.
 
 endif
