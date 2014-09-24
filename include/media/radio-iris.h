@@ -23,6 +23,9 @@
  * ALL LIABILITY, INCLUDING LIABILITY FOR INFRINGEMENT OF ANY PATENTS,
  * COPYRIGHTS, TRADEMARKS OR OTHER RIGHTS, RELATING TO USE OF THIS
  * SOFTWARE IS DISCLAIMED.
+ *
+ * NOTE: This file has been modified by Sony Mobile Communications AB.
+ * Modifications are licensed under the License.
  */
 
 #ifndef __RADIO_HCI_CORE_H
@@ -38,7 +41,7 @@ const unsigned char MAX_TX_TONE_VAL = 0x07;
 const unsigned char MIN_HARD_MUTE_VAL = 0x00;
 const unsigned char MAX_HARD_MUTE_VAL = 0x03;
 const unsigned char MIN_SRCH_MODE = 0x00;
-const unsigned char MAX_SRCH_MODE = 0x01;
+const unsigned char MAX_SRCH_MODE = 0x09;
 const unsigned char MIN_SCAN_DWELL = 0x00;
 const unsigned char MAX_SCAN_DWELL = 0x0F;
 const unsigned char MIN_SIG_TH = 0x00;

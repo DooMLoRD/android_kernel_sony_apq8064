@@ -1,3 +1,9 @@
+/*
+ * Copyright (C) 2013 Sony Mobile Communications AB.
+ *
+ * NOTE: This file has been modified by Sony Mobile Communications AB.
+ * Modifications are licensed under the License.
+ */
 #ifndef MMC_QUEUE_H
 #define MMC_QUEUE_H
 

@@ -1,3 +1,9 @@
+/*
+ * Copyright (C) 2013 Sony Mobile Communications AB.
+ *
+ * NOTE: This file has been modified by Sony Mobile Communications AB.
+ * Modifications are licensed under the License.
+ */
 #include <linux/slab.h>
 #include <linux/kernel.h>
 #include <linux/module.h>

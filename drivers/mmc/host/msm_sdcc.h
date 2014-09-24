@@ -10,6 +10,9 @@
  * published by the Free Software Foundation.
  *
  * - Based on mmci.h
+ *
+ * NOTE: This file has been modified by Sony Mobile Communications AB.
+ * Modifications are licensed under the License.
  */
 
 #ifndef _MSM_SDCC_H

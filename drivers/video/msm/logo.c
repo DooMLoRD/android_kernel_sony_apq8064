@@ -14,6 +14,8 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
+ * NOTE: This file has been modified by Sony Mobile Communications AB.
+ * Modifications are licensed under the License.
  */
 #include <asm/cacheflush.h>
 #include <linux/module.h>
@@ -167,7 +169,7 @@ static void __init draw_logo(void)
 			printk(KERN_ERR"%s failed for kmalloc\n", __func__);
 		} else {
 			INIT_DELAYED_WORK(fb_work, close_fb_work);
-			schedule_delayed_work(fb_work, HZ*5);
+			schedule_delayed_work(fb_work, HZ*10);
 		}
 	}
 }

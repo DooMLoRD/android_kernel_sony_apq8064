@@ -14,6 +14,9 @@
  *          (lots of bits borrowed from Ingo Molnar & Andrew Morton)
  *
  * Copyright (c) 2013 Sony Mobile Communications AB.
+ *
+ * NOTE: This file has been modified by Sony Mobile Communications AB.
+ * Modifications are licensed under the License.
  */
 
 #include <linux/stddef.h>

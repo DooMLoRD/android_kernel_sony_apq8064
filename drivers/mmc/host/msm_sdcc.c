@@ -14,6 +14,8 @@
  *
  * Author: San Mehat (san@android.com)
  *
+ * NOTE: This file has been modified by Sony Mobile Communications AB.
+ * Modifications are licensed under the License.
  */
 
 #include <linux/module.h>

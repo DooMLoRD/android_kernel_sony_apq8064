@@ -17,6 +17,9 @@
  *
  * Author:  Andrew Christian
  *          28 May 2002
+ *
+ * NOTE: This file has been modified by Sony Mobile Communications AB.
+ * Modifications are licensed under the License.
  */
 #include <linux/moduleparam.h>
 #include <linux/module.h>

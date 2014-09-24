@@ -1,5 +1,6 @@
 /*
 * Copyright (C) 2013 Invensense, Inc.
+* Copyright (C) 2013 Sony Mobile Communications.
 *
 * This software is licensed under the terms of the GNU General Public
 * License version 2, as published by the Free Software Foundation, and
@@ -9,6 +10,9 @@
 * but WITHOUT ANY WARRANTY; without even the implied warranty of
 * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 * GNU General Public License for more details.
+*
+* NOTE: This file has been modified by Sony Mobile Communications AB.
+* Modifications are licensed under the License.
 */
 #include <linux/module.h>
 #include <linux/init.h>
